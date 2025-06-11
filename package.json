@@ -1,0 +1,104 @@
+{
+  "name": "forward-app",
+  "productName": "ForwardApp",
+  "version": "1.0.0",
+  "description": "Advanced goal management application.",
+  "main": "dist/main/main.js",
+  "author": {
+    "name": "Your Name",
+    "email": "your.email@example.com"
+  },
+  "homepage": "https://github.com/your-repo/forward-app",
+  "license": "MIT",
+  "scripts": {
+    "build": "npm run build:main && npm run build:renderer && npm run build:preload",
+    "build:main": "webpack --config webpack.main.config.js",
+    "build:renderer": "webpack --config webpack.renderer.config.js",
+    "build:preload": "webpack --config webpack.preload.config.js",
+    "start": "npm run build && electron .",
+    "dev": "concurrently \"npm run dev:renderer\" \"wait-on http://localhost:3000 && npm run dev:electron\"",
+    "dev:renderer": "webpack serve --config webpack.renderer.config.js",
+    "dev:electron": "npm run build:main && npm run build:preload && electron .",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder",
+    "dist:linux": "npm run build && electron-builder --linux",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac"
+  },
+  "build": {
+    "appId": "com.example.forward-app",
+    "productName": "ForwardApp",
+    "asar": true,
+    "directories": {
+      "output": "release_builds",
+      "buildResources": "buildResources"
+    },
+    "files": [
+      "dist/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "extraResources": [],
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Utility",
+      "icon": "buildResources/icon.png",
+      "maintainer": "Your Name <your.email@example.com>"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "buildResources/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "buildResources/icon.icns"
+    }
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.10",
+    "@types/node": "^20.0.0",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@types/uuid": "^10.0.0",
+    "autoprefixer": "^10.4.21",
+    "buffer": "^6.0.3",
+    "concurrently": "^8.0.0",
+    "copy-webpack-plugin": "^11.0.0",
+    "cross-env": "^7.0.0",
+    "crypto-browserify": "^3.12.1",
+    "css-loader": "^6.0.0",
+    "electron": "^27.0.0",
+    "electron-builder": "^24.0.0",
+    "html-webpack-plugin": "^5.0.0",
+    "mini-css-extract-plugin": "^2.9.2",
+    "os-browserify": "^0.3.0",
+    "path-browserify": "^1.0.1",
+    "postcss": "^8.5.5",
+    "postcss-loader": "^8.1.1",
+    "process": "^0.11.10",
+    "stream-browserify": "^3.0.0",
+    "style-loader": "^3.0.0",
+    "tailwindcss": "^4.1.10",
+    "tailwindcss-cli": "^0.1.2",
+    "ts-loader": "^9.0.0",
+    "typescript": "^5.0.0",
+    "util": "^0.12.5",
+    "wait-on": "^7.0.0",
+    "webpack": "^5.0.0",
+    "webpack-cli": "^5.0.0",
+    "webpack-dev-server": "^4.0.0"
+  },
+  "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "asar": "^3.2.0",
+    "electron-store": "^10.0.1",
+    "events": "^3.3.0",
+    "lucide-react": "^0.514.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  }
+}

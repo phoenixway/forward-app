@@ -1,0 +1,18 @@
+/* src/renderer/components/MainPanel.css */
+.main-panel-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 15px;
+}
+
+.tabs-placeholder, .content-placeholder, .input-panel-placeholder {
+  border: 1px dashed #ccc;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.content-placeholder {
+  flex-grow: 1; /* Займає доступний простір */
+  overflow-y: auto; /* Дозволяє прокрутку контенту */
+}

@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext", // Додамо для узгодженості, хоча в дочірніх файлах перевизначається
+    "lib": ["ESNext", "DOM"], // Базові бібліотеки
+    "allowJs": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+    "moduleResolution": "bundler", // "bundler" є сучасним варіантом, добре працює з Webpack
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true, // TypeScript компілятор сам не генерує файли, це робить Webpack
+    "jsx": "react-jsx", // Для React 17+
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"] // Для аліасів
+    },
+    "typeRoots": [
+      "./node_modules/@types",
+      "./src/types" // Якщо у тебе є власні декларації в src/types
+    ]
+  },
+  "include": [ // Базовий include, можна уточнити в дочірніх
+    "src"
+  ]
+}

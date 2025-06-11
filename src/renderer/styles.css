@@ -1,0 +1,47 @@
+@import "tailwindcss";
+/* @tailwind base; */
+/* @tailwind compon/ents; */
+/* @tailwind utilities; */
+
+/* 
+  Ваші існуючі або кастомні стилі можуть йти нижче.
+  Наприклад:
+*/
+/* ... директиви Tailwind ... */
+
+body {
+  /* background-color: red !important; Дуже помітний стиль для тесту */
+}
+
+/* 
+  Класи, які ви раніше визначили тут (наприклад, #app, h1, button), 
+  можна буде замінити на utility-класи Tailwind або кастомні компоненти Tailwind.
+  Або ж вони можуть продовжувати існувати, якщо Tailwind не перекриває їх специфічність.
+*/
+
+/* Приклад, як можна стилізувати темну тему, якщо ви її використовуєте */
+/* Це потрібно, якщо ви керуєте темною темою через клас 'dark' на html елементі,
+   що Tailwind підтримує (darkMode: 'class' в tailwind.config.js) */
+/*
+html.dark body {
+  background-color: #1a202c; 
+  color: #cbd5e0;
+}
+html.dark #app {
+  background-color: #2d3748;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+html.dark h1 {
+  color: #e2e8f0;
+}
+html.dark button {
+  background-color: #4a5568;
+}
+html.dark button:hover {
+  background-color: #2d3748;
+}
+html.dark #version-info {
+  background-color: #2c5282;
+  color: #bee3f8;
+}
+*/

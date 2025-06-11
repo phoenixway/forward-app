@@ -1,0 +1,17 @@
+[Desktop Entry]
+Version=1.0
+Name=ForwardApp
+Comment=My Super Efficient AI Developer Assistant App
+# Шлях до виконуваного файлу вашого додатку
+# Замініть /path/to/your/app/release_builds/linux-unpacked/forward-app
+# на АКТУАЛЬНИЙ шлях, куди ви встановлюєте/копіюєте додаток
+Exec=/home/roman/studio/public/forward-app/release_builds/ForwardApp-1.0.0.AppImage
+# Шлях до іконки вашого додатку
+# Замініть /path/to/your/app/build/icons/icon.png
+# на АКТУАЛЬНИЙ шлях до вашої іконки (зазвичай .png або .svg)
+Icon=/home/roman/studio/public/forward-app/buildResources/icon.png
+Terminal=false
+Type=Application
+Categories=Utility;Development; # Можете вказати категорії, до яких належить ваш додаток
+StartupNotify=true
+StartupWMClass=ForwardApp

@@ -1,0 +1,24 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node", // Або "Node16", "NodeNext"
+    // "outDir": "dist/main", // Можна вказати, але Webpack має свій output.path
+                            // Якщо ts-loader використовує це, то має бути узгоджено
+    "composite": false // Встановимо в false, якщо не використовуємо project references
+  },
+  "include": [
+    "src/index.ts", // Твій головний файл
+    "src/main-deprecated/**/*.ts", // Якщо використовується
+    "src/electron.d.ts", // Якщо містить декларації для main
+    "src/constants.ts", // Якщо імпортується в main
+    "src/services/**/*.ts", // Якщо сервіси використовуються в main
+    "src/db/**/*.ts", // Якщо db логіка використовується в main
+    "src/renderer/preload.ts" // Preload скрипт
+  ],
+  "exclude": [
+    "node_modules",
+    "dist", // Папка виводу Webpack
+    "release_builds" // Папка виводу electron-builder
+  ]
+}

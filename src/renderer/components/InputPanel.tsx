@@ -1,17 +1,18 @@
 // src/renderer/components/InputPanel.tsx
 import React, { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from 'react';
+import * as goalListStore from "../data/goalListsStore"; // Для отримання назви списку (опціонально)
 
 export enum CommandMode {
   ADD = 'add',
-  // SEARCH = 'search', // Закоментовано або видалено, якщо не використовується через префікс
   LIST_NAV = 'list_nav',
   COMMAND = 'command',
 }
 
 export interface InputPanelProps {
-  currentListId?: string;
+  currentListId?: string; // ID активного списку
+  // currentListName?: string; // Опціонально, якщо хочете показувати назву в плейсхолдері
   defaultMode?: CommandMode;
-  onAddGoal: (listId: string, text: string) => void;
+  onAddGoal: (listId: string, text: string) => void; // Колбек не змінився по сигнатурі
   onSearch: (query: string) => void; 
   onNavigateToList: (listQuery: string) => void;
   onExecuteCommand: (command: string) => void;
@@ -25,6 +26,7 @@ export interface InputPanelRef {
 
 const InputPanel = forwardRef<InputPanelRef, InputPanelProps>(({
   currentListId,
+  // currentListName,
   defaultMode = CommandMode.ADD,
   onAddGoal,
   onSearch, 
@@ -39,48 +41,59 @@ const InputPanel = forwardRef<InputPanelRef, InputPanelProps>(({
   const modeTriggers = useRef([
     { prefix: '@', mode: CommandMode.LIST_NAV, icon: '📜', name: 'Список' },
     { prefix: '>', mode: CommandMode.COMMAND, icon: '⚙️', name: 'Команда' },
-    // Якщо потрібен режим пошуку через префікс, додай сюди, наприклад:
-    // { prefix: '/', mode: CommandMode.SEARCH, icon: '🔍', name: 'Пошук' },
   ]).current;
 
   useEffect(() => {
-    let newPlaceholder = '';
+    let newPlaceholderText = '';
     let icon = '✏️'; 
+    let listDisplayName = "поточного списку";
+
+    if (currentListId) {
+        const list = goalListStore.getGoalListById(currentListId);
+        if (list) {
+            listDisplayName = `списку '${list.name}'`;
+        } else {
+            listDisplayName = `списку з ID '${currentListId}' (не знайдено)`;
+        }
+    }
+
+
     switch (currentMode) {
       case CommandMode.ADD:
         icon = '➕';
-        newPlaceholder = `Нова ціль для ${currentListId ? `списку '${currentListId}'` : 'поточного списку'}...`;
+        newPlaceholderText = `Нова ціль для ${listDisplayName}...`;
         break;
-      // case CommandMode.SEARCH: // Якщо режим пошуку прибрано
-      //   icon = '🔍';
-      //   newPlaceholder = 'Пошук цілей...';
-      //   break;
       case CommandMode.LIST_NAV:
         icon = '📜';
-        newPlaceholder = 'Перейти до списку...';
+        newPlaceholderText = 'Перейти до списку (ID або назва)...';
         break;
       case CommandMode.COMMAND:
         icon = '⚙️';
-        newPlaceholder = 'Введіть команду...';
+        newPlaceholderText = 'Введіть команду (> new-list Назва)...';
         break;
-      default: newPlaceholder = 'Введіть текст...';
+      default: newPlaceholderText = 'Введіть текст...';
     }
-    setPlaceholder(`${icon} ${newPlaceholder}`);
+    setPlaceholder(`${icon} ${newPlaceholderText}`);
   }, [currentMode, currentListId]);
 
   useEffect(() => {
     setCurrentMode(defaultMode); 
   }, [defaultMode]);
 
+  // localStorage для режиму вводу - це локальна фіча, не пов'язана зі стором
   useEffect(() => {
     localStorage.setItem('inputPanelMode', currentMode);
   }, [currentMode]);
 
   const internalSwitchToMode = useCallback((newMode: CommandMode, newInputValue = '') => {
+    // Не змінюємо режим, якщо він вже такий самий, просто оновлюємо значення
     if (currentMode !== newMode) {
       setCurrentMode(newMode);
     }
     setInputValue(newInputValue);
+     if (internalLocalInputRef.current) {
+        internalLocalInputRef.current.focus();
+    }
   }, [currentMode]); 
 
   useImperativeHandle(ref, () => ({
@@ -88,16 +101,15 @@ const InputPanel = forwardRef<InputPanelRef, InputPanelProps>(({
       internalLocalInputRef.current?.focus();
     },
     switchToMode: (mode: CommandMode, value = '') => {
-        internalSwitchToMode(mode, value);
-        if (internalLocalInputRef.current) {
-            internalLocalInputRef.current.focus();
-            setTimeout(() => { 
-                if (internalLocalInputRef.current) {
-                    internalLocalInputRef.current.selectionStart = internalLocalInputRef.current.value.length;
-                    internalLocalInputRef.current.selectionEnd = internalLocalInputRef.current.value.length;
-                }
-            }, 0);
-        }
+        internalSwitchToMode(mode, value); // Вона вже фокусує
+        // Додаткове позиціонування курсора після фокусу
+        setTimeout(() => { 
+            if (internalLocalInputRef.current) {
+                const len = internalLocalInputRef.current.value.length;
+                internalLocalInputRef.current.selectionStart = len;
+                internalLocalInputRef.current.selectionEnd = len;
+            }
+        }, 0);
     },
     get localInputRef() { return internalLocalInputRef.current; }
   }), [internalSwitchToMode]);
@@ -105,85 +117,71 @@ const InputPanel = forwardRef<InputPanelRef, InputPanelProps>(({
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = event.target.value;
 
-    if (rawValue.length === 1) {
+    if (currentMode === CommandMode.ADD && rawValue.length === 1) { // Тільки з режиму ADD можна перейти в інший префіксом
       for (const trigger of modeTriggers) {
         if (rawValue === trigger.prefix) {
-          if (currentMode === trigger.mode) {
-             setInputValue(''); 
-             return;
-          }
           internalSwitchToMode(trigger.mode, ''); 
           return;
         }
       }
     }
-    
     setInputValue(rawValue);
   };
 
   const handleSubmit = useCallback(() => {
     const trimmedValue = inputValue.trim();
 
-    // Перевірка на порожнє значення для режимів, які його не підтримують
-    if (!trimmedValue) {
-      // Для ADD, якщо не можна додавати порожні цілі, він не пройде умову `if (currentListId && trimmedValue)` нижче.
-      // Для LIST_NAV та COMMAND, дія не буде виконана через `if (trimmedValue)` всередині case.
-      // Якщо є режим SEARCH і він може приймати порожній рядок (для очищення фільтру), 
-      // то ця умова має бути більш специфічною.
-      // Наразі, якщо trimmedValue порожній, то для LIST_NAV і COMMAND нічого не відбудеться,
-      // а для ADD також, якщо не змінити логіку.
-      // Якщо після цього потрібно перемкнути режим, це робиться всередині case.
-       if (currentMode === CommandMode.LIST_NAV || currentMode === CommandMode.COMMAND) {
-           internalSwitchToMode(CommandMode.ADD, ''); // Повертаємось в ADD, якщо submit був порожнім
-           return;
-       }
-       // Для ADD можна просто вийти, якщо порожньо, або показати alert
-       // alert("Поле вводу не може бути порожнім для цієї дії.");
-       return;
+    if (!trimmedValue && (currentMode === CommandMode.LIST_NAV || currentMode === CommandMode.COMMAND)) {
+        internalSwitchToMode(CommandMode.ADD, ''); 
+        return;
     }
+    // Для ADD, якщо порожньо, нічого не робимо, бо onAddGoal не буде викликаний
+    if (!trimmedValue && currentMode === CommandMode.ADD) {
+        return;
+    }
+
 
     switch (currentMode) {
       case CommandMode.ADD:
         if (currentListId && trimmedValue) {
-          onAddGoal(currentListId, trimmedValue);
+          onAddGoal(currentListId, trimmedValue); // MainPanel викличе goalListStore.createGoalAndAddToList
           setInputValue(''); 
         } else if (!currentListId && trimmedValue) {
-          alert("Спочатку виберіть список для додавання цілі.");
+          alert("Спочатку виберіть або відкрийте список для додавання цілі.");
         }
+        // Якщо trimmedValue порожній, нічого не робимо (onAddGoal не викликається)
         break;
-      // case CommandMode.SEARCH: // Якщо цей режим активовано через префікс
-      //   onSearch(trimmedValue); 
-      //   // Зазвичай після пошуку ми не очищуємо поле і не змінюємо режим автоматично
-      //   break;
       case CommandMode.LIST_NAV: 
         if (trimmedValue) { 
             onNavigateToList(trimmedValue);
         }
+        // Завжди повертаємось в ADD після навігації або спроби навігації
         internalSwitchToMode(CommandMode.ADD, '');
         break;
       case CommandMode.COMMAND:
         if (trimmedValue) { 
             onExecuteCommand(trimmedValue); 
         }
+        // Завжди повертаємось в ADD після команди або спроби команди
         internalSwitchToMode(CommandMode.ADD, '');
         break;
       default:
         console.warn("InputPanel handleSubmit: Unknown mode:", currentMode);
     }
-  }, [inputValue, currentMode, currentListId, onAddGoal, onSearch, onNavigateToList, onExecuteCommand, internalSwitchToMode]);
+  }, [inputValue, currentMode, currentListId, onAddGoal, onNavigateToList, onExecuteCommand, internalSwitchToMode]);
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();
         handleSubmit();
     } else if (event.key === 'Escape') {
-        internalLocalInputRef.current?.blur(); 
-        if (currentMode !== CommandMode.ADD) {
-            internalSwitchToMode(CommandMode.ADD, '');
-        } else if (inputValue !== '') { 
-            setInputValue('');
+        if (currentMode !== CommandMode.ADD || inputValue !== '') {
+            internalSwitchToMode(CommandMode.ADD, ''); // Якщо не в ADD або є текст, очистити/перемкнути
+        } else {
+            internalLocalInputRef.current?.blur(); // Якщо вже в ADD і порожньо, просто зняти фокус
         }
     } else if (event.key === 'Backspace' && inputValue === '') {
+        // Якщо поле порожнє і натиснуто Backspace в режимі LIST_NAV або COMMAND, повернутися в ADD
         if (currentMode !== CommandMode.ADD) {
             internalSwitchToMode(CommandMode.ADD, '');
         }

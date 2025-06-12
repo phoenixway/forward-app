@@ -1,304 +1,459 @@
 // src/renderer/data/goalListsStore.ts
 import { v4 as uuidv4 } from 'uuid';
 
+// --- ТИПИ ---
 export interface Goal {
   id: string;
   text: string;
+  description?: string;
   completed: boolean;
   createdAt: string; // ISO date string
+  updatedAt?: string; // ISO date string
+  // ID списків цілей (GoalList.id), з якими ця "велика" ціль асоційована.
+  associatedListIds?: string[];
 }
 
 export interface GoalList {
   id: string;
   name: string;
-  goals: Goal[];
+  description?: string;
+  itemGoalIds: string[]; // Масив ID цілей, що входять до ЦЬОГО СПИСКУ
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string
 }
 
-let goalLists: GoalList[] = []; // Наша "база даних" у пам'яті
+// Тип для всього стану, що зберігається
+interface AppDataStore {
+  goals: Record<string, Goal>; // Словник цілей, ключ - Goal.id
+  goalLists: Record<string, GoalList>; // Словник списків цілей, ключ - GoalList.id
+}
 
-const STORAGE_KEY = 'forwardAppGoalLists'; // Ключ для localStorage
+// Ключі для localStorage
+const STORE_KEY_GOALS_V2 = 'forwardApp_goals_v2';
+const STORE_KEY_GOAL_LISTS_V2 = 'forwardApp_goal_lists_v2';
+const OLD_STORAGE_KEY = 'forwardAppGoalLists'; // Старий ключ для можливої міграції
+
+// Наша "база даних" у пам'яті
+let store: AppDataStore = {
+  goals: {},
+  goalLists: {},
+};
 
 // --- Функції для збереження/завантаження ---
 
-const saveData = () => {
+const saveGoalsData = () => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(goalLists));
-    // console.log('Дані збережено в localStorage'); // Можна розкоментувати для дебагу
+    localStorage.setItem(STORE_KEY_GOALS_V2, JSON.stringify(store.goals));
   } catch (error) {
-    console.error("Не вдалося зберегти дані в localStorage:", error);
+    console.error("Не вдалося зберегти дані цілей в localStorage:", error);
   }
 };
 
-// Функція для генерації ID вже існувала як uuidv4, але можна залишити обгортку для ясності
-const generateUniqueId = (): string => {
-  return uuidv4();
-};
-
-const loadData = () => {
+const saveGoalListsData = () => {
   try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    if (data) {
-      const parsedData = JSON.parse(data) as GoalList[];
-      if (Array.isArray(parsedData) && (parsedData.length === 0 || (parsedData[0] && typeof parsedData[0].id === 'string'))) {
-        goalLists = parsedData;
-        // console.log('Дані завантажено з localStorage');
-      } else {
-        console.warn('Дані в localStorage мають неправильний формат, ініціалізація.');
-        initializeDefaultData(); // Викликаємо, якщо формат невірний
-      }
-    } else {
-      // console.log('Дані в localStorage не знайдено, ініціалізація.');
-      initializeDefaultData(); // Викликаємо, якщо дані відсутні
-    }
+    localStorage.setItem(STORE_KEY_GOAL_LISTS_V2, JSON.stringify(store.goalLists));
   } catch (error) {
-    console.error("Не вдалося завантажити дані з localStorage або вони пошкоджені:", error);
-    goalLists = []; 
-    initializeDefaultData(); // Викликаємо при помилці завантаження
+    console.error("Не вдалося зберегти дані списків цілей в localStorage:", error);
   }
 };
+
+const generateUniqueId = (): string => uuidv4();
 
 // Функція для створення об'єкта цілі (уніфікована)
-const createNewGoalObject = (text: string): Goal => ({
+const createNewGoalObjectInternal = (text: string, completed = false, associatedListIds?: string[]): Goal => ({
   id: generateUniqueId(),
   text: text.trim(),
-  completed: false,
+  completed,
   createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  associatedListIds: associatedListIds ? [...associatedListIds] : [],
 });
 
 // Функція для ініціалізації початкових даних
 const initializeDefaultData = () => {
-  // Перевіряємо, чи не було вже завантажено щось (на випадок помилки парсингу)
-  // Або якщо localStorage.getItem(STORAGE_KEY) повернув null
-  if (localStorage.getItem(STORAGE_KEY) === null || goalLists.length === 0 ) { 
-    console.log("Ініціалізація дефолтних даних...");
-    // Створюємо списки без негайного збереження, щоб уникнути багаторазових записів
-    const list1 = createGoalListInternal("Особисті цілі");
-    const list2 = createGoalListInternal("Робочі проекти");
-    createGoalListInternal("Навчання");
+  console.log("Ініціалізація дефолтних даних для нової структури...");
 
-    addGoalToListInternal(list1.id, "Прочитати книгу");
-    addGoalToListInternal(list1.id, "Сходити в спортзал");
-    const completedGoal = addGoalToListInternal(list1.id, "Помити посуд");
-    if (completedGoal) toggleGoalCompletionInternal(list1.id, completedGoal.id);
-    
-    addGoalToListInternal(list2.id, "Завершити звіт по проекту Х");
-    addGoalToListInternal(list2.id, "Підготувати презентацію");
-    
-    saveData(); // Зберігаємо всі дефолтні дані один раз наприкінці ініціалізації
-    console.log("Дефолтні дані створено та збережено.");
-  }
-};
+  const goal1Id = generateUniqueId();
+  const goal2Id = generateUniqueId();
+  const goal3Id = generateUniqueId();
+  const goal4Id = generateUniqueId();
+  const goal5Id = generateUniqueId();
 
-// ----- Внутрішні CRUD Операції (без автоматичного saveData) для initializeDefaultData -----
-// Ці функції не експортуються і використовуються лише для початкової ініціалізації
-const createGoalListInternal = (name: string): GoalList => {
-  const newList: GoalList = {
-    id: generateUniqueId(),
-    name: name.trim(),
-    goals: [],
+  store.goals[goal1Id] = createNewGoalObjectInternal("Прочитати книгу про TypeScript");
+  store.goals[goal2Id] = createNewGoalObjectInternal("Сходити в спортзал 3 рази на тиждень");
+  store.goals[goal3Id] = createNewGoalObjectInternal("Помити посуд після вечері", true); // завершена
+  store.goals[goal4Id] = createNewGoalObjectInternal("Завершити звіт по проекту ForwardApp");
+  store.goals[goal5Id] = createNewGoalObjectInternal("Підготувати презентацію для зустрічі");
+
+  const list1Id = generateUniqueId();
+  const list2Id = generateUniqueId();
+  const list3Id = generateUniqueId();
+
+  store.goalLists[list1Id] = {
+    id: list1Id,
+    name: "Особисті цілі",
+    itemGoalIds: [goal1Id, goal2Id, goal3Id],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
-  goalLists.unshift(newList);
-  return newList; // Повертаємо, щоб можна було отримати ID
-};
-
-const addGoalToListInternal = (listId: string, goalText: string): Goal | undefined => {
-  const list = goalLists.find(l => l.id === listId); // Шукаємо в поточному масиві goalLists
-  if (!list) return undefined;
-  const newGoal = createNewGoalObject(goalText);
-  list.goals.unshift(newGoal);
-  list.updatedAt = new Date().toISOString();
-  return newGoal;
-};
-
-const toggleGoalCompletionInternal = (listId: string, goalId: string): Goal | undefined => {
-    const list = goalLists.find(l => l.id === listId);
-    if (!list) return undefined;
-    const goal = list.goals.find(g => g.id === goalId);
-    if (!goal) return undefined;
-    goal.completed = !goal.completed;
-    list.updatedAt = new Date().toISOString();
-    return goal;
-};
-
-
-// ----- Експортовані CRUD Операції для Списків Цілей -----
-// Тепер кожна експортована CRUD-операція буде викликати saveData()
-
-export const getAllGoalLists = (): GoalList[] => {
-  // Сортування можна залишити тут або перенести на бік компонента, якщо потрібно різне сортування
-  return [...goalLists].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-};
-
-export const getGoalListById = (id: string): GoalList | undefined => {
-  return goalLists.find(list => list.id === id);
-};
-
-export const createGoalList = (name: string): GoalList => {
-  if (!name.trim()) {
-    throw new Error('Назва списку не може бути порожньою.');
-  }
-  const newList: GoalList = {
-    id: generateUniqueId(),
-    name: name.trim(),
-    goals: [],
+  store.goalLists[list2Id] = {
+    id: list2Id,
+    name: "Робочі проекти",
+    itemGoalIds: [goal4Id, goal5Id],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
-  goalLists.unshift(newList); // Додаємо на початок для відображення нових списків зверху
-  saveData(); 
-  return { ...newList }; // Повертаємо копію
-};
-
-export const updateGoalListName = (id: string, newName: string): GoalList | undefined => {
-  if (!newName.trim()) {
-    throw new Error('Нова назва списку не може бути порожньою.');
-  }
-  const listIndex = goalLists.findIndex(list => list.id === id);
-  if (listIndex === -1) {
-    // Можна кидати помилку або повертати undefined
-    console.warn(`Список з ID "${id}" не знайдено для оновлення.`);
-    return undefined;
-  }
-  goalLists[listIndex] = {
-    ...goalLists[listIndex],
-    name: newName.trim(),
+  store.goalLists[list3Id] = {
+    id: list3Id,
+    name: "Навчання",
+    itemGoalIds: [goal1Id], // "Прочитати книгу" є і в особистих, і в навчанні
+    createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
-  saveData();
-  return { ...goalLists[listIndex] };
+
+  // Приклад цілі з асоційованим списком
+  const mainProjectGoalId = generateUniqueId();
+  store.goals[mainProjectGoalId] = createNewGoalObjectInternal(
+    "Запустити проект ForwardApp v1.0", 
+    false, 
+    [list2Id] // "Робочі проекти" є деталізацією цієї великої цілі
+  );
+  // Додамо цю велику ціль до якогось загального списку, наприклад "Великі Проекти"
+  const bigProjectsListId = generateUniqueId();
+  store.goalLists[bigProjectsListId] = {
+    id: bigProjectsListId,
+    name: "Великі Проекти",
+    itemGoalIds: [mainProjectGoalId],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  saveGoalsData();
+  saveGoalListsData();
+  console.log("Дефолтні дані для нової структури створено та збережено.");
 };
 
-export const deleteGoalList = (id: string): boolean => {
-  const initialLength = goalLists.length;
-  goalLists = goalLists.filter(list => list.id !== id);
-  if (goalLists.length < initialLength) {
-    saveData();
+// Проста міграція: якщо є старі дані і немає нових, конвертуємо.
+const attemptMigrationFromOldStructure = () => {
+  const oldDataRaw = localStorage.getItem(OLD_STORAGE_KEY);
+  if (!oldDataRaw) return false; // Немає старих даних
+
+  // Якщо нові дані вже є, міграція не потрібна
+  if (localStorage.getItem(STORE_KEY_GOALS_V2) || localStorage.getItem(STORE_KEY_GOAL_LISTS_V2)) {
+    console.log("Нові дані вже існують, міграція зі старої структури не потрібна.");
+    return true; // Вважаємо, що "міграція" не потрібна, бо є нові дані
+  }
+
+  try {
+    const oldGoalLists = JSON.parse(oldDataRaw) as Array<{ id: string; name: string; goals: Goal[]; createdAt: string; updatedAt: string }>;
+    if (!Array.isArray(oldGoalLists)) {
+        console.warn("Старі дані мають невірний формат, міграція неможлива.");
+        return false;
+    }
+
+    console.log("Початок міграції даних зі старої структури...");
+    const migratedGoals: Record<string, Goal> = {};
+    const migratedGoalLists: Record<string, GoalList> = {};
+
+    oldGoalLists.forEach(oldList => {
+      const newItemGoalIds: string[] = [];
+      oldList.goals.forEach(oldGoal => {
+        // Перевірка на унікальність ID цілі, якщо цілі могли дублюватися
+        // Для простоти зараз припускаємо, що ID цілей були унікальні глобально або їх треба зробити такими
+        const newGoalId = oldGoal.id || generateUniqueId(); // Якщо в старих цілях не було ID, генеруємо
+        
+        // Створюємо копію цілі, щоб не модифікувати оригінал, і додаємо associatedListIds
+        migratedGoals[newGoalId] = {
+            ...oldGoal,
+            id: newGoalId, // Перезаписуємо ID, якщо він був згенерований
+            associatedListIds: [], // Поки що порожній, потім можна буде додавати логіку
+            updatedAt: oldGoal.updatedAt || oldGoal.createdAt, // Додаємо updatedAt, якщо не було
+        };
+        newItemGoalIds.push(newGoalId);
+      });
+
+      migratedGoalLists[oldList.id] = {
+        id: oldList.id,
+        name: oldList.name,
+        itemGoalIds: newItemGoalIds,
+        createdAt: oldList.createdAt,
+        updatedAt: oldList.updatedAt,
+      };
+    });
+
+    store.goals = migratedGoals;
+    store.goalLists = migratedGoalLists;
+    saveGoalsData();
+    saveGoalListsData();
+    // localStorage.removeItem(OLD_STORAGE_KEY); // Можна видалити старі дані після успішної міграції
+    console.log("Дані успішно мігровано зі старої структури.");
     return true;
+  } catch (error) {
+    console.error("Помилка під час міграції даних:", error);
+    return false;
   }
-  return false;
 };
 
 
-// ----- Експортовані CRUD Операції для Цілей (в межах списку) -----
+const loadData = () => {
+  try {
+    const migrated = attemptMigrationFromOldStructure();
 
-export const addGoalToList = (listId: string, goalText: string): Goal | undefined => {
-  if (!goalText.trim()) {
-    throw new Error('Текст цілі не може бути порожнім.');
+    const goalsDataRaw = localStorage.getItem(STORE_KEY_GOALS_V2);
+    const goalListsDataRaw = localStorage.getItem(STORE_KEY_GOAL_LISTS_V2);
+
+    if (goalsDataRaw) {
+      store.goals = JSON.parse(goalsDataRaw);
+    }
+    if (goalListsDataRaw) {
+      store.goalLists = JSON.parse(goalListsDataRaw);
+    }
+
+    // Якщо після всього дані порожні (наприклад, не було ні старих, ні нових), ініціалізуємо
+    if (Object.keys(store.goals).length === 0 && Object.keys(store.goalLists).length === 0 && !migrated) {
+      initializeDefaultData();
+    }
+    console.log('Дані завантажено/ініціалізовано для нової структури.');
+
+  } catch (error) {
+    console.error("Не вдалося завантажити дані з localStorage або вони пошкоджені (нова структура):", error);
+    // При критичній помилці завантаження, можна відкотитися до дефолтних
+    store.goals = {};
+    store.goalLists = {};
+    initializeDefaultData();
   }
-  const list = getGoalListById(listId); // Використовуємо експортовану функцію
-  if (!list) {
-    console.warn(`Список з ID "${listId}" не знайдено для додавання цілі.`);
-    return undefined;
-  }
-  const newGoal = createNewGoalObject(goalText); // Використовуємо уніфіковану функцію
-  list.goals.unshift(newGoal); // Додаємо на початок
-  list.updatedAt = new Date().toISOString();
-  saveData();
+};
+
+// ----- Експортовані CRUD Операції -----
+
+// === Цілі (Goals) ===
+export const getAllGoals = (): Goal[] => Object.values(store.goals);
+export const getGoalById = (goalId: string): Goal | undefined => store.goals[goalId];
+
+export const createGlobalGoal = (text: string, description?: string, associatedListIds?: string[]): Goal => {
+  if (!text.trim()) throw new Error("Текст цілі не може бути порожнім.");
+  const newGoal = createNewGoalObjectInternal(text, false, associatedListIds);
+  newGoal.description = description?.trim();
+  store.goals[newGoal.id] = newGoal;
+  saveGoalsData();
   return { ...newGoal };
 };
 
-export const toggleGoalCompletion = (listId: string, goalId: string): Goal | undefined => {
-  const list = getGoalListById(listId);
-  if (!list) return undefined;
+export const updateGlobalGoal = (goalId: string, updates: Partial<Omit<Goal, 'id' | 'createdAt'>>): Goal => {
+  const goal = store.goals[goalId];
+  if (!goal) throw new Error(`Ціль з ID "${goalId}" не знайдено.`);
+  
+  const currentText = updates.text !== undefined ? updates.text : goal.text;
+  if (!currentText.trim()) throw new Error("Текст цілі не може бути порожнім.");
 
-  const goal = list.goals.find(g => g.id === goalId);
-  if (!goal) return undefined;
-
-  goal.completed = !goal.completed;
-  list.updatedAt = new Date().toISOString();
-  saveData();
-  return { ...goal };
+  const updatedGoal = { ...goal, ...updates, text: currentText.trim(), updatedAt: new Date().toISOString() };
+  if(updates.description !== undefined) updatedGoal.description = updates.description.trim();
+  
+  store.goals[goalId] = updatedGoal;
+  saveGoalsData();
+  return { ...updatedGoal };
 };
 
-export const updateGoalText = (listId: string, goalId: string, newText: string): Goal | undefined => {
-  if (!newText.trim()) {
-    // Можна або кидати помилку, або просто не оновлювати
-    // throw new Error('Новий текст цілі не може бути порожнім.');
-    console.warn("Спроба оновити ціль порожнім текстом. Оновлення скасовано.");
-    const listForReturn = getGoalListById(listId);
-    return listForReturn?.goals.find(g => g.id === goalId);
-  }
-  const list = getGoalListById(listId);
-  if (!list) return undefined;
-
-  const goal = list.goals.find(g => g.id === goalId);
-  if (!goal) return undefined;
-
-  goal.text = newText.trim();
-  list.updatedAt = new Date().toISOString();
-  saveData();
-  return { ...goal };
-};
-
-export const deleteGoalFromList = (listId: string, goalId: string): boolean => {
-  const list = getGoalListById(listId);
-  if (!list) return false;
-
-  const initialLength = list.goals.length;
-  list.goals = list.goals.filter(g => g.id !== goalId);
-  if (list.goals.length < initialLength) {
-    list.updatedAt = new Date().toISOString();
-    saveData();
-    return true;
-  }
-  return false;
-};
-
-export const updateGoalOrder = (listId: string, orderedGoalIds: string[]): boolean => {
-  const list = getGoalListById(listId);
-  if (!list) return false;
-
-  const newOrderedGoals: Goal[] = [];
-  const goalMap = new Map(list.goals.map(goal => [goal.id, goal]));
-
-  for (const goalId of orderedGoalIds) {
-    const goal = goalMap.get(goalId);
-    if (goal) {
-      newOrderedGoals.push(goal);
-    } else {
-      console.warn(`Ціль з ID ${goalId} не знайдено при оновленні порядку у списку ${listId}`);
+export const deleteGlobalGoal = (goalId: string): boolean => {
+  if (!store.goals[goalId]) return false;
+  delete store.goals[goalId];
+  saveGoalsData();
+  // Видалити ID цілі з усіх itemGoalIds у списках
+  Object.values(store.goalLists).forEach(list => {
+    const index = list.itemGoalIds.indexOf(goalId);
+    if (index > -1) {
+      list.itemGoalIds.splice(index, 1);
+      list.updatedAt = new Date().toISOString();
     }
-  }
-  
-  // Дозволяємо оновлення, навіть якщо деякі цілі були видалені (наприклад, іншим клієнтом)
-  // Головне, щоб усі передані orderedGoalIds були знайдені серед існуючих
-  if (newOrderedGoals.length !== orderedGoalIds.length && list.goals.length > 0) {
-      const existingIdsInOrder = new Set(list.goals.map(g => g.id));
-      const validOrderedGoals = orderedGoalIds.filter(id => existingIdsInOrder.has(id));
-      if (validOrderedGoals.length !== orderedGoalIds.length) {
-        console.error("Помилка оновлення порядку: деякі ID цілей з orderedGoalIds не існують у списку. Порядок не оновлено.");
-        return false;
-      }
-  }
-  
-  list.goals = newOrderedGoals;
-  list.updatedAt = new Date().toISOString();
-  saveData();
-  // console.log(`Порядок цілей оновлено для списку ${listId}`);
+  });
+  saveGoalListsData();
   return true;
 };
 
+export const toggleGlobalGoalCompletion = (goalId: string): Goal | undefined => {
+  const goal = store.goals[goalId];
+  if (!goal) return undefined;
+  return updateGlobalGoal(goalId, { completed: !goal.completed });
+};
 
-// Функція для імпорту кількох цілей
-export function addMultipleGoalsToList(listId: string, goalTexts: string[]): void {
-  const list = getGoalListById(listId); // Використовуємо експортовану функцію
-  if (!list) {
-    throw new Error(`Список з ID "${listId}" не знайдено для додавання кількох цілей.`);
+export const updateGlobalGoalText = (goalId: string, newText: string): Goal | undefined => {
+    return updateGlobalGoal(goalId, {text: newText});
+};
+
+
+// === Списки Цілей (GoalLists) ===
+export const getAllGoalLists = (): GoalList[] => {
+  return Object.values(store.goalLists).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+};
+
+export const getGoalListById = (listId: string): GoalList | undefined => store.goalLists[listId];
+
+export const getGoalsForList = (listId: string): Goal[] => {
+  const list = store.goalLists[listId];
+  if (!list) return [];
+  // Сортуємо цілі в списку за їх порядком в itemGoalIds
+  return list.itemGoalIds.map(id => store.goals[id]).filter(Boolean) as Goal[];
+};
+
+export const createGoalList = (name: string, description?: string, itemGoalIds: string[] = []): GoalList => {
+  if (!name.trim()) throw new Error('Назва списку не може бути порожньою.');
+  if (Object.values(store.goalLists).some(l => l.name.toLowerCase() === name.trim().toLowerCase())) {
+    throw new Error(`Список з назвою "${name.trim()}" вже існує.`);
   }
+  const newList: GoalList = {
+    id: generateUniqueId(),
+    name: name.trim(),
+    description: description?.trim(),
+    itemGoalIds: [...new Set(itemGoalIds)], // Унікальні ID
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  store.goalLists[newList.id] = newList;
+  saveGoalListsData();
+  return { ...newList };
+};
 
-  const newGoals = goalTexts.map(text => createNewGoalObject(text));
-  
-  // Додаємо нові цілі в кінець існуючих
-  list.goals.push(...newGoals);
+export const updateGoalListName = (listId: string, newName: string, newDescription?: string): GoalList | undefined => {
+  const list = store.goalLists[listId];
+  if (!list) return undefined;
+  if (!newName.trim()) throw new Error('Нова назва списку не може бути порожньою.');
+  if (Object.values(store.goalLists).some(l => l.id !== listId && l.name.toLowerCase() === newName.trim().toLowerCase())) {
+    throw new Error(`Список з назвою "${newName.trim()}" вже існує.`);
+  }
+  list.name = newName.trim();
+  if (newDescription !== undefined) list.description = newDescription.trim();
   list.updatedAt = new Date().toISOString();
+  saveGoalListsData();
+  return { ...list };
+};
+
+export const deleteGoalList = (listId: string): boolean => {
+  if (!store.goalLists[listId]) return false;
+  delete store.goalLists[listId];
+  saveGoalListsData();
+  // Видалити цей listId з associatedListIds у всіх цілей
+  Object.values(store.goals).forEach(goal => {
+    if (goal.associatedListIds?.includes(listId)) {
+      goal.associatedListIds = goal.associatedListIds.filter(id => id !== listId);
+      goal.updatedAt = new Date().toISOString();
+    }
+  });
+  saveGoalsData();
+  return true;
+};
+
+// === Операції зі зв'язками Цілей та Списків ===
+export const addGoalToExistingList = (listId: string, goalId: string): GoalList | undefined => {
+  const list = store.goalLists[listId];
+  const goal = store.goals[goalId];
+  if (!list || !goal) {
+    console.warn(`Список ${listId} або ціль ${goalId} не знайдено для додавання.`);
+    return undefined;
+  }
+  if (!list.itemGoalIds.includes(goalId)) {
+    list.itemGoalIds.push(goalId); // Додаємо в кінець за замовчуванням
+    list.updatedAt = new Date().toISOString();
+    saveGoalListsData();
+  }
+  return { ...list };
+};
+
+export const createGoalAndAddToList = (listId: string, goalText: string, goalDescription?: string): { list: GoalList, newGoal: Goal } | undefined => {
+  const list = store.goalLists[listId];
+  if (!list) {
+    console.warn(`Список ${listId} не знайдено для створення та додавання цілі.`);
+    return undefined;
+  }
+  const newGoal = createGlobalGoal(goalText, goalDescription);
+  list.itemGoalIds.unshift(newGoal.id); // Нові цілі додаємо на початок списку
+  list.updatedAt = new Date().toISOString();
+  saveGoalListsData();
+  return { list: { ...list }, newGoal: { ...newGoal } };
+};
+
+export const removeGoalFromList = (listId: string, goalId: string): GoalList | undefined => {
+  const list = store.goalLists[listId];
+  if (!list) return undefined;
+  const initialLength = list.itemGoalIds.length;
+  list.itemGoalIds = list.itemGoalIds.filter(id => id !== goalId);
+  if (list.itemGoalIds.length < initialLength) {
+    list.updatedAt = new Date().toISOString();
+    saveGoalListsData();
+  }
+  // Ціль не видаляється з глобального store.goals
+  return { ...list };
+};
+
+export const updateGoalOrderInList = (listId: string, orderedGoalIds: string[]): GoalList | undefined => {
+  const list = store.goalLists[listId];
+  if (!list) return undefined;
   
-  saveData(); // Виправлено з saveGoalLists() на saveData()
+  // Перевірка, що всі передані ID існують у глобальному списку цілей
+  // і що вони унікальні в переданому масиві
+  const validGoalIds = new Set(Object.keys(store.goals));
+  const uniqueOrderedIds = [...new Set(orderedGoalIds)];
+  
+  const newOrderedItemGoalIds = uniqueOrderedIds.filter(id => validGoalIds.has(id));
+
+  if (newOrderedItemGoalIds.length !== list.itemGoalIds.length || 
+      !newOrderedItemGoalIds.every((id, i) => id === list.itemGoalIds[i])) {
+      list.itemGoalIds = newOrderedItemGoalIds;
+      list.updatedAt = new Date().toISOString();
+      saveGoalListsData();
+  }
+  return { ...list };
+};
+
+export const addMultipleGoalsToList = (listId: string, goalsData: Array<{ text: string; completed?: boolean }>): GoalList | undefined => {
+  const list = store.goalLists[listId];
+  if (!list) throw new Error(`Список з ID "${listId}" не знайдено.`);
+
+  const newGoalIds: string[] = [];
+  goalsData.forEach(data => {
+    if (data.text.trim()) {
+      const newGoal = createGlobalGoal(data.text.trim());
+      if (data.completed !== undefined) {
+        updateGlobalGoal(newGoal.id, { completed: data.completed });
+      }
+      newGoalIds.push(newGoal.id);
+    }
+  });
+
+  if (newGoalIds.length > 0) {
+    list.itemGoalIds.push(...newGoalIds); // Додаємо в кінець
+    list.updatedAt = new Date().toISOString();
+    saveGoalListsData();
+  }
+  return { ...list };
 }
 
 
-// Завантажуємо дані при першому імпорті модуля (один раз)
+// === Операції з "associatedListIds" для цілей ===
+export const associateGoalWithDetailList = (mainGoalId: string, detailListIdToAssociate: string): Goal | undefined => {
+  const mainGoal = store.goals[mainGoalId];
+  const detailList = store.goalLists[detailListIdToAssociate];
+  if (!mainGoal || !detailList) {
+    console.warn(`Головна ціль ${mainGoalId} або список деталей ${detailListIdToAssociate} не знайдено.`);
+    return undefined;
+  }
+  const currentAssociatedIds = mainGoal.associatedListIds || [];
+  if (!currentAssociatedIds.includes(detailListIdToAssociate)) {
+    return updateGlobalGoal(mainGoalId, { associatedListIds: [...currentAssociatedIds, detailListIdToAssociate] });
+  }
+  return { ...mainGoal };
+};
+
+export const disassociateGoalFromDetailList = (mainGoalId: string, detailListIdToDisassociate: string): Goal | undefined => {
+  const mainGoal = store.goals[mainGoalId];
+  if (!mainGoal) return undefined;
+  const currentAssociatedIds = mainGoal.associatedListIds || [];
+  if (currentAssociatedIds.includes(detailListIdToDisassociate)) {
+    return updateGlobalGoal(mainGoalId, {
+      associatedListIds: currentAssociatedIds.filter(id => id !== detailListIdToDisassociate)
+    });
+  }
+  return { ...mainGoal };
+};
+
+// Завантажуємо дані при першому імпорті модуля
 loadData();

@@ -1,11 +1,14 @@
 // src/renderer/components/Sidebar.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react'; // Додано useRef
 import { dispatchOpenSettingsEvent } from '../events';
 import * as goalListStore from '../data/goalListsStore';
-import type { GoalList } from '../data/goalListsStore';
-import { Plus, Edit3, Trash2 } from 'lucide-react'; // Іконки
+// Тип GoalList тепер відповідає новій структурі зі стору (з itemGoalIds)
+import type { GoalList as GoalListType } from '../data/goalListsStore';
+import { Plus, Edit3, Trash2, Settings } from 'lucide-react'; // Додав Settings для кнопки
 
 export const OPEN_GOAL_LIST_EVENT = 'app:open-goal-list';
+export const SIDEBAR_REFRESH_LISTS_EVENT = 'app:sidebar-refresh-lists'; // Експортуємо для використання в MainPanel
+
 export interface OpenGoalListDetail {
   listId: string;
   listName: string;
@@ -18,76 +21,108 @@ export function dispatchOpenGoalListEvent(listId: string, listName: string) {
 }
 
 function Sidebar() {
-  const [lists, setLists] = useState<GoalList[]>([]);
+  const [lists, setLists] = useState<GoalListType[]>([]);
   const [editingListId, setEditingListId] = useState<string | null>(null);
   const [editingListName, setEditingListName] = useState('');
+  const [editingListDescription, setEditingListDescription] = useState(''); // Для опису
+
   const [isCreatingNewList, setIsCreatingNewList] = useState(false);
   const [newListName, setNewListName] = useState('');
+  const [newListDescription, setNewListDescription] = useState(''); // Для опису нового списку
+
+  const newListInputRef = useRef<HTMLInputElement>(null);
+  const editNameInputRef = useRef<HTMLInputElement>(null);
+
 
   const loadLists = useCallback(() => {
-    setLists(goalListStore.getAllGoalLists());
+    setLists(goalListStore.getAllGoalLists()); // getAllGoalLists вже сортує
   }, []);
 
-  useEffect(() => { loadLists(); }, [loadLists]);
+  useEffect(() => {
+    loadLists(); // Початкове завантаження
+
+    // Слухач для події оновлення списку списків
+    const handleRefreshRequest = () => {
+      loadLists();
+    };
+    window.addEventListener(SIDEBAR_REFRESH_LISTS_EVENT, handleRefreshRequest);
+    return () => {
+      window.removeEventListener(SIDEBAR_REFRESH_LISTS_EVENT, handleRefreshRequest);
+    };
+  }, [loadLists]);
+
+  useEffect(() => {
+    if (isCreatingNewList && newListInputRef.current) {
+        newListInputRef.current.focus();
+    } else if (editingListId && editNameInputRef.current) {
+        editNameInputRef.current.focus();
+    }
+  }, [isCreatingNewList, editingListId]);
+
 
   const handleOpenSettings = () => dispatchOpenSettingsEvent();
-  const handleOpenGoalList = (listId: string, listName: string) => dispatchOpenGoalListEvent(listId, listName);
+  
+  // listName передається для події, але береться з об'єкта list для UI
+  const handleOpenGoalList = (list: GoalListType) => dispatchOpenGoalListEvent(list.id, list.name);
 
-  const handleCreateNewList = () => {
+  const handleCreateNewListClick = () => {
     setIsCreatingNewList(true);
     setNewListName('');
+    setNewListDescription('');
   };
 
   const submitNewList = () => {
     if (newListName.trim()) {
       try {
-        goalListStore.createGoalList(newListName.trim());
-        loadLists();
+        goalListStore.createGoalList(newListName.trim(), newListDescription.trim());
+        // loadLists(); // Не потрібно, бо SIDEBAR_REFRESH_LISTS_EVENT спрацює з MainPanel
+        // Замість цього, MainPanel, отримавши подію про новий список, може сам викликати оновлення
+        // Або, якщо createGoalList в MainPanel вже викликає SIDEBAR_REFRESH_LISTS_EVENT, то тут нічого не треба.
+        // Оскільки Sidebar сам слухає цю подію, він оновить себе.
         setIsCreatingNewList(false);
-        setNewListName('');
       } catch (error) { alert((error as Error).message); }
     } else {
-        setIsCreatingNewList(false);
+        setIsCreatingNewList(false); // Просто закриваємо форму, якщо назва порожня
     }
   };
 
-  const handleStartEdit = (list: GoalList) => {
+  const handleStartEdit = (list: GoalListType) => {
     setEditingListId(list.id);
     setEditingListName(list.name);
+    setEditingListDescription(list.description || '');
   };
 
   const handleCancelEdit = () => {
     setEditingListId(null);
     setEditingListName('');
+    setEditingListDescription('');
   };
 
   const submitRenameList = (listId: string) => {
     if (editingListName.trim() && listId) {
       try {
-        goalListStore.updateGoalListName(listId, editingListName.trim());
-        loadLists();
+        goalListStore.updateGoalListName(listId, editingListName.trim(), editingListDescription.trim());
+        // loadLists(); // Оновиться через подію, якщо MainPanel її диспатчить
         handleCancelEdit();
       } catch (error) { alert((error as Error).message); }
     } else {
-        handleCancelEdit();
+        handleCancelEdit(); // Якщо назва порожня, просто скасовуємо
     }
   };
 
   const handleDeleteList = (listId: string, listName: string) => {
-    if (window.confirm(`Ви впевнені, що хочете видалити список "${listName}"?`)) {
+    if (window.confirm(`Видалити список "${listName}"? (Цілі в ньому НЕ будуть видалені глобально)`)) {
       goalListStore.deleteGoalList(listId);
-      loadLists();
+      // loadLists(); // Оновиться через подію, якщо MainPanel її диспатчить
     }
   };
 
   return (
-    // Фон для Sidebar вже встановлено в Layout.tsx (bg-slate-100 dark:bg-slate-900)
-    // Текст також (text-slate-800 dark:text-slate-200)
     <div className="p-4 h-full flex flex-col">
       <div className="mb-4 flex justify-between items-center">
         <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300">Списки Цілей</h3>
         <button
-          onClick={handleCreateNewList}
+          onClick={handleCreateNewListClick}
           className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 focus:outline-none rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
           title="Створити новий список"
         >
@@ -98,6 +133,7 @@ function Sidebar() {
       {isCreatingNewList && (
         <div className="mb-3 p-2.5 border border-blue-300 dark:border-blue-700 rounded-md bg-blue-50 dark:bg-slate-800 shadow-sm">
           <input
+            ref={newListInputRef}
             type="text"
             value={newListName}
             onChange={(e) => setNewListName(e.target.value)}
@@ -105,9 +141,22 @@ function Sidebar() {
             className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-slate-600 rounded text-sm mb-2 
                        bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100
                        focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-500 placeholder-slate-400 dark:placeholder-slate-500"
-            autoFocus
             onKeyDown={(e) => {
-              if (e.key === 'Enter') submitNewList();
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitNewList(); }
+              if (e.key === 'Escape') setIsCreatingNewList(false);
+            }}
+          />
+          <textarea
+            value={newListDescription}
+            onChange={(e) => setNewListDescription(e.target.value)}
+            placeholder="Опис списку (опціонально)"
+            rows={2}
+            className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-slate-600 rounded text-xs mb-2 
+                       bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100
+                       focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-500 placeholder-slate-400 dark:placeholder-slate-500 min-h-[40px]"
+             onKeyDown={(e) => {
+              if (e.key === 'Enter' && e.shiftKey) { return; /* Дозволити новий рядок */ }
+              if (e.key === 'Enter') { e.preventDefault(); submitNewList(); }
               if (e.key === 'Escape') setIsCreatingNewList(false);
             }}
           />
@@ -118,7 +167,7 @@ function Sidebar() {
         </div>
       )}
 
-      <ul className="overflow-y-auto flex-grow space-y-0.5 -mr-2 pr-2"> {/* -mr-2 pr-2 для компенсації ширини скролбару */}
+      <ul className="overflow-y-auto flex-grow space-y-0.5 -mr-2 pr-2 custom-scrollbar">
         {lists.length === 0 && !isCreatingNewList && (
           <li className="text-slate-500 dark:text-slate-400 text-sm text-center py-4">Списки не знайдено.</li>
         )}
@@ -127,17 +176,31 @@ function Sidebar() {
             {editingListId === list.id ? (
               <div className="p-2 border border-blue-400 dark:border-blue-600 rounded-md bg-white dark:bg-slate-800 shadow">
                 <input
+                  ref={editNameInputRef}
                   type="text"
                   value={editingListName}
                   onChange={(e) => setEditingListName(e.target.value)}
                   className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-slate-600 rounded text-sm mb-2
                              bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100
                              focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-500 placeholder-slate-400 dark:placeholder-slate-500"
-                  autoFocus
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') submitRenameList(list.id);
+                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitRenameList(list.id); }
                     if (e.key === 'Escape') handleCancelEdit();
                   }}
+                />
+                <textarea
+                    value={editingListDescription}
+                    onChange={(e) => setEditingListDescription(e.target.value)}
+                    placeholder="Опис списку (опціонально)"
+                    rows={2}
+                    className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-slate-600 rounded text-xs mb-2 
+                               bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100
+                               focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-500 placeholder-slate-400 dark:placeholder-slate-500 min-h-[40px]"
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && e.shiftKey) { return; }
+                        if (e.key === 'Enter') { e.preventDefault(); submitRenameList(list.id); }
+                        if (e.key === 'Escape') handleCancelEdit();
+                    }}
                 />
                 <div className="flex justify-end space-x-2 mt-1">
                   <button onClick={handleCancelEdit} className="text-xs text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 px-2 py-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700">Скасувати</button>
@@ -146,8 +209,8 @@ function Sidebar() {
               </div>
             ) : (
               <div 
-                className="flex items-center justify-between p-1.5 rounded-md cursor-pointer" // hover ефект тепер на батьківському li
-                onClick={() => handleOpenGoalList(list.id, list.name)}
+                className="flex items-center justify-between p-1.5 rounded-md cursor-pointer"
+                onClick={() => handleOpenGoalList(list)}
               >
                 <span className="text-slate-700 dark:text-slate-300 text-sm truncate flex-grow mr-2" title={list.name}>
                   {list.name}
@@ -156,14 +219,14 @@ function Sidebar() {
                   <button 
                     onClick={(e) => { e.stopPropagation(); handleStartEdit(list); }} 
                     className="p-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 focus:outline-none rounded hover:bg-slate-300 dark:hover:bg-slate-600" 
-                    title="Перейменувати"
+                    title="Редагувати список"
                   >
                     <Edit3 size={16} />
                   </button>
                   <button 
                     onClick={(e) => { e.stopPropagation(); handleDeleteList(list.id, list.name); }} 
                     className="p-1 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-500 focus:outline-none rounded hover:bg-red-100 dark:hover:bg-red-600/50" 
-                    title="Видалити"
+                    title="Видалити список"
                   >
                     <Trash2 size={16} />
                   </button>
@@ -178,11 +241,11 @@ function Sidebar() {
         <button
           onClick={handleOpenSettings}
           className="w-full inline-flex justify-center items-center rounded-md 
-                     bg-blue-600 dark:bg-blue-700 px-4 py-2 text-sm font-medium text-white 
-                     hover:bg-blue-700 dark:hover:bg-blue-600 
-                     focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400 focus-visible:ring-opacity-75"
+                     bg-slate-200 dark:bg-slate-700 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 
+                     hover:bg-slate-300 dark:hover:bg-slate-600 
+                     focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:focus-visible:ring-blue-400 focus-visible:ring-opacity-75"
         >
-          Налаштування
+          <Settings size={16} className="mr-2"/> Налаштування
         </button>
       </div>
     </div>

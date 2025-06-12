@@ -17,63 +17,67 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-// CSS та іконки не змінюються
-import { GripVertical, Edit2, Trash2, SearchX, ListChecks } from "lucide-react";
+import { SearchX, ListChecks } from "lucide-react"; // GripVertical, Edit2, Trash2 - тепер у SortableGoalItem
 import SortableGoalItem from "./SortableGoalItem";
 
 interface GoalListPageProps {
   listId: string;
   filterText: string;
-  refreshSignal: number;
+  refreshSignal: number; // Цей сигнал може використовуватися для примусового перезавантаження з MainPanel
   obsidianVaultName: string;
-  onTagClickForFilter?: (filterTerm: string) => void; // <-- НОВИЙ ПРОП
+  onTagClickForFilter?: (filterTerm: string) => void;
+  onNeedsSidebarRefresh?: () => void; // Для оновлення Sidebar, якщо новий список створено через поповер
 }
-
-// SortableGoalItemProps тут більше не потрібен, бо SortableGoalItem - окремий компонент
 
 function GoalListPage({
   listId,
   filterText,
   refreshSignal,
   obsidianVaultName,
-  onTagClickForFilter, // <-- ОТРИМУЄМО НОВИЙ ПРОП
+  onTagClickForFilter,
+  onNeedsSidebarRefresh,
 }: GoalListPageProps) {
-  const [list, setList] = useState<GoalListType | null>(null);
-  const [activeGoals, setActiveGoals] = useState<Goal[]>([]);
+  const [listInfo, setListInfo] = useState<Omit<GoalListType, 'itemGoalIds'> | null>(null); // Інформація про список (без самих цілей)
+  const [displayedGoals, setDisplayedGoals] = useState<Goal[]>([]); // Цілі, що зберігаються в списку
+  const [activeFilteredGoals, setActiveFilteredGoals] = useState<Goal[]>([]); // Цілі після фільтрації
+
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [editingGoalText, setEditingGoalText] = useState("");
   const editGoalInputRef = useRef<HTMLTextAreaElement>(null);
 
-  const loadListDetails = useCallback(() => {
+  const loadListAndGoals = useCallback(() => {
     const foundList = goalListStore.getGoalListById(listId);
     if (foundList) {
-      setList({ ...foundList, goals: [...foundList.goals] });
+      const { itemGoalIds, ...restOfListInfo } = foundList;
+      setListInfo(restOfListInfo);
+      const goalsForThisList = goalListStore.getGoalsForList(listId);
+      setDisplayedGoals(goalsForThisList);
     } else {
-      setList(null);
+      setListInfo(null);
+      setDisplayedGoals([]);
     }
   }, [listId]);
 
   useEffect(() => {
-    loadListDetails();
-  }, [loadListDetails, refreshSignal]);
+    loadListAndGoals();
+  }, [loadListAndGoals, refreshSignal]); // refreshSignal змусить перезавантажити
 
   useEffect(() => {
-    if (list) {
-      const goalsToFilter = list.goals;
+    if (listInfo) { // Перевіряємо listInfo замість list (який тепер не містить цілі)
       if (!filterText.trim()) {
-        setActiveGoals(goalsToFilter);
+        setActiveFilteredGoals(displayedGoals);
       } else {
         const lowercasedFilter = filterText.toLowerCase();
-        setActiveGoals(
-          goalsToFilter.filter((goal) =>
+        setActiveFilteredGoals(
+          displayedGoals.filter((goal) =>
             goal.text.toLowerCase().includes(lowercasedFilter)
           )
         );
       }
     } else {
-      setActiveGoals([]);
+      setActiveFilteredGoals([]);
     }
-  }, [list, filterText]);
+  }, [listInfo, displayedGoals, filterText]);
 
   useEffect(() => {
     if (editingGoal && editGoalInputRef.current) {
@@ -97,43 +101,56 @@ function GoalListPage({
       alert("Будь ласка, очистіть фільтр для сортування цілей.");
       return;
     }
-    if (over && active.id !== over.id && list) {
-      const oldIndex = list.goals.findIndex((goal) => goal.id === active.id);
-      const newIndex = list.goals.findIndex((goal) => goal.id === over.id);
-      if (oldIndex === -1 || newIndex === -1) return;
-      const newOrderedGoals = arrayMove(list.goals, oldIndex, newIndex);
-      setList((prev) => (prev ? { ...prev, goals: newOrderedGoals } : null));
-      goalListStore.updateGoalOrder(
+    if (over && active.id !== over.id && listInfo) { // Використовуємо listInfo
+      // Важливо: arrayMove працює з поточним відфільтрованим списком (activeFilteredGoals),
+      // але зберігати порядок треба для повного списку displayedGoals.
+      // Якщо фільтр активний, сортування може бути непередбачуваним або його треба заборонити.
+      // Зараз assumed, що displayedGoals - це те, що ми сортуємо.
+
+      const oldIndex = displayedGoals.findIndex((goal) => goal.id === active.id);
+      const newIndex = displayedGoals.findIndex((goal) => goal.id === over.id);
+      
+      if (oldIndex === -1 || newIndex === -1) {
+        console.warn("Помилка сортування: ціль не знайдено в displayedGoals.");
+        return;
+      }
+      
+      const newOrderedGoalsFullList = arrayMove([...displayedGoals], oldIndex, newIndex);
+      setDisplayedGoals(newOrderedGoalsFullList); // Оновлюємо локальний стан для негайного відображення
+      
+      // Зберігаємо новий порядок ID
+      goalListStore.updateGoalOrderInList(
         listId,
-        newOrderedGoals.map((g) => g.id)
+        newOrderedGoalsFullList.map((g) => g.id)
       );
+      // Немає потреби викликати loadListAndGoals(), бо ми вже оновили displayedGoals
     }
   };
 
   const handleToggleGoal = useCallback(
     (goalId: string) => {
-      goalListStore.toggleGoalCompletion(listId, goalId);
-      loadListDetails();
+      goalListStore.toggleGlobalGoalCompletion(goalId);
+      loadListAndGoals(); // Перезавантажуємо, щоб отримати оновлений статус цілі
     },
-    [listId, loadListDetails]
+    [loadListAndGoals] // listId не потрібен, бо goalId глобальний
   );
 
   const handleDeleteGoal = useCallback(
     (goalId: string) => {
-      const goalToDelete = list?.goals.find((g) => g.id === goalId);
+      const goalToDelete = displayedGoals.find((g) => g.id === goalId);
       if (
         goalToDelete &&
-        window.confirm(`Видалити ціль "${goalToDelete.text}"?`)
+        window.confirm(`Видалити ціль "${goalToDelete.text}" зі списку? (Ціль залишиться глобально, якщо використовується в інших списках)`)
       ) {
-        goalListStore.deleteGoalFromList(listId, goalId);
-        loadListDetails();
+        goalListStore.removeGoalFromList(listId, goalId);
+        loadListAndGoals(); // Перезавантажуємо для оновлення списку цілей
         if (editingGoal?.id === goalId) {
           setEditingGoal(null);
           setEditingGoalText("");
         }
       }
     },
-    [listId, loadListDetails, list, editingGoal?.id]
+    [listId, loadListAndGoals, displayedGoals, editingGoal?.id]
   );
 
   const handleStartEditGoal = useCallback((goal: Goal) => {
@@ -150,28 +167,37 @@ function GoalListPage({
   const handleSubmitEditGoal = useCallback(() => {
     if (!editingGoal) return;
     if (!editingGoalText.trim()) {
-      if (window.confirm("Текст цілі порожній. Видалити цю ціль?")) {
-        handleDeleteGoal(editingGoal.id);
-      }
-      setEditingGoal(null);
-      setEditingGoalText("");
+      // Замість видалення, просто скасуємо редагування або покажемо помилку
+      alert("Текст цілі не може бути порожнім.");
+      editGoalInputRef.current?.focus();
       return;
     }
     try {
-      goalListStore.updateGoalText(
-        listId,
+      goalListStore.updateGlobalGoalText( // Оновлюємо глобальну ціль
         editingGoal.id,
         editingGoalText.trim()
       );
-      loadListDetails();
+      loadListAndGoals(); // Перезавантажуємо для оновлення тексту
       setEditingGoal(null);
       setEditingGoalText("");
     } catch (error) {
       alert((error as Error).message);
     }
-  }, [listId, editingGoal, editingGoalText, loadListDetails, handleDeleteGoal]);
+  }, [editingGoal, editingGoalText, loadListAndGoals]);
 
-  if (!list) {
+
+  const handleDataRefreshRequestFromPopover = useCallback(() => {
+    loadListAndGoals();
+  }, [loadListAndGoals]);
+
+  const handleSidebarRefreshRequestFromPopover = useCallback(() => {
+    if (onNeedsSidebarRefresh) {
+      onNeedsSidebarRefresh();
+    }
+  }, [onNeedsSidebarRefresh]);
+
+
+  if (!listInfo) {
     return (
       <div className="p-6 flex flex-col items-center justify-center h-full text-center">
         <ListChecks
@@ -180,7 +206,7 @@ function GoalListPage({
           strokeWidth={1.5}
         />
         <p className="text-slate-500 dark:text-slate-400 text-lg">
-          Завантаження даних списку...
+          Завантаження даних списку "{listId}"...
         </p>
       </div>
     );
@@ -233,8 +259,8 @@ function GoalListPage({
           </div>
         )}
 
-        <div className="flex-grow pr-1">
-          {activeGoals.length === 0 && !editingGoal && (
+        <div className="flex-grow pr-1 overflow-y-auto"> {/* Додав overflow-y-auto сюди */}
+          {activeFilteredGoals.length === 0 && !editingGoal && (
             <div className="text-center py-8 px-2 flex flex-col items-center justify-center h-full">
               <SearchX
                 size={40}
@@ -243,8 +269,8 @@ function GoalListPage({
               />
               <p className="text-slate-500 dark:text-slate-400 text-sm">
                 {filterText.trim()
-                  ? "Цілей за вашим фільтром не знайдено."
-                  : "У цьому списку ще немає цілей."}
+                  ? `Цілей за фільтром "${filterText}" не знайдено у списку "${listInfo.name}".`
+                  : `У списку "${listInfo.name}" ще немає цілей.`}
               </p>
               {!filterText.trim() && (
                 <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
@@ -254,21 +280,24 @@ function GoalListPage({
               )}
             </div>
           )}
-          {activeGoals.length > 0 && (
+          {activeFilteredGoals.length > 0 && (
             <SortableContext
-              items={activeGoals.map((goal) => goal.id)}
+              items={activeFilteredGoals.map((goal) => goal.id)} // Сортуємо відфільтровані, але DragEnd працює з displayedGoals
               strategy={verticalListSortingStrategy}
             >
               <ul className="space-y-1.5">
-                {activeGoals.map((goal) => (
+                {activeFilteredGoals.map((goal) => (
                   <SortableGoalItem
                     key={goal.id}
                     goal={goal}
+                    listIdThisGoalBelongsTo={listId} // Передаємо ID поточного списку
                     onToggle={handleToggleGoal}
                     onDelete={handleDeleteGoal}
                     onStartEdit={handleStartEditGoal}
                     obsidianVaultName={obsidianVaultName}
-                    onTagClickForFilter={onTagClickForFilter} // <-- ПЕРЕДАЄМО КОЛБЕК ДО SortableGoalItem
+                    onTagClickForFilter={onTagClickForFilter}
+                    onDataShouldRefreshInParent={handleDataRefreshRequestFromPopover}
+                    onSidebarShouldRefreshListsInParent={handleSidebarRefreshRequestFromPopover}
                   />
                 ))}
               </ul>

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain,shell } from 'electron';
 import * as path from 'path';
 import Store from 'electron-store';
 
@@ -9,6 +9,8 @@ const IPC_CHANNELS = {
   GET_APP_VERSION: "get-app-version",
   GET_APP_SETTINGS: "get-app-settings",
   SET_APP_SETTING: "set-app-setting",
+  OPEN_EXTERNAL_LINK: "open-external-link", // <--- НОВИЙ КАНАЛ
+
 };
 
 function createWindow(): void {
@@ -110,6 +112,22 @@ ipcMain.handle(IPC_CHANNELS.SET_APP_SETTING, async (event, key: string, value: a
   } catch (error: any) {
     console.error(`Failed to set app setting "${key}":`, error);
     return { success: false, message: error.message || 'Не вдалося зберегти налаштування.' };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.OPEN_EXTERNAL_LINK, async (event, url: string) => {
+  try {
+    if (!url || typeof url !== 'string' || (!url.startsWith('http:') && !url.startsWith('https:') && !url.startsWith('mailto:') && !url.startsWith('obsidian:'))) {
+      // Додав перевірку на obsidian: протокол
+      console.warn(`[Main Process] Attempted to open invalid or non-external URL: ${url}`);
+      return { success: false, error: 'Invalid or non-external URL provided.' };
+    }
+    await shell.openExternal(url);
+    console.log(`[Main Process] Successfully initiated opening of external URL: ${url}`);
+    return { success: true };
+  } catch (error: any) {
+    console.error(`[Main Process] Failed to open external URL "${url}":`, error);
+    return { success: false, error: error.message || 'Unknown error opening external link.' };
   }
 });
 

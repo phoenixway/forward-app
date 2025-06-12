@@ -33,6 +33,7 @@ const GoalTextRenderer: React.FC<GoalTextRendererProps> = ({
     event.preventDefault();
     event.stopPropagation();
     // ... (код handleWikiLinkClick без змін) ...
+    console.log("here bla");
     console.log('[GoalTextRenderer] handleWikiLinkClick called for link content:', linkContent);
 
     if (!obsidianVaultName) {
@@ -42,10 +43,10 @@ const GoalTextRenderer: React.FC<GoalTextRendererProps> = ({
       return;
     }
 
-    const obsidianUrl = `${OBSIDIAN_SCHEME_PREFIX}//open?vault=${encodeURIComponent(
+    const obsidianUrl = `${OBSIDIAN_SCHEME_PREFIX}open?vault=${encodeURIComponent(
       obsidianVaultName
     )}&file=${encodeURIComponent(linkContent)}`;
-    
+    console.log('[GoalTextRenderer] OBSIDIAN_SCHEME_PREFIX:', OBSIDIAN_SCHEME_PREFIX);
     console.log('[GoalTextRenderer] Attempting to open Obsidian URL:', obsidianUrl);
     // @ts-expehct-error
     // @ts-ignore

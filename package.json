@@ -8,7 +8,7 @@
     "name": "Your Name",
     "email": "your.email@example.com"
   },
-  "homepage": "https://github.com/your-repo/forward-app",
+  "homepage": "https://github.com/phoenixway/forward-app",
   "license": "MIT",
   "scripts": {
     "build": "npm run build:main && npm run build:renderer && npm run build:preload",
@@ -26,7 +26,7 @@
     "dist:mac": "npm run build && electron-builder --mac"
   },
   "build": {
-    "appId": "com.example.forward-app",
+    "appId": "forward-app",
     "productName": "ForwardApp",
     "asar": true,
     "directories": {
@@ -45,7 +45,10 @@
       ],
       "category": "Utility",
       "icon": "buildResources/icon.png",
-      "maintainer": "Your Name <your.email@example.com>"
+      "maintainer": "Roman XYZ <roman.xyz@example.com>",
+      "mimeTypes": [
+        "x-scheme-handler/forwardapp"
+      ]
     },
     "win": {
       "target": "nsis",

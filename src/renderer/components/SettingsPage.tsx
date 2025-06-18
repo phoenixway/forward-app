@@ -1,12 +1,11 @@
 // src/renderer/components/SettingsPage.tsx
 import React, { useState, useEffect, useCallback } from "react";
-import * as goalListStore from "../data/goalListsStore"; // Ваш стор
+import * as goalListStore from "../data/goalListsStore";
 import type {
   GoalList as GoalListTypeImport,
   Goal as GoalImport,
-} from "../data/goalListsStore"; // Типи для імпорту
+} from "../data/goalListsStore";
 
-// Інтерфейс для формату експортованих/імпортованих даних
 interface AppBackupDataFormat {
   version: number;
   exportedAt: string;
@@ -21,7 +20,6 @@ interface SettingsPageProps {
   onChangeTheme: (newTheme: string) => void;
   initialObsidianVault: string;
   onObsidianVaultChange: (newPath: string) => void;
-  // Додамо колбек для сповіщення MainPanel про необхідність оновлення
   onDataImported?: () => void;
 }
 
@@ -30,15 +28,60 @@ function SettingsPage({
   onChangeTheme,
   initialObsidianVault,
   onObsidianVaultChange,
-  onDataImported, // Новий проп
+  onDataImported,
 }: SettingsPageProps) {
   const [obsidianVaultPath, setObsidianVaultPath] =
     useState(initialObsidianVault);
 
-  // Синхронізуємо локальний стан, якщо initialObsidianVault зміниться ззовні
+  const [isLinuxAppImage, setIsLinuxAppImage] = useState(false);
+  const [userDesktopFileExists, setUserDesktopFileExists] = useState(true);
+  const [desktopFileMessage, setDesktopFileMessage] = useState<string | null>(
+    null,
+  );
+  const [isDesktopFileProcessing, setIsDesktopFileProcessing] = useState(false);
+
   useEffect(() => {
     setObsidianVaultPath(initialObsidianVault);
   }, [initialObsidianVault]);
+
+  useEffect(() => {
+    const checkDesktopIntegrationStatus = async () => {
+      if (
+        window.electronAPI &&
+        navigator.platform.toUpperCase().indexOf("LINUX") >= 0
+      ) {
+        try {
+          const isAppImage = await window.electronAPI.isAppImageOnLinux();
+          setIsLinuxAppImage(isAppImage);
+          if (isAppImage) {
+            const hasFile = await window.electronAPI.hasUserDesktopFile();
+            setUserDesktopFileExists(hasFile);
+            if (hasFile) {
+              setDesktopFileMessage(
+                "Ярлик для меню вже існує для поточного користувача.",
+              );
+            } else {
+              setDesktopFileMessage(null);
+            }
+          } else {
+            setUserDesktopFileExists(true);
+          }
+        } catch (error) {
+          console.error(
+            "Помилка перевірки статусу інтеграції з робочим столом:",
+            error,
+          );
+          setIsLinuxAppImage(false);
+          setUserDesktopFileExists(true);
+          setDesktopFileMessage("Не вдалося перевірити статус ярлика.");
+        }
+      } else {
+        setIsLinuxAppImage(false);
+        setUserDesktopFileExists(true);
+      }
+    };
+    checkDesktopIntegrationStatus();
+  }, []);
 
   const handleThemeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     onChangeTheme(event.target.value);
@@ -52,7 +95,6 @@ function SettingsPage({
 
   const handleSaveVaultPath = useCallback(() => {
     onObsidianVaultChange(obsidianVaultPath.trim());
-    // Повідомлення про збереження тепер може бути в App.tsx або MainPanel.tsx
   }, [obsidianVaultPath, onObsidianVaultChange]);
 
   const handleExportData = async () => {
@@ -139,7 +181,7 @@ function SettingsPage({
         properties: ["openFile"],
       });
 
-      if (!result.canceled && result.filePaths.length > 0) {
+      if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
         const filePath = result.filePaths[0];
         console.log("Attempting to import data from:", filePath);
         const readResult = await window.electronAPI.readFile(filePath);
@@ -193,6 +235,38 @@ function SettingsPage({
       );
     }
   };
+
+  const handleCreateDesktopFile = async () => {
+    if (!window.electronAPI) {
+      alert("Electron API не доступне.");
+      setDesktopFileMessage("Electron API не доступне.");
+      return;
+    }
+    setIsDesktopFileProcessing(true);
+    setDesktopFileMessage("Створення ярлика...");
+    try {
+      const result = await window.electronAPI.createUserDesktopFile();
+      if (result.success) {
+        alert(result.message || "Ярлик успішно створено!");
+        setDesktopFileMessage(result.message || "Ярлик успішно створено!");
+        setUserDesktopFileExists(true);
+      } else {
+        const errorMsg =
+          result.error || result.message || "Не вдалося створити ярлик.";
+        alert(`Помилка: ${errorMsg}`);
+        setDesktopFileMessage(`Помилка: ${errorMsg}`);
+      }
+    } catch (error: any) {
+      alert(`Критична помилка: ${error.message}`);
+      setDesktopFileMessage(`Критична помилка: ${error.message}`);
+      console.error("Критична помилка при створенні .desktop файлу:", error);
+    } finally {
+      setIsDesktopFileProcessing(false);
+    }
+  };
+
+  const canCreateDesktopFile =
+    isLinuxAppImage && !userDesktopFileExists && !isDesktopFileProcessing;
 
   return (
     <div className="p-6 min-h-full text-slate-800 dark:text-slate-200">
@@ -267,7 +341,51 @@ function SettingsPage({
                 </p>
               </div>
 
-              {/* Розділ для імпорту/експорту */}
+              {/* Інтеграція з робочим столом (Linux AppImage) */}
+              {navigator.platform.toUpperCase().indexOf("LINUX") >= 0 && ( // Показуємо цей блок тільки на Linux
+                <div className="pt-4">
+                  <h3 className="text-md font-medium text-slate-700 dark:text-slate-300 mb-3">
+                    Інтеграція з системою (Linux)
+                  </h3>
+                  {isLinuxAppImage ? (
+                    <>
+                      <button
+                        onClick={handleCreateDesktopFile}
+                        disabled={!canCreateDesktopFile}
+                        className={`px-4 py-2 text-sm text-white rounded-md w-full sm:w-auto justify-center
+                                    ${
+                                      canCreateDesktopFile
+                                        ? "bg-sky-600 hover:bg-sky-700 dark:bg-sky-500 dark:hover:bg-sky-600"
+                                        : "bg-slate-400 dark:bg-slate-600 cursor-not-allowed opacity-70"
+                                    }`}
+                      >
+                        {isDesktopFileProcessing
+                          ? "Обробка..."
+                          : userDesktopFileExists
+                            ? "Ярлик для меню вже існує"
+                            : "Створити ярлик для меню"}
+                      </button>
+                      {desktopFileMessage && (
+                        <p
+                          className={`mt-2 text-xs ${desktopFileMessage.toLowerCase().includes("помилка") || desktopFileMessage.toLowerCase().includes("failed") ? "text-red-500 dark:text-red-400" : "text-slate-500 dark:text-slate-400"}`}
+                        >
+                          {desktopFileMessage}
+                        </p>
+                      )}
+                      <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                        Додає програму в меню для легкого запуску (тільки для
+                        поточного користувача).
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      Опція створення ярлика доступна тільки при запуску з
+                      AppImage на Linux.
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="pt-4">
                 <h3 className="text-md font-medium text-slate-700 dark:text-slate-300 mb-3">
                   Резервне копіювання та відновлення даних
@@ -322,7 +440,6 @@ function SettingsPage({
               </div>
             </div>
           </div>
-          e-300 dark:
         </section>
 
         <section>

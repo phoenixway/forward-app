@@ -44,7 +44,7 @@
         "AppImage"
       ],
       "category": "Utility",
-      "icon": "buildResources/icon.png",
+      "icon": "buildResources/icons",
       "maintainer": "Roman XYZ <roman.xyz@example.com>",
       "mimeTypes": [
         "x-scheme-handler/forwardapp"

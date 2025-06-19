@@ -1,41 +1,47 @@
 // src/renderer/components/SortableGoalItem.tsx
-import React, { useState, useCallback } from "react";
-import { Draggable } from "@hello-pangea/dnd"; // ІМПОРТ
+import React, { useState, useCallback, useRef } from "react"; // Додано useRef
+import { Draggable } from "@hello-pangea/dnd";
 import {
-  GripVertical, // Повертаємо ручку
+  GripVertical,
   Edit2,
   Trash2,
   ChevronDown,
   ChevronUp,
+  Link as LinkIconLucide, // Іконка для асоційованих списків
 } from "lucide-react";
 import type { Goal } from "../data/goalListsStore";
 import GoalTextRenderer from "./GoalTextRenderer";
 import { parseGoalData } from "../utils/textProcessing";
+import AssociatedListsPopover from "./AssociatedListsPopover"; // Імпортуємо поповер
 
 export interface SortableGoalItemProps {
   goal: Goal;
-  index: number; // Потрібен для Draggable
-  listIdThisGoalBelongsTo: string;
+  index: number;
+  listIdThisGoalBelongsTo: string; // Цей проп важливий для AssociatedListsPopover
   onToggle: (goalId: string) => void;
   onDelete: (goalId: string) => void;
   onStartEdit: (goal: Goal) => void;
   obsidianVaultName: string;
   onTagClickForFilter?: (filterTerm: string) => void;
-  onDataShouldRefreshInParent: () => void; // Залишаємо, якщо потрібно для інших цілей
-  onSidebarShouldRefreshListsInParent: () => void; // Залишаємо
+  onDataShouldRefreshInParent: () => void;
+  onSidebarShouldRefreshListsInParent: () => void;
 }
 
 function SortableGoalItem({
   goal,
-  index, // Додано
-  // listIdThisGoalBelongsTo, // Не використовується напряму в цьому компоненті, але може бути корисним для батька
+  index,
+  listIdThisGoalBelongsTo, // Будемо використовувати
   onToggle,
   onDelete,
   onStartEdit,
   obsidianVaultName,
   onTagClickForFilter,
+  onDataShouldRefreshInParent, // Передаємо в поповер
+  onSidebarShouldRefreshListsInParent, // Передаємо в поповер
 }: SortableGoalItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isAssocPopoverOpen, setIsAssocPopoverOpen] = useState(false); // Стан для поповера
+  const popoverAnchorRef = useRef<HTMLButtonElement>(null); // Для позиціонування поповера
 
   const { displayableFields, rating, ratingLabel } = parseGoalData(goal.text);
   const hasExtraInfo =
@@ -47,8 +53,17 @@ function SortableGoalItem({
         setIsExpanded((prev) => !prev);
       }
     },
-    [hasExtraInfo], // setIsExpanded стабільний
+    [hasExtraInfo],
   );
+
+  const toggleAssocPopover = useCallback((event: React.MouseEvent) => {
+    event.stopPropagation(); // Зупиняємо спливання, щоб клік не закрив поповер одразу, якщо він вже відкритий
+    setIsAssocPopoverOpen((prev) => !prev);
+  }, []);
+
+  const closeAssocPopover = useCallback(() => {
+    setIsAssocPopoverOpen(false);
+  }, []);
 
   return (
     <Draggable draggableId={goal.id} index={index}>
@@ -56,18 +71,17 @@ function SortableGoalItem({
         <li
           ref={provided.innerRef}
           {...provided.draggableProps}
-          // {...provided.dragHandleProps} // dragHandleProps будуть на кнопці-ручці
           className={`relative p-2.5 rounded-md flex items-start justify-between group transition-shadow duration-150 border ${
             snapshot.isDragging
-              ? "ring-2 ring-indigo-500 dark:ring-indigo-400 shadow-xl bg-indigo-50 dark:bg-indigo-900/60" // Стилі для isDragging
+              ? "ring-2 ring-indigo-500 dark:ring-indigo-400 shadow-xl bg-indigo-50 dark:bg-indigo-900/60"
               : goal.completed
                 ? "text-slate-500 dark:text-slate-500 bg-slate-100 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/50"
                 : "text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600"
-          } ${!snapshot.isDragging && "hover:shadow-md dark:hover:shadow-black/10"}`} // Додатковий hover, якщо не перетягується
-          style={provided.draggableProps.style} // Важливо для правильної анімації
+          } ${!snapshot.isDragging && "hover:shadow-md dark:hover:shadow-black/10"}`}
+          style={provided.draggableProps.style}
         >
           <button
-            {...provided.dragHandleProps} // ПРОПСИ ДЛЯ РУЧКИ
+            {...provided.dragHandleProps}
             type="button"
             className="p-1 mr-2 cursor-grab focus:outline-none text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 flex-shrink-0 rounded hover:bg-slate-200 dark:hover:bg-slate-600 mt-0.5"
             aria-label="Перетягнути ціль"
@@ -90,6 +104,7 @@ function SortableGoalItem({
                   const targetElement = e.target as HTMLElement;
                   const isChildInteractive =
                     targetElement.closest("a") ||
+                    targetElement.closest("button") || // Включаємо кнопки, щоб не спрацьовувало при кліку на кнопки всередині
                     targetElement.closest("span[data-tag-name]");
                   if (!isChildInteractive && !goal.completed) {
                     onStartEdit(goal);
@@ -116,6 +131,7 @@ function SortableGoalItem({
                     : "opacity-0 max-h-0"
                 }`}
               >
+                {/* ... (код для displayableFields та rating залишається тут) ... */}
                 {hasExtraInfo && (
                   <>
                     {displayableFields.length > 0 && (
@@ -157,7 +173,9 @@ function SortableGoalItem({
             </div>
           </div>
 
-          <div className="flex-shrink-0 flex items-center space-x-1 mt-0.5">
+          <div className="flex-shrink-0 flex items-center space-x-0.5 mt-0.5 relative">
+            {" "}
+            {/* Змінено space-x-1 на space-x-0.5 та додано relative */}
             {hasExtraInfo && (
               <button
                 onClick={toggleExpand}
@@ -171,7 +189,21 @@ function SortableGoalItem({
                 )}
               </button>
             )}
-
+            {/* Кнопка для асоційованих списків */}
+            {!goal.completed && (
+              <button
+                ref={popoverAnchorRef} // Реф для позиціонування
+                onClick={toggleAssocPopover}
+                className={`p-1 text-slate-500 dark:text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 focus:outline-none rounded hover:bg-purple-100 dark:hover:bg-purple-700/50 ${
+                  isAssocPopoverOpen
+                    ? "bg-purple-100 dark:bg-purple-700/50 text-purple-600 dark:text-purple-400"
+                    : ""
+                }`}
+                title="Асоційовані списки"
+              >
+                <LinkIconLucide size={16} />
+              </button>
+            )}
             {!goal.completed && (
               <button
                 onClick={() => onStartEdit(goal)}
@@ -188,6 +220,18 @@ function SortableGoalItem({
             >
               <Trash2 size={16} />
             </button>
+            {/* Відображення поповера */}
+            {isAssocPopoverOpen && (
+              <AssociatedListsPopover
+                targetGoal={goal}
+                listIdOfTargetGoal={listIdThisGoalBelongsTo}
+                onClose={closeAssocPopover}
+                onDataShouldRefresh={onDataShouldRefreshInParent}
+                onSidebarShouldRefreshLists={
+                  onSidebarShouldRefreshListsInParent
+                }
+              />
+            )}
           </div>
         </li>
       )}

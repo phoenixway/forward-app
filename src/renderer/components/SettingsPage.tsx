@@ -46,6 +46,7 @@ function SettingsPage({
 
   useEffect(() => {
     const checkDesktopIntegrationStatus = async () => {
+      // Перевіряємо платформу в рендерері перед викликом API
       if (
         window.electronAPI &&
         navigator.platform.toUpperCase().indexOf("LINUX") >= 0
@@ -64,6 +65,7 @@ function SettingsPage({
               setDesktopFileMessage(null);
             }
           } else {
+            // Не AppImage на Linux, кнопка не потрібна або буде неактивна
             setUserDesktopFileExists(true);
           }
         } catch (error) {
@@ -76,6 +78,7 @@ function SettingsPage({
           setDesktopFileMessage("Не вдалося перевірити статус ярлика.");
         }
       } else {
+        // Не Linux, функція неактуальна
         setIsLinuxAppImage(false);
         setUserDesktopFileExists(true);
       }
@@ -98,10 +101,11 @@ function SettingsPage({
   }, [obsidianVaultPath, onObsidianVaultChange]);
 
   const handleExportData = async () => {
-    if (!window.electronAPI) {
+    if (!window.electronAPI?.showSaveDialog) {
+      // Додано перевірку наявності методу
       alert("Electron API не доступне для операцій з файлами.");
       console.error(
-        "Electron API (window.electronAPI) not found for file operations.",
+        "Electron API (window.electronAPI.showSaveDialog) not found.",
       );
       return;
     }
@@ -133,6 +137,7 @@ function SettingsPage({
       if (!result.canceled && result.filePath) {
         const jsonContent = JSON.stringify(exportData, null, 2);
         const writeResult = await window.electronAPI.writeFile(
+          // Перевірка writeFile також потрібна, якщо вона може бути відсутня
           result.filePath,
           jsonContent,
         );
@@ -155,10 +160,11 @@ function SettingsPage({
   };
 
   const handleImportData = async () => {
-    if (!window.electronAPI) {
+    if (!window.electronAPI?.showOpenDialog) {
+      // Додано перевірку
       alert("Electron API не доступне для операцій з файлами.");
       console.error(
-        "Electron API (window.electronAPI) not found for file operations.",
+        "Electron API (window.electronAPI.showOpenDialog) not found.",
       );
       return;
     }
@@ -184,7 +190,7 @@ function SettingsPage({
       if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
         const filePath = result.filePaths[0];
         console.log("Attempting to import data from:", filePath);
-        const readResult = await window.electronAPI.readFile(filePath);
+        const readResult = await window.electronAPI.readFile(filePath); // Перевірка readFile
 
         if (readResult.success && typeof readResult.content === "string") {
           const importedObject = JSON.parse(
@@ -237,8 +243,9 @@ function SettingsPage({
   };
 
   const handleCreateDesktopFile = async () => {
-    if (!window.electronAPI) {
-      alert("Electron API не доступне.");
+    if (!window.electronAPI?.createUserDesktopFile) {
+      // Перевірка
+      alert("Electron API не доступне для цієї операції.");
       setDesktopFileMessage("Electron API не доступне.");
       return;
     }
@@ -342,7 +349,7 @@ function SettingsPage({
               </div>
 
               {/* Інтеграція з робочим столом (Linux AppImage) */}
-              {navigator.platform.toUpperCase().indexOf("LINUX") >= 0 && ( // Показуємо цей блок тільки на Linux
+              {navigator.platform.toUpperCase().indexOf("LINUX") >= 0 && (
                 <div className="pt-4">
                   <h3 className="text-md font-medium text-slate-700 dark:text-slate-300 mb-3">
                     Інтеграція з системою (Linux)

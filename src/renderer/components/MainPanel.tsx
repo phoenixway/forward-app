@@ -121,7 +121,8 @@ function MainPanel({
   const importTextAreaRef = useRef<HTMLTextAreaElement>(null);
   const exportTextAreaRef = useRef<HTMLTextAreaElement>(null);
 
-  // --- Перенесено handleDataImported вище ---
+  // src/renderer/components/MainPanel.tsx
+
   const refreshListsAndTabs = useCallback(() => {
     setTabs((prevTabs) => {
       const updatedGoalListsFromStore = goalListStore.getAllGoalLists();
@@ -135,51 +136,67 @@ function MainPanel({
               if (tab.title !== correspondingList.name) {
                 return { ...tab, title: correspondingList.name };
               }
+              // Повертаємо tab як є, якщо назва не змінилася
+              return tab;
             } else {
-              return null;
+              return null; // Список видалено, вкладку треба закрити
             }
           }
           return tab;
         })
         .filter(Boolean) as Tab[];
 
-      if (activeTabId && !newTabs.find((t) => t.id === activeTabId)) {
-        setActiveTabId(newTabs.length > 0 ? newTabs[0].id : null);
-      } else if (newTabs.length === 0 && activeTabId) {
-        setActiveTabId(null);
-      } else if (!activeTabId && newTabs.length > 0) {
-        setActiveTabId(newTabs[0].id);
-      }
+      // Оновлюємо activeTabId у функціональний спосіб, щоб уникнути залежності від activeTabId
+      setActiveTabId((currentActiveTabId) => {
+        if (
+          currentActiveTabId &&
+          !newTabs.find((t) => t.id === currentActiveTabId)
+        ) {
+          return newTabs.length > 0 ? newTabs[0].id : null;
+        } else if (newTabs.length === 0 && currentActiveTabId) {
+          return null;
+        } else if (!currentActiveTabId && newTabs.length > 0) {
+          return newTabs[0].id;
+        }
+        // Якщо активна вкладка все ще існує в newTabs, або newTabs порожні,
+        // а currentActiveTabId був null, то currentActiveTabId є коректним.
+        return currentActiveTabId;
+      });
       return newTabs;
     });
     setRefreshSignal((prev) => prev + 1);
-  }, [activeTabId, setActiveTabId]); // Виправив залежність setActiveTabId (має бути лише один раз)
+  }, [setTabs, setActiveTabId, setRefreshSignal]); // setTabs, setActiveTabId, setRefreshSignal - стабільні функції з useState
+
+  // src/renderer/components/MainPanel.tsx
 
   const handleDataImported = useCallback(() => {
     console.log(
       "[MainPanel] handleDataImported called, refreshing lists and tabs.",
     );
-    refreshListsAndTabs();
+    refreshListsAndTabs(); // refreshListsAndTabs тепер стабільний
     window.dispatchEvent(new CustomEvent(SIDEBAR_REFRESH_LISTS_EVENT));
 
     setTabs((prevTabs) => {
       const filteredTabs = prevTabs.filter(
         (tab) => tab.type === "settings" || tab.type === "log",
       );
-      const settingsTab = filteredTabs.find((tab) => tab.type === "settings");
-      if (settingsTab) {
-        setActiveTabId(settingsTab.id);
-      } else {
+      // Логіка встановлення активної вкладки після імпорту
+      setActiveTabId((_prevActiveTabId) => {
+        // _prevActiveTabId не використовується, оскільки логіка залежить від filteredTabs
+        const settingsTab = filteredTabs.find((tab) => tab.type === "settings");
+        if (settingsTab) {
+          return settingsTab.id;
+        }
         const logTab = filteredTabs.find((tab) => tab.type === "log");
-        setActiveTabId(logTab ? logTab.id : null);
-      }
-      return filteredTabs; // Повертаємо відфільтровані вкладки
+        return logTab ? logTab.id : null;
+      });
+      return filteredTabs;
     });
 
     alert(
       "Дані оновлено після імпорту. Відкрийте потрібні списки з бічної панелі.",
     );
-  }, [refreshListsAndTabs, setActiveTabId]); // Залежності для handleDataImported
+  }, [refreshListsAndTabs, setTabs, setActiveTabId]); // setActiveTabId і setTabs стабільні, refreshListsAndTabs стабільний
 
   const getActiveListIdFromTab = useCallback((): string | null => {
     const activeTab = tabs.find((tab) => tab.id === activeTabId);
@@ -282,10 +299,21 @@ function MainPanel({
     }
   }, []);
 
+  // src/renderer/components/MainPanel.tsx
+
   const handleOpenGoalListEventCallback = useCallback(
     (event: Event) => {
       const customEvent = event as CustomEvent<OpenGoalListDetail>;
       const { listId, listName } = customEvent.detail;
+
+      if (!listId || !listName) {
+        console.warn(
+          "[MainPanel] Event Handler: Received event with invalid listId or listName.",
+          customEvent.detail,
+        );
+        return;
+      }
+
       console.log(
         `[MainPanel] Event Handler: handleOpenGoalListEventCallback CALLED for listId: ${listId}, listName: ${listName}`,
       );
@@ -303,10 +331,10 @@ function MainPanel({
             const updatedTabs = prevTabs.map((t) =>
               t.id === tabIdForGoalList ? { ...t, title: listName } : t,
             );
-            setActiveTabId(tabIdForGoalList);
+            setActiveTabId(tabIdForGoalList); // Встановлюємо активну вкладку тут
             return updatedTabs;
           }
-          setActiveTabId(tabIdForGoalList);
+          setActiveTabId(tabIdForGoalList); // Встановлюємо активну вкладку тут, якщо вона не змінилась
           return prevTabs;
         } else {
           console.log(
@@ -320,18 +348,21 @@ function MainPanel({
             isClosable: true,
           };
           const newTabsArray = [...prevTabs, newTab];
-          setActiveTabId(tabIdForGoalList);
+          setActiveTabId(tabIdForGoalList); // Встановлюємо активну вкладку тут
           console.log(
             `[MainPanel] Event Handler: New tab created. New tabs count: ${newTabsArray.length}. Activating tab id ${tabIdForGoalList}.`,
           );
           return newTabsArray;
         }
       });
+      // setActiveTabId(tabIdForGoalList); // Перенесено всередину setTabs для синхронності
       setGlobalFilterText("");
       setRefreshSignal((prev) => prev + 1);
     },
-    [setTabs, setActiveTabId],
+    [setTabs, setActiveTabId, setGlobalFilterText, setRefreshSignal], // Всі ці функції стабільні
   );
+
+  // src/renderer/components/MainPanel.tsx
 
   const handleOpenSettingsEventCallback = useCallback(() => {
     console.log(
@@ -344,7 +375,7 @@ function MainPanel({
         (tab) => tab.id === settingsTabId,
       );
       if (existingSettingsTab) {
-        setActiveTabId(settingsTabId);
+        setActiveTabId(settingsTabId); // Встановлюємо активну вкладку тут
         return prevTabs;
       } else {
         const newSettingsTab: Tab = {
@@ -354,11 +385,12 @@ function MainPanel({
           isClosable: true,
         };
         const newTabsArray = [...prevTabs, newSettingsTab];
-        setActiveTabId(settingsTabId);
+        setActiveTabId(settingsTabId); // Встановлюємо активну вкладку тут
         return newTabsArray;
       }
     });
-  }, [setTabs, setActiveTabId]);
+    // setActiveTabId(settingsTabId); // Перенесено всередину setTabs
+  }, [setTabs, setActiveTabId]); // Стабільні залежності
 
   useEffect(() => {
     if (
@@ -386,23 +418,24 @@ function MainPanel({
 
   useEffect(() => {
     console.log(
-      "[MainPanel] Adding global window event listeners (OPEN_GOAL_LIST_EVENT, OPEN_SETTINGS_EVENT, SIDEBAR_REFRESH_LISTS_EVENT).",
+      "[MainPanel] Adding global window event listeners (OPEN_GOAL_LIST_EVENT, OPEN_SETTINGS_EVENT, SIDEBAR_REFRESH_LISTS_EVENT, app-data-imported).",
     );
 
     const handleSidebarRefreshEvent = () => {
       console.log(
         "[MainPanel] Received SIDEBAR_REFRESH_LISTS_EVENT. Calling refreshListsAndTabs.",
       );
-      refreshListsAndTabs();
+      refreshListsAndTabs(); // refreshListsAndTabs стабільний
     };
 
     const handleAppDataImportedEvent = () => {
       console.log(
         "[MainPanel] Event 'app-data-imported' received. Calling handleDataImported.",
       );
-      handleDataImported();
+      handleDataImported(); // handleDataImported стабільний
     };
 
+    // handleOpenGoalListEventCallback та handleOpenSettingsEventCallback тепер стабільні
     window.addEventListener(
       OPEN_GOAL_LIST_EVENT,
       handleOpenGoalListEventCallback as EventListener,
@@ -413,11 +446,11 @@ function MainPanel({
     );
     window.addEventListener(
       SIDEBAR_REFRESH_LISTS_EVENT,
-      handleSidebarRefreshEvent,
+      handleSidebarRefreshEvent, // Цей колбек визначено всередині useEffect, тому він теж стабільний в рамках цього ефекту
     );
     window.addEventListener(
       "app-data-imported",
-      handleAppDataImportedEvent as EventListener,
+      handleAppDataImportedEvent as EventListener, // Цей колбек також стабільний в рамках цього ефекту
     );
 
     return () => {
@@ -440,10 +473,10 @@ function MainPanel({
       );
     };
   }, [
-    handleOpenGoalListEventCallback,
-    handleOpenSettingsEventCallback,
-    refreshListsAndTabs,
-    handleDataImported,
+    handleOpenGoalListEventCallback, // Стабільний
+    handleOpenSettingsEventCallback, // Стабільний
+    refreshListsAndTabs, // Стабільний
+    handleDataImported, // Стабільний
   ]);
 
   const handleGlobalFilterChange = useCallback((query: string) => {

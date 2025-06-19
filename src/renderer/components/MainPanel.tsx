@@ -658,17 +658,54 @@ function MainPanel({
     handleCancelEditList,
   ]);
 
+  // src/renderer/components/MainPanel.tsx
+
   const handleAddGoalToCurrentList = useCallback(
     (listId: string, text: string) => {
+      console.log(
+        `[MainPanel] handleAddGoalToCurrentList: listId=${listId}, text="${text}"`,
+      );
       if (!listId) {
         alert("Будь ласка, спочатку виберіть або відкрийте список.");
+        console.warn(
+          "[MainPanel] handleAddGoalToCurrentList: listId не надано.",
+        );
         return;
       }
       try {
-        goalListStore.createGoalAndAddToList(listId, text);
-        setRefreshSignal((prev) => prev + 1);
-      } catch (error) {
+        console.log(
+          "[MainPanel] handleAddGoalToCurrentList: Перед викликом goalListStore.createGoalAndAddToList",
+        );
+        const result = goalListStore.createGoalAndAddToList(listId, text);
+        if (result) {
+          console.log(
+            `[MainPanel] handleAddGoalToCurrentList: Ціль "${result.newGoal.text}" успішно додано до списку "${result.list.name}".`,
+          );
+        } else {
+          console.warn(
+            "[MainPanel] handleAddGoalToCurrentList: goalListStore.createGoalAndAddToList повернуло undefined (список не знайдено?).",
+          );
+        }
+
+        console.log(
+          "[MainPanel] handleAddGoalToCurrentList: Перед викликом setRefreshSignal",
+        );
+        setRefreshSignal((prev) => {
+          const next = prev + 1;
+          console.log(
+            `[MainPanel] handleAddGoalToCurrentList: setRefreshSignal з ${prev} на ${next}`,
+          );
+          return next;
+        });
+        console.log(
+          "[MainPanel] handleAddGoalToCurrentList: Після виклику setRefreshSignal",
+        );
+      } catch (error: any) {
         alert((error as Error).message);
+        console.error(
+          "[MainPanel] handleAddGoalToCurrentList: Помилка:",
+          error,
+        );
       }
     },
     [],
@@ -809,23 +846,29 @@ function MainPanel({
     const activeTabData = tabs.find((tab) => tab.id === activeTabId);
 
     if (activeTabId && !activeTabData && tabs.length > 0) {
-      setActiveTabId(tabs[0].id);
-      return null;
+      // Якщо активна вкладка вказана, але не знайдена, а вкладки є, активуємо першу
+      console.warn(
+        `[MainPanel] Активна вкладка ${activeTabId} не знайдена, активуємо першу доступну.`,
+      );
+      setActiveTabId(tabs[0].id); // Це може викликати перерендер, будьте уважні
+      return null; // Повертаємо null, щоб React міг обробити зміну стану і перерендерити
     }
     if (!activeTabData) {
-      if (tabs.length === 0)
+      if (tabs.length === 0) {
         return (
           <NoListSelected
             onCreateList={promptCreateNewList}
-            onSelectList={() => {}}
+            onSelectList={() => {}} // Порожня функція, оскільки немає списків для вибору
           />
         );
-      if (tabs.length > 0 && activeTabId !== tabs[0].id)
-        setActiveTabId(tabs[0].id);
-
+      }
+      // Цей блок може бути недосяжним, якщо логіка вище спрацювала
+      console.warn(
+        "[MainPanel] activeTabData не знайдено, але вкладки існують. Це не мало статися.",
+      );
       return (
         <div className="p-4 text-slate-600 dark:text-slate-400">
-          Завантаження або помилка відображення вкладки...
+          Помилка: Не вдалося знайти дані для активної вкладки.
         </div>
       );
     }
@@ -837,6 +880,11 @@ function MainPanel({
             activeTabData.listId,
           );
           if (!listExists) {
+            // Ця ситуація може виникнути, якщо список був видалений, а вкладка ще ні
+            // refreshListsAndTabs має це обробляти, але для безпеки:
+            console.warn(
+              `[MainPanel] Список ${activeTabData.listId} для вкладки не існує. Можливо, його було видалено.`,
+            );
             return (
               <div className="p-4 text-slate-600 dark:text-slate-400">
                 Список для цієї вкладки було видалено. Будь ласка, закрийте її.
@@ -845,10 +893,17 @@ function MainPanel({
           }
           return (
             <GoalListPage
-              key={`${activeTabData.listId}-${refreshSignal}`}
+              // ЗМІНЕНО КЛЮЧ: прибираємо refreshSignal з ключа, щоб уникнути зайвих перемонтувань
+              // key={activeTabData.listId} // Використовуємо тільки listId
+              // ЗАЛИШАЄМО refreshSignal, якщо він справді потрібен для ПРИМУСОВОГО оновлення
+              // Але переконайтеся, що GoalListPage коректно обробляє зміни пропсів filterText і т.д.
+              // Для тесту, давайте спробуємо залишити refreshSignal, АЛЕ GoalListPage має бути оптимізований.
+              // Якщо GoalListPage вже оптимізований, то проблема не в цьому ключі.
+              // Повернемо як було, але будемо мати на увазі.
+              key={`${activeTabData.listId}-${refreshSignal}`} // Поки залишимо, але це підозріло
               listId={activeTabData.listId}
               filterText={globalFilterText}
-              refreshSignal={refreshSignal}
+              refreshSignal={refreshSignal} // Цей проп змушує GoalListPage перезавантажувати дані
               obsidianVaultName={obsidianVaultPath}
               onTagClickForFilter={handleTagClickFromGoalRenderer}
               onNeedsSidebarRefresh={handleSidebarNeedsRefreshFromPage}
@@ -871,7 +926,9 @@ function MainPanel({
       case "log":
         return <LogContent messages={logMessages} />;
       default:
+        // TypeScript має запобігти цьому, але для безпеки:
         const _exhaustiveCheck: never = activeTabData.type;
+        console.error("[MainPanel] Невідомий тип вкладки:", _exhaustiveCheck);
         return <div className="p-4">Невідомий тип вкладки.</div>;
     }
   };

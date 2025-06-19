@@ -4,6 +4,9 @@ import fs from "fs-extra";
 import os from "os";
 import { exec, execSync } from "child_process";
 
+app.disableHardwareAcceleration();
+console.log("[Main] Апаратне прискорення GPU вимкнено.");
+
 // Шлях до package.json (адаптуйте, якщо структура інша)
 // Цей шлях правильний, якщо main.ts компілюється в dist/main/main.js, а package.json в корені
 const packageJsonDefaultPath = path.join(__dirname, "..", "..", "package.json");

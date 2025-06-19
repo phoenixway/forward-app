@@ -22,6 +22,7 @@ import {
   parseImportedText,
   parseGoalData,
 } from "../utils/textProcessing";
+import MinimalDndTestPageMovable from "./MinimalDndTestPageMovable";
 
 export interface MainPanelProps {
   currentThemePreference: string;
@@ -880,39 +881,34 @@ function MainPanel({
             activeTabData.listId,
           );
           if (!listExists) {
-            // Ця ситуація може виникнути, якщо список був видалений, а вкладка ще ні
-            // refreshListsAndTabs має це обробляти, але для безпеки:
             console.warn(
               `[MainPanel] Список ${activeTabData.listId} для вкладки не існує. Можливо, його було видалено.`,
             );
             return (
               <div className="p-4 text-slate-600 dark:text-slate-400">
-                Список для цієї вкладки було видалено. Будь ласка, закрийте її.
+                {" "}
+                Список для цієї вкладки було видалено. Будь ласка, закрийте
+                її.{" "}
               </div>
             );
           }
           return (
             <GoalListPage
-              // ЗМІНЕНО КЛЮЧ: прибираємо refreshSignal з ключа, щоб уникнути зайвих перемонтувань
-              // key={activeTabData.listId} // Використовуємо тільки listId
-              // ЗАЛИШАЄМО refreshSignal, якщо він справді потрібен для ПРИМУСОВОГО оновлення
-              // Але переконайтеся, що GoalListPage коректно обробляє зміни пропсів filterText і т.д.
-              // Для тесту, давайте спробуємо залишити refreshSignal, АЛЕ GoalListPage має бути оптимізований.
-              // Якщо GoalListPage вже оптимізований, то проблема не в цьому ключі.
-              // Повернемо як було, але будемо мати на увазі.
-              key={`${activeTabData.listId}-${refreshSignal}`} // Поки залишимо, але це підозріло
+              key={activeTabData.listId} // <--- ЗМІНА: ТІЛЬКИ listId
               listId={activeTabData.listId}
               filterText={globalFilterText}
-              refreshSignal={refreshSignal} // Цей проп змушує GoalListPage перезавантажувати дані
+              refreshSignal={refreshSignal} // refreshSignal передається як проп
               obsidianVaultName={obsidianVaultPath}
               onTagClickForFilter={handleTagClickFromGoalRenderer}
               onNeedsSidebarRefresh={handleSidebarNeedsRefreshFromPage}
             />
+            // <MinimalDndTestPageMovable />
           );
         }
         return (
           <div className="p-4">Помилка: ID списку для вкладки не знайдено.</div>
         );
+
       case "settings":
         return (
           <SettingsPage

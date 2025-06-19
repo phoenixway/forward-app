@@ -2,31 +2,17 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import * as goalListStore from "../data/goalListsStore";
 import type { Goal, GoalList as GoalListType } from "../data/goalListsStore";
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { SearchX, ListChecks } from "lucide-react"; // GripVertical, Edit2, Trash2 - тепер у SortableGoalItem
+import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
+import { SearchX, ListChecks } from "lucide-react";
 import SortableGoalItem from "./SortableGoalItem";
 
 interface GoalListPageProps {
   listId: string;
   filterText: string;
-  refreshSignal: number; // Цей сигнал може використовуватися для примусового перезавантаження з MainPanel
+  refreshSignal: number;
   obsidianVaultName: string;
   onTagClickForFilter?: (filterTerm: string) => void;
-  onNeedsSidebarRefresh?: () => void; // Для оновлення Sidebar, якщо новий список створено через поповер
+  onNeedsSidebarRefresh?: () => void;
 }
 
 function GoalListPage({
@@ -37,9 +23,12 @@ function GoalListPage({
   onTagClickForFilter,
   onNeedsSidebarRefresh,
 }: GoalListPageProps) {
-  const [listInfo, setListInfo] = useState<Omit<GoalListType, 'itemGoalIds'> | null>(null); // Інформація про список (без самих цілей)
-  const [displayedGoals, setDisplayedGoals] = useState<Goal[]>([]); // Цілі, що зберігаються в списку
-  const [activeFilteredGoals, setActiveFilteredGoals] = useState<Goal[]>([]); // Цілі після фільтрації
+  const [listInfo, setListInfo] = useState<Omit<
+    GoalListType,
+    "itemGoalIds"
+  > | null>(null);
+  const [displayedGoals, setDisplayedGoals] = useState<Goal[]>([]);
+  const [activeFilteredGoals, setActiveFilteredGoals] = useState<Goal[]>([]);
 
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [editingGoalText, setEditingGoalText] = useState("");
@@ -48,30 +37,42 @@ function GoalListPage({
   const loadListAndGoals = useCallback(() => {
     const foundList = goalListStore.getGoalListById(listId);
     if (foundList) {
-      const { itemGoalIds, ...restOfListInfo } = foundList;
+      const { itemGoalIds, ...restOfListInfo } = foundList; // itemGoalIds тут не використовується для listInfo
       setListInfo(restOfListInfo);
       const goalsForThisList = goalListStore.getGoalsForList(listId);
       setDisplayedGoals(goalsForThisList);
     } else {
       setListInfo(null);
       setDisplayedGoals([]);
+      console.warn(`[GoalListPage] List ${listId} not found.`);
     }
-  }, [listId]);
+  }, [listId]); // refreshSignal прибрано звідси, щоб не перезавантажувати при кожному DND або малій зміні
 
   useEffect(() => {
+    // console.log(`[GoalListPage] useEffect for listId change: ${listId}. Calling loadListAndGoals.`);
     loadListAndGoals();
-  }, [loadListAndGoals, refreshSignal]); // refreshSignal змусить перезавантажити
+  }, [listId, loadListAndGoals]); // Залежність від listId
 
   useEffect(() => {
-    if (listInfo) { // Перевіряємо listInfo замість list (який тепер не містить цілі)
+    // console.log(`[GoalListPage] useEffect for refreshSignal: ${refreshSignal}. Calling loadListAndGoals.`);
+    // Цей ефект спрацьовує, коли батько хоче оновити дані (наприклад, після додавання цілі)
+    if (refreshSignal > 0) {
+      // Перевірка, щоб не викликати при першому рендері, якщо refreshSignal = 0
+      loadListAndGoals();
+    }
+  }, [refreshSignal, loadListAndGoals]);
+
+  useEffect(() => {
+    if (listInfo) {
+      // listInfo тепер не залежить від refreshSignal напряму
       if (!filterText.trim()) {
         setActiveFilteredGoals(displayedGoals);
       } else {
         const lowercasedFilter = filterText.toLowerCase();
         setActiveFilteredGoals(
           displayedGoals.filter((goal) =>
-            goal.text.toLowerCase().includes(lowercasedFilter)
-          )
+            goal.text.toLowerCase().includes(lowercasedFilter),
+          ),
         );
       }
     } else {
@@ -86,105 +87,74 @@ function GoalListPage({
     }
   }, [editingGoal]);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (filterText.trim()) {
-      alert("Будь ласка, очистіть фільтр для сортування цілей.");
-      return;
-    }
-    if (over && active.id !== over.id && listInfo) { // Використовуємо listInfo
-      // Важливо: arrayMove працює з поточним відфільтрованим списком (activeFilteredGoals),
-      // але зберігати порядок треба для повного списку displayedGoals.
-      // Якщо фільтр активний, сортування може бути непередбачуваним або його треба заборонити.
-      // Зараз assumed, що displayedGoals - це те, що ми сортуємо.
-
-      const oldIndex = displayedGoals.findIndex((goal) => goal.id === active.id);
-      const newIndex = displayedGoals.findIndex((goal) => goal.id === over.id);
-      
-      if (oldIndex === -1 || newIndex === -1) {
-        console.warn("Помилка сортування: ціль не знайдено в displayedGoals.");
-        return;
-      }
-      
-      const newOrderedGoalsFullList = arrayMove([...displayedGoals], oldIndex, newIndex);
-      setDisplayedGoals(newOrderedGoalsFullList); // Оновлюємо локальний стан для негайного відображення
-      
-      // Зберігаємо новий порядок ID
-      goalListStore.updateGoalOrderInList(
-        listId,
-        newOrderedGoalsFullList.map((g) => g.id)
-      );
-      // Немає потреби викликати loadListAndGoals(), бо ми вже оновили displayedGoals
-    }
-  };
-
-  const handleToggleGoal = useCallback(
-    (goalId: string) => {
-      goalListStore.toggleGlobalGoalCompletion(goalId);
-      loadListAndGoals(); // Перезавантажуємо, щоб отримати оновлений статус цілі
-    },
-    [loadListAndGoals] // listId не потрібен, бо goalId глобальний
-  );
+  const handleToggleGoal = useCallback((goalId: string) => {
+    goalListStore.toggleGlobalGoalCompletion(goalId);
+    setDisplayedGoals((currentGoals) =>
+      currentGoals.map((g) =>
+        g.id === goalId ? { ...g, completed: !g.completed } : g,
+      ),
+    );
+  }, []); // setDisplayedGoals стабільний
 
   const handleDeleteGoal = useCallback(
     (goalId: string) => {
-      const goalToDelete = displayedGoals.find((g) => g.id === goalId);
+      const goalToDelete = displayedGoals.find((g) => g.id === goalId); // Шукаємо в displayedGoals
       if (
         goalToDelete &&
-        window.confirm(`Видалити ціль "${goalToDelete.text}" зі списку? (Ціль залишиться глобально, якщо використовується в інших списках)`)
+        window.confirm(
+          `Видалити ціль "${goalToDelete.text}" зі списку? (Ціль залишиться глобально, якщо використовується в інших списках)`,
+        )
       ) {
         goalListStore.removeGoalFromList(listId, goalId);
-        loadListAndGoals(); // Перезавантажуємо для оновлення списку цілей
+        setDisplayedGoals((prevGoals) =>
+          prevGoals.filter((goal) => goal.id !== goalId),
+        );
         if (editingGoal?.id === goalId) {
           setEditingGoal(null);
           setEditingGoalText("");
         }
+        if (onNeedsSidebarRefresh) {
+          onNeedsSidebarRefresh();
+        }
       }
     },
-    [listId, loadListAndGoals, displayedGoals, editingGoal?.id]
+    [listId, displayedGoals, editingGoal?.id, onNeedsSidebarRefresh], // displayedGoals додано в залежності
   );
 
   const handleStartEditGoal = useCallback((goal: Goal) => {
     if (goal.completed) return;
     setEditingGoal(goal);
     setEditingGoalText(goal.text);
-  }, []);
+  }, []); // setEditingGoal, setEditingGoalText стабільні
 
   const handleCancelEditGoal = useCallback(() => {
     setEditingGoal(null);
     setEditingGoalText("");
-  }, []);
+  }, []); // setEditingGoal, setEditingGoalText стабільні
 
   const handleSubmitEditGoal = useCallback(() => {
     if (!editingGoal) return;
     if (!editingGoalText.trim()) {
-      // Замість видалення, просто скасуємо редагування або покажемо помилку
       alert("Текст цілі не може бути порожнім.");
       editGoalInputRef.current?.focus();
       return;
     }
     try {
-      goalListStore.updateGlobalGoalText( // Оновлюємо глобальну ціль
+      goalListStore.updateGlobalGoalText(
         editingGoal.id,
-        editingGoalText.trim()
+        editingGoalText.trim(),
       );
-      loadListAndGoals(); // Перезавантажуємо для оновлення тексту
+      setDisplayedGoals((currentGoals) =>
+        currentGoals.map((g) =>
+          g.id === editingGoal.id ? { ...g, text: editingGoalText.trim() } : g,
+        ),
+      );
       setEditingGoal(null);
       setEditingGoalText("");
-    } catch (error) {
+    } catch (error: any) {
       alert((error as Error).message);
     }
-  }, [editingGoal, editingGoalText, loadListAndGoals]);
-
+  }, [editingGoal, editingGoalText]); // setDisplayedGoals, setEditingGoal, setEditingGoalText стабільні
 
   const handleDataRefreshRequestFromPopover = useCallback(() => {
     loadListAndGoals();
@@ -196,6 +166,110 @@ function GoalListPage({
     }
   }, [onNeedsSidebarRefresh]);
 
+  const onDragEnd = (result: DropResult) => {
+    const { source, destination, draggableId } = result;
+
+    if (!destination) {
+      return;
+    }
+
+    if (
+      destination.droppableId === source.droppableId &&
+      destination.index === source.index
+    ) {
+      return;
+    }
+
+    // itemsToReorder завжди базується на activeFilteredGoals, бо користувач сортує те, що бачить
+    const itemsToReorder = Array.from(activeFilteredGoals);
+    const [reorderedItemFromActive] = itemsToReorder.splice(source.index, 1);
+    itemsToReorder.splice(destination.index, 0, reorderedItemFromActive);
+
+    // Негайно оновлюємо activeFilteredGoals для UI
+    setActiveFilteredGoals(itemsToReorder);
+
+    // Тепер готуємо масив ID для збереження в сторі.
+    // Якщо фільтр неактивний, то `itemsToReorder` (оновлений `activeFilteredGoals`) є новим `displayedGoals`.
+    if (!filterText.trim()) {
+      setDisplayedGoals(itemsToReorder);
+      const finalOrderedIdsForStore = itemsToReorder.map((goal) => goal.id);
+      goalListStore.updateGoalOrderInList(listId, finalOrderedIdsForStore);
+      console.log(
+        `Reordered (no filter) ${draggableId} from index ${source.index} to ${destination.index}. Store updated.`,
+      );
+    } else {
+      // Якщо фільтр активний, потрібно реконструювати `displayedGoals`.
+      const newDisplayedGoals = Array.from(displayedGoals);
+      const itemBeingMovedInDisplayed = newDisplayedGoals.find(
+        (g) => g.id === draggableId,
+      );
+
+      if (!itemBeingMovedInDisplayed) {
+        console.error(
+          "DND: Переміщуваний елемент не знайдено в displayedGoals. Це не повинно трапитися.",
+        );
+        return; // Або інша обробка помилки
+      }
+
+      // Видаляємо елемент зі старої позиції в displayedGoals
+      const oldIndexInDisplayed = newDisplayedGoals.findIndex(
+        (g) => g.id === draggableId,
+      );
+      if (oldIndexInDisplayed > -1) {
+        newDisplayedGoals.splice(oldIndexInDisplayed, 1);
+      }
+
+      // Знаходимо новий індекс для вставки в displayedGoals.
+      // `destination.index` - це індекс у `itemsToReorder` (оновленому `activeFilteredGoals`).
+      let targetIndexInDisplayed;
+
+      if (destination.index === 0) {
+        // Якщо вставляємо на початок ВІДФІЛЬТРОВАНОГО списку
+        // Знаходимо, де перший елемент ВІДФІЛЬТРОВАНОГО списку знаходиться у ПОВНОМУ списку
+        const firstActiveItemId = itemsToReorder[0]?.id;
+        if (firstActiveItemId) {
+          const indexOfFirstActiveInDisplayed = newDisplayedGoals.findIndex(
+            (g) => g.id === firstActiveItemId,
+          );
+          targetIndexInDisplayed =
+            indexOfFirstActiveInDisplayed !== -1
+              ? indexOfFirstActiveInDisplayed
+              : 0;
+        } else {
+          // Якщо відфільтрований список став порожнім (малоймовірно тут, але для безпеки)
+          targetIndexInDisplayed = 0;
+        }
+      } else {
+        // Якщо вставляємо після якогось елемента у ВІДФІЛЬТРОВАНОМУ списку
+        const itemBeforeIdInActive = itemsToReorder[destination.index - 1]?.id;
+        if (itemBeforeIdInActive) {
+          const indexOfItemBeforeInDisplayed = newDisplayedGoals.findIndex(
+            (g) => g.id === itemBeforeIdInActive,
+          );
+          targetIndexInDisplayed =
+            indexOfItemBeforeInDisplayed !== -1
+              ? indexOfItemBeforeInDisplayed + 1
+              : newDisplayedGoals.length;
+        } else {
+          // Якщо немає попереднього елемента (малоймовірно)
+          targetIndexInDisplayed = newDisplayedGoals.length;
+        }
+      }
+
+      newDisplayedGoals.splice(
+        Math.min(targetIndexInDisplayed, newDisplayedGoals.length),
+        0,
+        itemBeingMovedInDisplayed,
+      );
+      setDisplayedGoals(newDisplayedGoals);
+
+      const finalOrderedIdsForStore = newDisplayedGoals.map((goal) => goal.id);
+      goalListStore.updateGoalOrderInList(listId, finalOrderedIdsForStore);
+      console.log(
+        `Reordered (with filter) ${draggableId} from index ${source.index} (filtered) to ${destination.index} (filtered). Store updated based on new displayedGoals order.`,
+      );
+    }
+  };
 
   if (!listInfo) {
     return (
@@ -213,11 +287,7 @@ function GoalListPage({
   }
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragEnd={handleDragEnd}
-    >
+    <DragDropContext onDragEnd={onDragEnd}>
       <div className="pt-3 pl-1.5 pr-4 pb-4 min-h-full flex flex-col">
         {editingGoal && (
           <div className="mb-3 p-3 border border-blue-400 dark:border-blue-600 rounded-lg bg-white dark:bg-slate-700 shadow-md flex-shrink-0">
@@ -228,11 +298,7 @@ function GoalListPage({
               ref={editGoalInputRef}
               value={editingGoalText}
               onChange={(e) => setEditingGoalText(e.target.value)}
-              className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-slate-500 rounded-md 
-                         bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100
-                         focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:focus:ring-indigo-400 
-                         focus:border-indigo-500 dark:focus:border-indigo-400 
-                         placeholder-slate-400 dark:placeholder-slate-500 sm:text-sm mb-2 min-h-[50px]"
+              className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-slate-500 rounded-md bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 placeholder-slate-400 dark:placeholder-slate-500 sm:text-sm mb-2 min-h-[50px]"
               rows={2}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
@@ -259,7 +325,7 @@ function GoalListPage({
           </div>
         )}
 
-        <div className="flex-grow pr-1 overflow-y-auto"> {/* Додав overflow-y-auto сюди */}
+        <div className="flex-grow pr-1 overflow-y-auto">
           {activeFilteredGoals.length === 0 && !editingGoal && (
             <div className="text-center py-8 px-2 flex flex-col items-center justify-center h-full">
               <SearchX
@@ -281,31 +347,40 @@ function GoalListPage({
             </div>
           )}
           {activeFilteredGoals.length > 0 && (
-            <SortableContext
-              items={activeFilteredGoals.map((goal) => goal.id)} // Сортуємо відфільтровані, але DragEnd працює з displayedGoals
-              strategy={verticalListSortingStrategy}
-            >
-              <ul className="space-y-1.5">
-                {activeFilteredGoals.map((goal) => (
-                  <SortableGoalItem
-                    key={goal.id}
-                    goal={goal}
-                    listIdThisGoalBelongsTo={listId} // Передаємо ID поточного списку
-                    onToggle={handleToggleGoal}
-                    onDelete={handleDeleteGoal}
-                    onStartEdit={handleStartEditGoal}
-                    obsidianVaultName={obsidianVaultName}
-                    onTagClickForFilter={onTagClickForFilter}
-                    onDataShouldRefreshInParent={handleDataRefreshRequestFromPopover}
-                    onSidebarShouldRefreshListsInParent={handleSidebarRefreshRequestFromPopover}
-                  />
-                ))}
-              </ul>
-            </SortableContext>
+            <Droppable droppableId={listId} type="GOAL">
+              {(provided, snapshot) => (
+                <ul
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  className={`space-y-1.5 ${snapshot.isDraggingOver ? "bg-slate-100 dark:bg-slate-700/50 rounded-md p-1" : ""}`}
+                >
+                  {activeFilteredGoals.map((goal, itemIndex) => (
+                    <SortableGoalItem
+                      key={goal.id}
+                      goal={goal}
+                      index={itemIndex}
+                      onToggle={handleToggleGoal}
+                      obsidianVaultName={obsidianVaultName}
+                      onTagClickForFilter={onTagClickForFilter}
+                      listIdThisGoalBelongsTo={listId} // Передаємо
+                      onDelete={handleDeleteGoal}
+                      onStartEdit={handleStartEditGoal}
+                      onDataShouldRefreshInParent={
+                        handleDataRefreshRequestFromPopover
+                      }
+                      onSidebarShouldRefreshListsInParent={
+                        handleSidebarRefreshRequestFromPopover
+                      }
+                    />
+                  ))}
+                  {provided.placeholder}
+                </ul>
+              )}
+            </Droppable>
           )}
         </div>
       </div>
-    </DndContext>
+    </DragDropContext>
   );
 }
 

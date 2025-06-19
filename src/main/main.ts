@@ -5,6 +5,8 @@ import os from "os";
 import { exec, execSync } from "child_process";
 
 app.disableHardwareAcceleration();
+app.commandLine.appendSwitch("disable-gpu-compositing"); // ДОДАТИ ЦЕЙ РЯДОК
+
 console.log("[Main] Апаратне прискорення GPU вимкнено.");
 
 // Шлях до package.json (адаптуйте, якщо структура інша)
@@ -297,7 +299,7 @@ async function createUserDesktopFileHandlerInternal(): Promise<{
     const desktopFileContent = `[Desktop Entry]
 Name=${APP_PRODUCT_NAME}
 Comment=Запустити ${APP_PRODUCT_NAME}
-Exec="${appImagePath}" %U
+Exec="${appImagePath}" --gtk-version=3 %U
 Icon=${APP_EXECUTABLE_NAME}
 Terminal=false
 Type=Application

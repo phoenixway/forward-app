@@ -9,17 +9,15 @@ import { exec, execSync } from "child_process";
 const packageJsonDefaultPath = path.join(__dirname, "..", "..", "package.json");
 let packageJson: any;
 try {
-  // Спробуємо знайти package.json поруч із зібраним main.js (якщо electron-builder копіює його)
-  // або в корені проекту для розробки.
   const possiblePackageJsonPaths = [
-    packageJsonDefaultPath, // Для випадку, якщо __dirname вказує на dist/main
-    path.join(app.getAppPath(), "package.json"), // Більш надійний шлях для розробки та деяких упаковок
+    packageJsonDefaultPath,
+    path.join(app.getAppPath(), "package.json"),
     app.isPackaged
       ? path.join(process.resourcesPath, "app.asar.unpacked", "package.json")
-      : null, // Для app.asar.unpacked
+      : null,
     app.isPackaged
       ? path.join(process.resourcesPath, "app", "package.json")
-      : null, // Ще один можливий варіант для упакованого
+      : null,
   ].filter((p) => p !== null) as string[];
 
   let foundPath: string | undefined;
@@ -72,23 +70,20 @@ const desktopFileName = `${APP_EXECUTABLE_NAME}.desktop`;
 let mainWindowInstance: BrowserWindow | null = null;
 let queuedUrlFromAppOpen: string | null = null;
 
-// Канали IPC, які використовуються у вашому preload.ts
 const IPC_CHANNELS_FROM_PRELOAD = {
   GET_APP_VERSION: "get-app-version",
-  GET_APP_SETTINGS: "get-app-settings", // Потрібна реалізація
-  SET_APP_SETTING: "set-app-setting", // Потрібна реалізація
+  GET_APP_SETTINGS: "get-app-settings",
+  SET_APP_SETTING: "set-app-setting",
   OPEN_EXTERNAL_LINK: "open-external-link",
-  HANDLE_CUSTOM_URL: "handle-custom-url", // Це для рендерера, щоб отримувати URL
+  HANDLE_CUSTOM_URL: "handle-custom-url",
   SHOW_SAVE_DIALOG: "show-save-dialog",
   SHOW_OPEN_DIALOG: "show-open-dialog",
   WRITE_FILE: "write-file",
   READ_FILE: "read-file",
-  TEST_IPC_MESSAGE: "test-ipc-message", // Канал для тестування
+  TEST_IPC_MESSAGE: "test-ipc-message",
   RENDERER_READY_FOR_URL: "renderer-ready-for-url",
 };
 
-// Не забудьте оголосити MAIN_WINDOW_VITE_DEV_SERVER_URL та MAIN_WINDOW_VITE_NAME,
-// якщо ви використовуєте electron-vite шаблон. Якщо ні, адаптуйте завантаження URL/файлу.
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
 
@@ -102,39 +97,40 @@ function createWindow() {
   });
 
   if (process.platform === "linux") {
-    const untypedMainWindowInstance = mainWindowInstance as any; // Приведення до any
-    if (typeof untypedMainWindowInstance.setWMClass === "function") {
-      console.log(`[Main] Спроба встановити WMClass на: ${APP_PRODUCT_NAME}`);
-      untypedMainWindowInstance.setWMClass(APP_PRODUCT_NAME);
-      console.log(`[Main] WMClass встановлено (або помилка не виникла).`);
-    } else {
-      console.warn(
-        "[Main] BrowserWindow.setWMClass() function not found on instance.",
-      );
+    const untypedMainWindowInstance = mainWindowInstance as any;
+    try {
+      if (typeof untypedMainWindowInstance.setWMClass === "function") {
+        console.log(`[Main] Спроба встановити WMClass на: ${APP_PRODUCT_NAME}`);
+        untypedMainWindowInstance.setWMClass(APP_PRODUCT_NAME);
+        console.log(
+          `[Main] WMClass встановлено (або помилка не виникла при спробі).`,
+        );
+      } else {
+        console.warn(
+          "[Main] BrowserWindow.setWMClass() function not found on instance.",
+        );
+      }
+    } catch (wmClassError) {
+      console.warn("[Main] Помилка під час виклику setWMClass:", wmClassError);
     }
   }
 
-  // Завантаження UI (зберігаємо вашу логіку з MAIN_WINDOW_VITE_...)
-  // Переконайтеся, що ці змінні визначені, якщо ви їх використовуєте.
-  // Якщо ні, замініть цю логіку на app.isPackaged, як було запропоновано раніше.
   if (
     typeof MAIN_WINDOW_VITE_DEV_SERVER_URL !== "undefined" &&
     MAIN_WINDOW_VITE_DEV_SERVER_URL
   ) {
     mainWindowInstance.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
-    // mainWindowInstance.webContents.openDevTools(); // Розкоментуйте для відладки
   } else if (typeof MAIN_WINDOW_VITE_NAME !== "undefined") {
     mainWindowInstance.loadFile(
       path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
     );
   } else {
-    // Запасний варіант, якщо змінні electron-vite не визначені
     console.warn(
       "[Main] MAIN_WINDOW_VITE_DEV_SERVER_URL та MAIN_WINDOW_VITE_NAME не визначені. Спроба завантажити стандартний index.html.",
     );
     const indexPath = app.isPackaged
-      ? path.join(__dirname, "../renderer/index.html") // Адаптуйте шлях для продакшену
-      : "http://localhost:5173"; // Адаптуйте URL для dev сервера
+      ? path.join(__dirname, "../renderer/index.html")
+      : "http://localhost:5173";
 
     if (app.isPackaged) {
       mainWindowInstance
@@ -144,45 +140,59 @@ function createWindow() {
       mainWindowInstance
         .loadURL(indexPath)
         .catch((err) => console.error("[Main] Error loading URL:", err));
-      // mainWindowInstance.webContents.openDevTools();
     }
   }
 
   mainWindowInstance.webContents.once("did-finish-load", () => {
     console.log("[Main] Window finished loading.");
-    if (queuedUrlFromAppOpen && mainWindowInstance) {
+    if (
+      queuedUrlFromAppOpen &&
+      mainWindowInstance &&
+      !mainWindowInstance.isDestroyed() &&
+      mainWindowInstance.webContents &&
+      !mainWindowInstance.webContents.isDestroyed()
+    ) {
       console.log(
-        `[Main] Sending queued URL to renderer: ${queuedUrlFromAppOpen}`,
+        `[Main] Sending queued URL to renderer after did-finish-load: ${queuedUrlFromAppOpen}`,
       );
       mainWindowInstance.webContents.send(
-        IPC_CHANNELS_FROM_PRELOAD.HANDLE_CUSTOM_URL, // Використовуємо ваш канал
+        IPC_CHANNELS_FROM_PRELOAD.HANDLE_CUSTOM_URL,
         queuedUrlFromAppOpen,
       );
       queuedUrlFromAppOpen = null;
     }
   });
 
-  // Надсилання тестового повідомлення рендереру після завантаження
   mainWindowInstance.webContents.on("dom-ready", () => {
-    // Або did-finish-load
     console.log(
       `[Main] DOM ready, sending test message on channel ${IPC_CHANNELS_FROM_PRELOAD.TEST_IPC_MESSAGE}`,
     );
-    mainWindowInstance?.webContents.send(
-      IPC_CHANNELS_FROM_PRELOAD.TEST_IPC_MESSAGE,
-      "Hello from Main Process after DOM ready!",
-    );
+    if (
+      mainWindowInstance &&
+      !mainWindowInstance.isDestroyed() &&
+      mainWindowInstance.webContents &&
+      !mainWindowInstance.webContents.isDestroyed()
+    ) {
+      mainWindowInstance.webContents.send(
+        IPC_CHANNELS_FROM_PRELOAD.TEST_IPC_MESSAGE,
+        "Hello from Main Process after DOM ready!",
+      );
+    }
+  });
+
+  mainWindowInstance.on("closed", () => {
+    mainWindowInstance = null;
   });
 
   return mainWindowInstance;
 }
 
-// --- Функції для інтеграції з робочим столом ---
+// --- Функції для інтеграції з робочим столом (без змін) ---
 function isAppImageOnLinuxInternal(): boolean {
   const result =
     process.platform === "linux" &&
-    !!process.env.APPIMAGE && // <--- Перевірка 1
-    !!process.env.APPDIR; // <--- Перевірка 2
+    !!process.env.APPIMAGE &&
+    !!process.env.APPDIR;
 
   console.log(
     `[Main] isAppImageOnLinuxInternal: platform=${process.platform}, APPIMAGE=${process.env.APPIMAGE}, APPDIR=${process.env.APPDIR}, result=${result}`,
@@ -310,23 +320,19 @@ Keywords=goals;tasks;productivity;${APP_PRODUCT_NAME};${APP_EXECUTABLE_NAME};
     }
     if (iconCopied && commandExistsInternal("gtk-update-icon-cache")) {
       const userIconsHicolorDir = path.join(userIconsBaseDir, "hicolor");
-      // Спробуємо створити index.theme, якщо його немає, перш ніж оновлювати кеш
       const indexThemePath = path.join(userIconsHicolorDir, "index.theme");
       if (!(await fs.pathExists(indexThemePath))) {
         try {
-          // Створюємо мінімальний index.theme для hicolor
           const hicolorIndexThemeContent = `[Icon Theme]
 Name=Hicolor
 Comment=Fallback theme for Freedesktop icon themes
 Inherits=hicolor
 Directories=16x16/apps,22x22/apps,24x24/apps,32x32/apps,48x48/apps,64x64/apps,128x128/apps,256x256/apps,512x512/apps,scalable/apps
-# Example for 256x256/apps
 [256x256/apps]
 Size=256
 Context=Applications
 Type=Fixed
-`; // Можна додати інші розміри, якщо потрібно
-          // Переконаємося, що базовий каталог для hicolor існує
+`;
           await fs.mkdirp(userIconsHicolorDir);
           await fs.writeFile(indexThemePath, hicolorIndexThemeContent);
           console.log(`[Main] Створено файл ${indexThemePath}`);
@@ -338,7 +344,7 @@ Type=Fixed
         }
       }
       commandsToExecute.push(
-        `gtk-update-icon-cache -f -q "${userIconsHicolorDir}"`, // Оновлюємо конкретно hicolor
+        `gtk-update-icon-cache -f -q "${userIconsHicolorDir}"`,
       );
     } else if (iconCopied) {
       console.warn("[Main] Команда gtk-update-icon-cache не знайдена.");
@@ -368,25 +374,56 @@ Type=Fixed
 
 // --- Реєстрація IPC обробників ---
 app.whenReady().then(() => {
-  // Обробники з вашого preload.ts
+  // Реєстрація обробника протоколу ПЕРЕМІЩЕНО СЮДИ
+  if (process.platform !== "darwin") {
+    if (!app.isDefaultProtocolClient(APP_URL_SCHEME)) {
+      console.log(
+        `[Main] Реєстрація протоколу: APP_URL_SCHEME=${APP_URL_SCHEME}, process.execPath=${process.execPath}, defaultApp=${process.defaultApp}`,
+      );
+      if (process.defaultApp && process.argv.length >= 2) {
+        console.log(
+          `[Main] Аргументи для defaultApp: ${[path.resolve(process.argv[1])]}`,
+        );
+      }
+      const success = app.setAsDefaultProtocolClient(
+        APP_URL_SCHEME,
+        process.execPath,
+        process.defaultApp ? [path.resolve(process.argv[1])] : undefined,
+      );
+      if (!success) {
+        console.error(
+          `[Main] Не вдалося зареєструвати клієнт протоколу для ${APP_URL_SCHEME}`,
+        );
+      } else {
+        console.log(
+          `[Main] Клієнт протоколу для ${APP_URL_SCHEME} успішно зареєстровано/перевірено.`,
+        );
+      }
+    } else {
+      console.log(
+        `[Main] ${APP_URL_SCHEME} вже є клієнтом протоколу за замовчуванням.`,
+      );
+    }
+  }
+
   ipcMain.handle(IPC_CHANNELS_FROM_PRELOAD.GET_APP_VERSION, () => {
     return app.getVersion();
   });
 
   ipcMain.handle(IPC_CHANNELS_FROM_PRELOAD.GET_APP_SETTINGS, async () => {
-    // ЗАМІНІТЬ ЦЕ НА ВАШУ РЕАЛЬНУ ЛОГІКУ ОТРИМАННЯ НАЛАШТУВАНЬ
     console.log("[Main] GET_APP_SETTINGS called");
-    return { exampleSetting: "exampleValue" }; // Приклад
+    // ЗАМІНІТЬ ЦЕ НА ВАШУ РЕАЛЬНУ ЛОГІКУ ОТРИМАННЯ НАЛАШТУВАНЬ
+    return { exampleSetting: "exampleValueFromMain" };
   });
 
   ipcMain.handle(
     IPC_CHANNELS_FROM_PRELOAD.SET_APP_SETTING,
     async (_event, key: string, value: any) => {
-      // ЗАМІНІТЬ ЦЕ НА ВАШУ РЕАЛЬНУ ЛОГІКУ ЗБЕРЕЖЕННЯ НАЛАШТУВАНЬ
       console.log(
         `[Main] SET_APP_SETTING called with key: ${key}, value: ${value}`,
       );
-      return { success: true, message: `Setting ${key} saved.` }; // Приклад
+      // ЗАМІНІТЬ ЦЕ НА ВАШУ РЕАЛЬНУ ЛОГІКУ ЗБЕРЕЖЕННЯ НАЛАШТУВАНЬ
+      return { success: true, message: `Setting ${key} saved.` };
     },
   );
 
@@ -406,7 +443,12 @@ app.whenReady().then(() => {
   ipcMain.handle(
     IPC_CHANNELS_FROM_PRELOAD.SHOW_SAVE_DIALOG,
     async (_event, options: Electron.SaveDialogOptions) => {
-      if (!mainWindowInstance) return { canceled: true, filePath: undefined };
+      if (!mainWindowInstance || mainWindowInstance.isDestroyed()) {
+        console.warn(
+          "[Main] showSaveDialog: mainWindowInstance is not available.",
+        );
+        return { canceled: true, filePath: undefined };
+      }
       return dialog.showSaveDialog(mainWindowInstance, options);
     },
   );
@@ -426,7 +468,12 @@ app.whenReady().then(() => {
   ipcMain.handle(
     IPC_CHANNELS_FROM_PRELOAD.SHOW_OPEN_DIALOG,
     async (_event, options: Electron.OpenDialogOptions) => {
-      if (!mainWindowInstance) return { canceled: true, filePaths: [] };
+      if (!mainWindowInstance || mainWindowInstance.isDestroyed()) {
+        console.warn(
+          "[Main] showOpenDialog: mainWindowInstance is not available.",
+        );
+        return { canceled: true, filePaths: [] };
+      }
       return dialog.showOpenDialog(mainWindowInstance, options);
     },
   );
@@ -443,7 +490,6 @@ app.whenReady().then(() => {
     },
   );
 
-  // Обробник для сигналу готовності рендерера
   ipcMain.on(IPC_CHANNELS_FROM_PRELOAD.RENDERER_READY_FOR_URL, () => {
     console.log(
       `[Main] Received ${IPC_CHANNELS_FROM_PRELOAD.RENDERER_READY_FOR_URL}`,
@@ -452,10 +498,12 @@ app.whenReady().then(() => {
       queuedUrlFromAppOpen &&
       mainWindowInstance &&
       !mainWindowInstance.isDestroyed() &&
-      !mainWindowInstance.webContents.isLoading()
+      mainWindowInstance.webContents &&
+      !mainWindowInstance.webContents.isDestroyed() &&
+      !mainWindowInstance.webContents.isLoading() // Додаткова перевірка
     ) {
       console.log(
-        `[Main] Sending queued URL via ${IPC_CHANNELS_FROM_PRELOAD.HANDLE_CUSTOM_URL}: ${queuedUrlFromAppOpen}`,
+        `[Main] Sending queued URL via ${IPC_CHANNELS_FROM_PRELOAD.HANDLE_CUSTOM_URL} after renderer ready: ${queuedUrlFromAppOpen}`,
       );
       mainWindowInstance.webContents.send(
         IPC_CHANNELS_FROM_PRELOAD.HANDLE_CUSTOM_URL,
@@ -465,7 +513,6 @@ app.whenReady().then(() => {
     }
   });
 
-  // Нові IPC хендлери для інтеграції з робочим столом
   ipcMain.handle("app:isAppImageOnLinux", () => isAppImageOnLinuxInternal());
   ipcMain.handle("app:hasUserDesktopFile", async () =>
     hasUserDesktopFileInternal(),
@@ -479,6 +526,12 @@ app.whenReady().then(() => {
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
+    } else if (mainWindowInstance && mainWindowInstance.isDestroyed()) {
+      // Якщо mainWindowInstance було закрито, але getAllWindows ще не порожнє (рідкісний випадок)
+      createWindow();
+    } else if (mainWindowInstance) {
+      if (mainWindowInstance.isMinimized()) mainWindowInstance.restore();
+      mainWindowInstance.focus();
     }
   });
 });
@@ -490,68 +543,56 @@ app.on("window-all-closed", () => {
   }
 });
 
-// Реєстрація обробника протоколу
-// Важливо зробити це до app.whenReady(), якщо можливо, або переконатися, що це не викликає проблем
-if (process.platform !== "darwin") {
-  // На macOS це зазвичай робиться через Info.plist
-  if (!app.isDefaultProtocolClient(APP_URL_SCHEME)) {
-    // Встановлюємо лише якщо ще не встановлено як обробник за замовчуванням
-    console.log(
-      `[Main] Реєстрація протоколу: APP_URL_SCHEME=${APP_URL_SCHEME}, process.execPath=${process.execPath}, defaultApp=${process.defaultApp}`,
-    );
-    if (process.defaultApp && process.argv.length >= 2) {
-      console.log(
-        `[Main] Аргументи для defaultApp: ${[path.resolve(process.argv[1])]}`,
-      );
-    }
-    const success = app.setAsDefaultProtocolClient(
-      APP_URL_SCHEME,
-      process.execPath,
-      process.defaultApp ? [path.resolve(process.argv[1])] : undefined,
-    );
-    if (!success) {
-      console.error(
-        `[Main] Не вдалося зареєструвати клієнт протоколу для ${APP_URL_SCHEME}`,
-      );
-    } else {
-      console.log(
-        `[Main] Клієнт протоколу для ${APP_URL_SCHEME} успішно зареєстровано/перевірено.`,
-      );
-    }
-  } else {
-    console.log(
-      `[Main] ${APP_URL_SCHEME} вже є клієнтом протоколу за замовчуванням.`,
-    );
-  }
-}
-
 // Обробник події 'open-url'
 app.on("open-url", (event, url) => {
   event.preventDefault();
   console.log(`[Main] Подія open-url з URL: ${url}`);
+
   if (mainWindowInstance && !mainWindowInstance.isDestroyed()) {
-    if (mainWindowInstance.webContents.isLoading()) {
+    if (
+      mainWindowInstance.webContents &&
+      !mainWindowInstance.webContents.isDestroyed() &&
+      (mainWindowInstance.webContents.isLoading() ||
+        !mainWindowInstance.webContents.getURL()) // Якщо ще не завантажено або isLoading
+    ) {
       console.log(
-        `[Main] Вікно завантажується, URL поставлено в чергу: ${url}`,
+        `[Main] open-url: Вікно завантажується або не має URL, URL поставлено в чергу: ${url}`,
       );
       queuedUrlFromAppOpen = url;
-    } else {
+    } else if (
+      mainWindowInstance.webContents &&
+      !mainWindowInstance.webContents.isDestroyed()
+    ) {
       console.log(
-        `[Main] Вікно існує, надсилання URL через ${IPC_CHANNELS_FROM_PRELOAD.HANDLE_CUSTOM_URL}: ${url}`,
+        `[Main] open-url: Вікно існує, надсилання URL через ${IPC_CHANNELS_FROM_PRELOAD.HANDLE_CUSTOM_URL}: ${url}`,
       );
       mainWindowInstance.webContents.send(
         IPC_CHANNELS_FROM_PRELOAD.HANDLE_CUSTOM_URL,
         url,
       );
+    } else {
+      // webContents може бути зруйновано, навіть якщо вікно ще ні
+      console.log(
+        `[Main] open-url: webContents недоступний. URL поставлено в чергу: ${url}`,
+      );
+      queuedUrlFromAppOpen = url;
     }
     if (mainWindowInstance.isMinimized()) mainWindowInstance.restore();
     mainWindowInstance.focus();
   } else {
     console.log(
-      `[Main] Головне вікно недоступне. URL поставлено в чергу: ${url}`,
+      `[Main] open-url: Головне вікно недоступне. URL поставлено в чергу: ${url}`,
     );
     queuedUrlFromAppOpen = url;
-    // Якщо вікна немає, воно буде створено в app.whenReady() або app.on('activate')
-    // і URL буде оброблено після 'did-finish-load' або 'renderer-ready-for-url'
+    // Якщо вікна немає, і додаток ще не готовий, `app.whenReady` його створить
+    // Якщо додаток вже готовий, але вікна немає (наприклад, було закрито на не-macOS),
+    // то потрібно його створити. Подія 'activate' може це зробити.
+    // Або, якщо це перший запуск через URL, createWindow буде викликано з whenReady.
+    if (app.isReady() && BrowserWindow.getAllWindows().length === 0) {
+      console.log(
+        "[Main] open-url: Додаток готовий, але вікон немає. Спроба створити вікно.",
+      );
+      createWindow(); // Створюємо вікно, queuedUrlFromAppOpen буде оброблено після завантаження
+    }
   }
 });

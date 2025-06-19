@@ -4,8 +4,9 @@ import fs from "fs-extra";
 import os from "os";
 import { exec, execSync } from "child_process";
 
-app.disableHardwareAcceleration();
-app.commandLine.appendSwitch("disable-gpu-compositing"); // ДОДАТИ ЦЕЙ РЯДОК
+// app.disableHardwareAcceleration();
+// app.commandLine.appendSwitch("disable-gpu-compositing"); // ДОДАТИ ЦЕЙ РЯДОК
+app.commandLine.appendSwitch("gtk-version", "3");
 
 console.log("[Main] Апаратне прискорення GPU вимкнено.");
 

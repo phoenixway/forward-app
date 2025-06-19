@@ -22,7 +22,6 @@ import {
   parseImportedText,
   parseGoalData,
 } from "../utils/textProcessing";
-import MinimalDndTestPageMovable from "./MinimalDndTestPageMovable";
 
 export interface MainPanelProps {
   currentThemePreference: string;

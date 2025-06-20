@@ -216,6 +216,10 @@ function MainPanel({
     else localStorage.removeItem("activeTabId");
   }, [activeTabId]);
 
+  // src/renderer/components/MainPanel.tsx
+
+  // src/renderer/components/MainPanel.tsx
+
   const handleIncomingCustomUrl = useCallback((url: string) => {
     console.log(`[MainPanel] Received custom URL: ${url}`);
     if (!url || !url.startsWith(`${MY_APP_PROTOCOL}://`)) {
@@ -224,21 +228,36 @@ function MainPanel({
     }
 
     try {
-      const parsedUrl = new URL(url);
-      let command = "";
-      let cleanedPathForLog = ""; // Для логування
-      if (parsedUrl.pathname) {
-        const cleanedPathname = parsedUrl.pathname.replace(/^\/+/, "");
-        cleanedPathForLog = cleanedPathname; // Зберігаємо для логу
-        const pathSegments = cleanedPathname.split("/");
-        if (pathSegments.length > 0) {
-          command = pathSegments[0];
+      const protocolPrefix = `${MY_APP_PROTOCOL}://`;
+      const urlWithoutProtocol = url.substring(protocolPrefix.length);
+
+      const questionMarkIndex = urlWithoutProtocol.indexOf("?");
+      let pathAndCommandPart = urlWithoutProtocol;
+      let queryStringContent = ""; // Вміст після "?"
+      let listIdFromQuery: string | null = null;
+
+      if (questionMarkIndex !== -1) {
+        pathAndCommandPart = urlWithoutProtocol.substring(0, questionMarkIndex);
+        queryStringContent = urlWithoutProtocol.substring(
+          questionMarkIndex + 1,
+        ); // Отримуємо все, що після "?"
+
+        // Перевіряємо, чи queryStringContent містить "="
+        if (queryStringContent.includes("=")) {
+          // Якщо є "=", використовуємо URLSearchParams
+          const searchParams = new URLSearchParams(queryStringContent); // Передаємо "ключ=значення"
+          listIdFromQuery = searchParams.get("id");
+        } else if (queryStringContent) {
+          // Якщо немає "=", і queryStringContent не порожній, то це і є наш ID
+          listIdFromQuery = queryStringContent;
         }
       }
-      const listIdFromQuery = parsedUrl.searchParams.get("id");
+
+      const pathSegments = pathAndCommandPart.split("/");
+      const command = pathSegments[0];
 
       console.log(
-        `[MainPanel] Parsed URL - Raw URL: "${url}", Protocol: "${parsedUrl.protocol}", Hostname: "${parsedUrl.hostname}", Pathname: "${parsedUrl.pathname}", Cleaned Pathname for command: "${cleanedPathForLog}", Command from path: "${command}", List ID from query: "${listIdFromQuery}"`,
+        `[MainPanel] Parsed URL - Raw URL: "${url}", Command: "${command}", List ID from query: "${listIdFromQuery}" (Query string content: "${queryStringContent}")`,
       );
 
       if (command === "open-list") {
@@ -265,29 +284,31 @@ function MainPanel({
                   detail: eventDetail,
                 }),
               );
-            }, 0); // Затримка 0 мс (або трохи більше, наприклад 50-100, для більшої надійності)
-            // --- КІНЕЦЬ ЗАТРИМКИ ---
-
-            // window.dispatchEvent(
-            //   new CustomEvent<OpenGoalListDetail>(OPEN_GOAL_LIST_EVENT, {
-            //     detail: eventDetail,
-            //   }),
-            // );
+            }, 50);
             console.log(
-              `[MainPanel] OPEN_GOAL_LIST_EVENT dispatched with detail:`,
+              `[MainPanel] OPEN_GOAL_LIST_EVENT dispatch initiated with detail:`,
               eventDetail,
             );
           } else {
             alert(`Список з ID "${listIdFromQuery}" не знайдено у сховищі.`);
+            console.warn(
+              `[MainPanel] List with ID "${listIdFromQuery}" not found in store.`,
+            );
           }
         } else {
           alert(
-            "Не вказано ID списку в URL (параметр 'id' відсутній або порожній).",
+            "Не вказано ID списку в URL (параметр 'id' або сам ID після '?' відсутній або порожній).",
+          );
+          console.warn(
+            "[MainPanel] List ID missing or empty in URL for 'open-list' command.",
           );
         }
       } else {
         alert(
-          `Невідома команда в URL: "${command}". Очікувалась команда "open-list".`,
+          `Невідома команда в URL: "${command}". Очікувалась команда "open-list". Ваш URL: ${url}`,
+        );
+        console.warn(
+          `[MainPanel] Unknown command in URL: "${command}". Expected "open-list". URL: ${url}`,
         );
       }
     } catch (error) {
@@ -298,7 +319,6 @@ function MainPanel({
       alert("Помилка обробки URL-посилання. Перевірте консоль для деталей.");
     }
   }, []);
-
   // src/renderer/components/MainPanel.tsx
 
   const handleOpenGoalListEventCallback = useCallback(

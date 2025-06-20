@@ -11,14 +11,31 @@ const MAX_ZOOM = 2.0;
 const OBSIDIAN_VAULT_SETTING_KEY = "obsidianVaultPath";
 
 const App: React.FC = () => {
-  console.log("[App.tsx] Рендеринг компонента App"); // Лог рендерингу
+  console.log("[App.tsx] Рендеринг компонента App");
 
+  // --- Сигнал готовності рендерера ---
   useEffect(() => {
-    console.log("[App.tsx] Компонент App змонтовано (didMount)");
+    console.log(
+      "[App.tsx] Компонент App змонтовано (didMount). Надсилаємо сигнал RENDERER_READY_FOR_URL.",
+    );
+    if (
+      window.electronAPI &&
+      typeof window.electronAPI.rendererReadyForUrl === "function"
+    ) {
+      window.electronAPI.rendererReadyForUrl();
+      console.log(
+        "[App.tsx] Сигнал RENDERER_READY_FOR_URL надіслано до main процесу.",
+      );
+    } else {
+      console.warn(
+        "[App.tsx] window.electronAPI.rendererReadyForUrl не доступний.",
+      );
+    }
+
     return () => {
       console.log("[App.tsx] Компонент App буде розмонтовано (willUnmount)");
     };
-  }, []); // Порожній масив, щоб спрацювало один раз
+  }, []); // Порожній масив, щоб спрацювало один раз при монтуванні
 
   // --- Логіка теми ---
   const [userPreference, setUserPreference] = useState<string>(() => {
@@ -85,7 +102,7 @@ const App: React.FC = () => {
       `[App.tsx] handleThemePreferenceChange: нова перевага ${newPreference}`,
     );
     setUserPreference(newPreference);
-  }, []); // setUserPreference стабільна
+  }, []);
 
   // --- Логіка Obsidian Vault Path ---
   const [obsidianVaultPath, setObsidianVaultPath] = useState<string>("");
@@ -120,7 +137,7 @@ const App: React.FC = () => {
       }
     };
     loadSettings();
-  }, []); // Порожній масив залежностей
+  }, []);
 
   const handleObsidianVaultChange = useCallback(async (newPath: string) => {
     console.log(`[App.tsx] handleObsidianVaultChange: новий шлях ${newPath}`);
@@ -150,7 +167,6 @@ const App: React.FC = () => {
             );
           }
         } else {
-          // Якщо main не повертає {success: ...}, просто встановлюємо шлях (стара поведінка)
           setObsidianVaultPath(newPath);
         }
       } catch (error: any) {
@@ -162,7 +178,7 @@ const App: React.FC = () => {
       alert("API для збереження налаштувань недоступне.");
       console.warn("[App.tsx] electronAPI.setAppSetting is not available.");
     }
-  }, []); // setObsidianVaultPath стабільна
+  }, []);
 
   // --- Логіка масштабування ---
   const handleKeyDownForZoom = useCallback((event: KeyboardEvent) => {
@@ -171,7 +187,6 @@ const App: React.FC = () => {
       typeof window.electronAPI.getZoomFactor !== "function" ||
       typeof window.electronAPI.setZoomFactor !== "function"
     ) {
-      // console.warn('Zoom API functions are not available.'); // Можна прибрати для зменшення спаму в логах
       return;
     }
 
@@ -223,22 +238,6 @@ const App: React.FC = () => {
       window.removeEventListener("keydown", handleKeyDownForZoom);
     };
   }, [handleKeyDownForZoom]);
-
-  // --- Логіка отримання версії (для MainPanel) ---
-  // Ця функція тут не використовується, MainPanel, ймовірно, має свою логіку для цього або це мало бути пропсом
-  // const fetchAppVersionForPanel = useCallback(async (): Promise<string | null> => {
-  //   if (window.electronAPI && typeof window.electronAPI.getAppVersion === 'function') {
-  //     try {
-  //       return await window.electronAPI.getAppVersion();
-  //     } catch (err) {
-  //       console.error("Помилка отримання версії з App.tsx:", err);
-  //       return null;
-  //     }
-  //   } else {
-  //     console.warn('window.electronAPI.getAppVersion is not available.');
-  //     return null;
-  //   }
-  // }, []);
 
   return (
     <>

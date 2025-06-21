@@ -422,39 +422,45 @@ function MainPanel({
   );
 
   useEffect(() => {
-    const TARGET_KEYCODE = "Slash";
     const refinedGlobalKeyDownHandler = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
       const inputPanelElement = inputPanelGlobalRef.current?.localInputRef;
+
+      // 1. Якщо головна панель вводу вже активна, нічого не робимо.
+      // Це дозволить вводити символ "/" як звичайно.
+      if (document.activeElement === inputPanelElement) {
+        return;
+      }
+
+      // 2. Якщо у фокусі будь-яке інше поле вводу/тексту, також нічого не робимо.
       if (
-        (inputPanelElement && document.activeElement === inputPanelElement) ||
         target.tagName === "INPUT" ||
         target.tagName === "TEXTAREA" ||
         target.isContentEditable
       ) {
-        if (
-          target !==
-            document.querySelector(
-              '.h-10 input[type="text"][placeholder="Фільтрувати цілі..."]',
-            ) &&
-          target !== inputPanelElement
-        )
-          return;
+        return;
       }
+
+      // 3. Якщо ми тут, то жодне поле вводу не активне.
+      // Тепер можна перевіряти наш хоткей.
       if (
-        event.code === TARGET_KEYCODE &&
+        event.code === "Slash" &&
         !event.ctrlKey &&
         !event.metaKey &&
         !event.altKey
       ) {
+        // Запобігаємо стандартній дії (введенню "/")
         event.preventDefault();
+        // І активуємо нашу панель вводу в режимі додавання
         inputPanelGlobalRef.current?.switchToMode(CommandMode.ADD, "");
       }
     };
+
     window.addEventListener("keydown", refinedGlobalKeyDownHandler);
-    return () =>
+    return () => {
       window.removeEventListener("keydown", refinedGlobalKeyDownHandler);
-  }, []);
+    };
+  }, []); // Залежностей немає, бо inputPanelGlobalRef.current є стабільним
 
   const handleTabClick = useCallback(
     (tabId: string) => {

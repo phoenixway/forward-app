@@ -1,10 +1,15 @@
 // src/renderer/components/GoalListPage.tsx
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import * as goalListStore from "../data/goalListsStore";
-import type { Goal, GoalList as GoalListType } from "../data/goalListsStore";
-// Draggable, Droppable, DragDropContext тут не потрібні, вони керуються ззовні (MainPanel)
+import { useSelector, useDispatch } from "react-redux";
+import { RootState, AppDispatch } from "../store/store";
+import {
+  goalToggled,
+  goalRemovedFromList,
+  goalUpdated,
+} from "../store/listsSlice";
+import type { Goal, GoalList } from "../types";
 import { SearchX, ListChecks } from "lucide-react";
-import SortableGoalItem from "./SortableGoalItem"; // SortableGoalItem вже є Draggable
+import SortableGoalItem from "./SortableGoalItem";
 
 interface GoalListPageProps {
   listId: string;
@@ -14,7 +19,6 @@ interface GoalListPageProps {
   onTagClickForFilter?: (filterTerm: string) => void;
   onNeedsSidebarRefresh?: () => void;
   onGoalMovedBetweenLists?: (
-    // Цей проп обробляється в MainPanel
     sourceListId: string,
     destinationListId: string,
     movedGoalId: string,
@@ -24,42 +28,32 @@ interface GoalListPageProps {
 function GoalListPage({
   listId,
   filterText,
-  refreshSignal,
   obsidianVaultName,
   onTagClickForFilter,
   onNeedsSidebarRefresh,
-  // onGoalMovedBetweenLists, // Не використовується тут безпосередньо
 }: GoalListPageProps) {
-  const [listInfo, setListInfo] = useState<Omit<
-    GoalListType,
-    "itemGoalIds"
-  > | null>(null);
-  const [displayedGoals, setDisplayedGoals] = useState<Goal[]>([]);
-  const [activeFilteredGoals, setActiveFilteredGoals] = useState<Goal[]>([]);
+  const dispatch = useDispatch<AppDispatch>();
 
+  // --- ЗМІНЕНО: Отримуємо дані напряму з Redux ---
+  const { listInfo, displayedGoals } = useSelector((state: RootState) => {
+    const list = state.goalLists[listId];
+    if (!list) {
+      return { listInfo: null, displayedGoals: [] };
+    }
+    const goals = list.itemGoalIds
+      .map((id) => state.goals[id])
+      .filter(Boolean) as Goal[];
+    const { itemGoalIds, ...restOfListInfo } = list;
+    return { listInfo: restOfListInfo, displayedGoals: goals };
+  });
+
+  const [activeFilteredGoals, setActiveFilteredGoals] = useState<Goal[]>([]);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [editingGoalText, setEditingGoalText] = useState("");
   const editGoalInputRef = useRef<HTMLTextAreaElement>(null);
 
-  const loadListAndGoals = useCallback(() => {
-    const foundList = goalListStore.getGoalListById(listId);
-    if (foundList) {
-      const { itemGoalIds, ...restOfListInfo } = foundList;
-      setListInfo(restOfListInfo);
-      const goalsForThisList = goalListStore.getGoalsForList(listId);
-      setDisplayedGoals(goalsForThisList);
-    } else {
-      setListInfo(null);
-      setDisplayedGoals([]);
-      console.warn(
-        `[GoalListPage ${listId}] List ${listId} not found during load.`,
-      );
-    }
-  }, [listId]);
-
-  useEffect(() => {
-    loadListAndGoals();
-  }, [listId, refreshSignal, loadListAndGoals]);
+  // --- ВИДАЛЕНО: loadListAndGoals та відповідний useEffect ---
+  // Вони більше не потрібні, бо useSelector робить все автоматично.
 
   useEffect(() => {
     if (listInfo) {
@@ -85,14 +79,14 @@ function GoalListPage({
     }
   }, [editingGoal]);
 
-  const handleToggleGoal = useCallback((goalId: string) => {
-    goalListStore.toggleGlobalGoalCompletion(goalId);
-    setDisplayedGoals((currentGoals) =>
-      currentGoals.map((g) =>
-        g.id === goalId ? { ...g, completed: !g.completed } : g,
-      ),
-    );
-  }, []);
+  // --- ЗМІНЕНО: Всі обробники тепер використовують dispatch ---
+
+  const handleToggleGoal = useCallback(
+    (goalId: string) => {
+      dispatch(goalToggled(goalId));
+    },
+    [dispatch],
+  );
 
   const handleDeleteGoal = useCallback(
     (goalId: string) => {
@@ -103,20 +97,14 @@ function GoalListPage({
           `Видалити ціль "${goalToDelete.text}" зі списку? (Ціль залишиться глобально, якщо використовується в інших списках)`,
         )
       ) {
-        goalListStore.removeGoalFromList(listId, goalId);
-        setDisplayedGoals((prevGoals) =>
-          prevGoals.filter((goal) => goal.id !== goalId),
-        );
+        dispatch(goalRemovedFromList({ listId, goalId }));
         if (editingGoal?.id === goalId) {
           setEditingGoal(null);
           setEditingGoalText("");
         }
-        if (onNeedsSidebarRefresh) {
-          onNeedsSidebarRefresh();
-        }
       }
     },
-    [listId, displayedGoals, editingGoal?.id, onNeedsSidebarRefresh],
+    [listId, displayedGoals, editingGoal?.id, dispatch],
   );
 
   const handleStartEditGoal = useCallback((goal: Goal) => {
@@ -137,32 +125,10 @@ function GoalListPage({
       editGoalInputRef.current?.focus();
       return;
     }
-    try {
-      goalListStore.updateGlobalGoalText(
-        editingGoal.id,
-        editingGoalText.trim(),
-      );
-      setDisplayedGoals((currentGoals) =>
-        currentGoals.map((g) =>
-          g.id === editingGoal.id ? { ...g, text: editingGoalText.trim() } : g,
-        ),
-      );
-      setEditingGoal(null);
-      setEditingGoalText("");
-    } catch (error: any) {
-      alert((error as Error).message);
-    }
-  }, [editingGoal, editingGoalText]);
-
-  const handleDataRefreshRequestFromPopover = useCallback(() => {
-    loadListAndGoals();
-  }, [loadListAndGoals]);
-
-  const handleSidebarRefreshRequestFromPopover = useCallback(() => {
-    if (onNeedsSidebarRefresh) {
-      onNeedsSidebarRefresh();
-    }
-  }, [onNeedsSidebarRefresh]);
+    dispatch(goalUpdated({ id: editingGoal.id, text: editingGoalText.trim() }));
+    setEditingGoal(null);
+    setEditingGoalText("");
+  }, [dispatch, editingGoal, editingGoalText]);
 
   if (!listInfo) {
     return (
@@ -241,30 +207,24 @@ function GoalListPage({
           </div>
         )}
         {activeFilteredGoals.length > 0 && (
-          // Droppable обгортка буде в MainPanel.tsx.
-          // Цей ul є просто контейнером для списку SortableGoalItem.
-          // ref та droppableProps для цього ul будуть надані з Droppable в MainPanel.
           <ul className="space-y-1.5">
             {activeFilteredGoals.map((goal, itemIndex) => (
               <SortableGoalItem
-                key={goal.id} // Ключ на самому SortableGoalItem
+                key={goal.id}
                 goal={goal}
-                index={itemIndex} // Index для Draggable всередині SortableGoalItem
+                index={itemIndex}
                 listIdThisGoalBelongsTo={listId}
                 onToggle={handleToggleGoal}
                 obsidianVaultName={obsidianVaultName}
                 onTagClickForFilter={onTagClickForFilter}
                 onDelete={handleDeleteGoal}
                 onStartEdit={handleStartEditGoal}
-                onDataShouldRefreshInParent={
-                  handleDataRefreshRequestFromPopover
-                }
+                onDataShouldRefreshInParent={() => {}} // Цей проп більше не потрібен
                 onSidebarShouldRefreshListsInParent={
-                  handleSidebarRefreshRequestFromPopover
-                }
+                  onNeedsSidebarRefresh || (() => {})
+                } // Залишаємо
               />
             ))}
-            {/* placeholder буде надано з Droppable в MainPanel */}
           </ul>
         )}
       </div>

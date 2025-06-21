@@ -2,11 +2,14 @@
 import React, { useState, useEffect, useCallback } from "react";
 import "./styles.css"; // Глобальні стилі або стилі для App
 import Layout from "./components/Layout";
-import Sidebar, { MAIN_PANEL_REFRESH_CONTENT } from "./components/Sidebar";
 import MainPanel from "./components/MainPanel";
 import { DragDropContext, DropResult } from "@hello-pangea/dnd";
-import { SIDEBAR_REFRESH_LISTS_EVENT } from "./components/Sidebar"; // Додайте цей імпорт
-import * as goalListStore from "./data/goalListsStore";
+import Sidebar, { MAIN_PANEL_REFRESH_CONTENT } from "./components/Sidebar";
+import { SIDEBAR_REFRESH_LISTS_EVENT } from "./events";
+
+import { useDispatch, useSelector } from "react-redux";
+import { AppDispatch, RootState } from "./store/store";
+import { goalOrderUpdated, goalMoved } from "./store/listsSlice";
 
 const ZOOM_STEP = 0.1;
 const MIN_ZOOM = 0.5;
@@ -15,66 +18,57 @@ const OBSIDIAN_VAULT_SETTING_KEY = "obsidianVaultPath";
 
 const App: React.FC = () => {
   console.log("[App.tsx] Рендеринг компонента App");
+  const dispatch = useDispatch<AppDispatch>();
 
-  const handleDragEnd = useCallback((result: DropResult) => {
-    const { source, destination, draggableId, type } = result;
+  // --- ДОДАНО: Отримуємо доступ до списків для обчислення нового порядку ---
+  const goalLists = useSelector((state: RootState) => state.goalLists);
 
-    // 1. Вийти, якщо перетягнули поза зоною
-    if (!destination) {
-      return;
-    }
+  const handleDragEnd = useCallback(
+    (result: DropResult) => {
+      const { source, destination, draggableId, type } = result;
 
-    // 2. Вийти, якщо це не перетягування цілі
-    if (type !== "GOAL") {
-      return;
-    }
-
-    // 3. Очищення ID призначення (з табів та сайдбару)
-    let destinationListId = destination.droppableId;
-    if (destination.droppableId.startsWith("sidebar-")) {
-      destinationListId = destination.droppableId.substring("sidebar-".length);
-    } else if (destination.droppableId.startsWith("tab-")) {
-      destinationListId = destination.droppableId.substring("tab-".length);
-    }
-    const sourceListId = source.droppableId;
-
-    // 4. Пересортування в межах одного списку
-    if (sourceListId === destinationListId) {
-      const currentGoals = goalListStore.getGoalsForList(sourceListId);
-      if (!currentGoals) return;
-
-      const reorderedGoals = Array.from(currentGoals);
-      const [movedGoal] = reorderedGoals.splice(source.index, 1);
-      if (movedGoal) {
-        reorderedGoals.splice(destination.index, 0, movedGoal);
-        const newOrderIds = reorderedGoals.map((g) => g.id);
-        goalListStore.updateGoalOrderInList(sourceListId, newOrderIds);
+      if (!destination || type !== "GOAL") {
+        return;
       }
-    }
-    // 5. Переміщення між різними списками
-    else {
-      const moveResult = goalListStore.moveGoalToList(
-        draggableId,
-        sourceListId,
-        destinationListId,
-        destination.index,
-      );
 
-      if (!moveResult.success) {
-        console.error(
-          `[App.tsx] Failed to move goal: ${moveResult.error}`,
-          result,
+      let destinationListId = destination.droppableId;
+      if (destination.droppableId.startsWith("sidebar-")) {
+        destinationListId = destination.droppableId.substring(
+          "sidebar-".length,
         );
-        alert(`Помилка переміщення цілі: ${moveResult.error}`);
+      } else if (destination.droppableId.startsWith("tab-")) {
+        destinationListId = destination.droppableId.substring("tab-".length);
       }
-    }
+      const sourceListId = source.droppableId;
 
-    // 6. Надіслати глобальну подію для оновлення всіх компонентів
-    // Це повідомить і MainPanel, і Sidebar про необхідність оновити дані.
-    window.dispatchEvent(new CustomEvent(SIDEBAR_REFRESH_LISTS_EVENT)); // Оновлює бічну панель
-    window.dispatchEvent(new CustomEvent(MAIN_PANEL_REFRESH_CONTENT)); // <-- ЗАМІНІТЬ/ДОДАЙТЕ ЦЕЙ РЯДОК
-  }, []);
+      if (sourceListId === destinationListId) {
+        // --- ЗМІНЕНО: Обчислюємо новий масив ID і надсилаємо його ---
+        const list = goalLists[sourceListId];
+        if (!list) return;
 
+        const reorderedIds = Array.from(list.itemGoalIds);
+        const [movedItem] = reorderedIds.splice(source.index, 1);
+        reorderedIds.splice(destination.index, 0, movedItem);
+
+        dispatch(
+          goalOrderUpdated({
+            listId: sourceListId,
+            orderedGoalIds: reorderedIds,
+          }),
+        );
+      } else {
+        dispatch(
+          goalMoved({
+            goalId: draggableId,
+            sourceListId: sourceListId,
+            destinationListId: destinationListId,
+            destinationIndex: destination.index,
+          }),
+        );
+      }
+    },
+    [dispatch, goalLists], // <-- Додано goalLists у залежності
+  );
   // --- Сигнал готовності рендерера ---
   useEffect(() => {
     console.log(

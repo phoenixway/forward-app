@@ -4,10 +4,10 @@ const webpack = require("webpack");
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 
 module.exports = {
-  mode: process.env.NODE_ENV === 'production' ? 'production' : 'development', // Явно встановлюємо режим
-  entry: "./src/renderer/renderer.tsx",
+  mode: process.env.NODE_ENV === "production" ? "production" : "development", // Явно встановлюємо режим
+  entry: ["./src/renderer/globalPolyfill.ts", "./src/renderer/renderer.tsx"],
   target: "web", // Важливо для Electron renderer процесу
-  devtool: process.env.NODE_ENV === 'production' ? false : "source-map", // Source maps тільки для розробки
+  devtool: process.env.NODE_ENV === "production" ? false : "source-map", // Source maps тільки для розробки
 
   module: {
     rules: [
@@ -20,15 +20,16 @@ module.exports = {
             // Переконайтеся, що шлях до tsconfig.json правильний
             // configFile: path.resolve(__dirname, 'tsconfig.json') // Якщо tsconfig не в корені
             // Якщо tsconfig.json в корені проекту, ця опція може бути не потрібна
-          }
-        }
+          },
+        },
       },
       {
         test: /\.css$/,
         use: [
           MiniCssExtractPlugin.loader, // Витягує CSS в окремі файли
-          "css-loader",                // Інтерпретує @import та url()
-          {                            // Обробляє CSS за допомогою PostCSS (включаючи Tailwind)
+          "css-loader", // Інтерпретує @import та url()
+          {
+            // Обробляє CSS за допомогою PostCSS (включаючи Tailwind)
             loader: "postcss-loader",
             options: {
               postcssOptions: {
@@ -48,6 +49,16 @@ module.exports = {
       //   test: /\.(woff|woff2|eot|ttf|otf)$/i,
       //   type: 'asset/resource',
       // },
+      {
+        test: /\.m?js/,
+        type: "javascript/auto",
+      },
+      {
+        test: /\.m?js/,
+        resolve: {
+          fullySpecified: false,
+        },
+      },
     ],
   },
 
@@ -63,7 +74,7 @@ module.exports = {
       stream: require.resolve("stream-browserify"),
       buffer: require.resolve("buffer/"), // Додав слеш в кінці, як іноді рекомендують
       process: require.resolve("process/browser"),
-      util: require.resolve("util/"),    // Додав слеш
+      util: require.resolve("util/"), // Додав слеш
       fs: false, // fs не може бути поліфіллено для браузера/рендерера
       net: false,
       tls: false,
@@ -74,14 +85,14 @@ module.exports = {
     filename: "renderer.js", // Ім'я JavaScript бандлу
     path: path.resolve(__dirname, "dist/renderer"), // Директорія для вихідних файлів рендерера
     publicPath: "./", // Важливо для правильних відносних шляхів у index.html
-                      // Це гарантує, що ресурси будуть завантажуватися відносно index.html
-    clean: true,      // Очищає папку dist/renderer перед кожною збіркою
+    // Це гарантує, що ресурси будуть завантажуватися відносно index.html
+    clean: true, // Очищає папку dist/renderer перед кожною збіркою
   },
 
   plugins: [
     new HtmlWebpackPlugin({
       template: "./src/renderer/index.html", // Шлях до вашого HTML шаблону
-      filename: "index.html",               // Ім'я вихідного HTML файлу в dist/renderer/
+      filename: "index.html", // Ім'я вихідного HTML файлу в dist/renderer/
       // inject: true, // true за замовчуванням, додає скрипти/стилі
     }),
     new MiniCssExtractPlugin({
@@ -94,19 +105,22 @@ module.exports = {
     }),
     // DefinePlugin дозволяє створювати глобальні константи, які можуть бути налаштовані під час компіляції
     new webpack.DefinePlugin({
-      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
+      "process.env.NODE_ENV": JSON.stringify(
+        process.env.NODE_ENV || "development",
+      ),
       // 'process.env.MY_VARIABLE': JSON.stringify('my_value'), // Приклад іншої змінної
       // global: "globalThis", // Це вже не так актуально з сучасними налаштуваннями
     }),
   ],
 
-  devServer: { // Налаштування для webpack-dev-server (використовується npm run dev)
+  devServer: {
+    // Налаштування для webpack-dev-server (використовується npm run dev)
     static: {
       directory: path.join(__dirname, "dist/renderer"), // Обслуговує файли з dist/renderer
-                                                      // або path.join(__dirname, "dist") якщо є інші ресурси
+      // або path.join(__dirname, "dist") якщо є інші ресурси
     },
-    port: 3000,           // Порт для сервера розробки
-    hot: true,            // Вмикає Hot Module Replacement
+    port: 3000, // Порт для сервера розробки
+    hot: true, // Вмикає Hot Module Replacement
     historyApiFallback: true, // Для single-page applications, перенаправляє 404 на index.html
     // open: true, // Автоматично відкривати браузер (для Electron це не потрібно)
     // compress: true, // Вмикає gzip стиснення
@@ -114,7 +128,7 @@ module.exports = {
 
   // Оптимізація (особливо для продакшн збірки)
   optimization: {
-    minimize: process.env.NODE_ENV === 'production', // Мініфікація тільки для продакшн
+    minimize: process.env.NODE_ENV === "production", // Мініфікація тільки для продакшн
     // minimizer: [
     //   // Тут можна додати TerserPlugin для JS та CssMinimizerPlugin для CSS,
     //   // якщо стандартної мініфікації недостатньо або потрібні специфічні налаштування.
@@ -146,12 +160,12 @@ module.exports = {
 // module.exports = {
 //   mode: process.env.NODE_ENV || "development",
 //   // Переконайтеся, що тут правильна точка входу, залежно від того, чи потрібен globalPolyfill.ts
-//   // entry: ["./src/renderer/globalPolyfill.ts", "./src/renderer/renderer.tsx"], 
+//   // entry: ["./src/renderer/globalPolyfill.ts", "./src/renderer/renderer.tsx"],
 //   entry: "./src/renderer/renderer.tsx", // Якщо globalPolyfill.ts не потрібен
-  
-//   target: "web", 
-//   devtool: "source-map", 
-  
+
+//   target: "web",
+//   devtool: "source-map",
+
 //   module: {
 //     rules: [
 //       {
@@ -196,7 +210,7 @@ module.exports = {
 //       buffer: require.resolve("buffer"),
 //       process: require.resolve("process/browser"),
 //       util: require.resolve("util"),
-//       fs: false, 
+//       fs: false,
 //       net: false,
 //       tls: false,
 //     },
@@ -204,7 +218,7 @@ module.exports = {
 //   output: {
 //     filename: "renderer.js",
 //     path: path.resolve(__dirname, "dist/renderer"),
-//     publicPath: "/", 
+//     publicPath: "/",
 //   },
 //   plugins: [
 //     new HtmlWebpackPlugin({
@@ -226,6 +240,6 @@ module.exports = {
 //     },
 //     port: 3000,
 //     hot: true,
-//     historyApiFallback: true, 
+//     historyApiFallback: true,
 //   },
 // };

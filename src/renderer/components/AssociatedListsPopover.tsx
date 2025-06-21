@@ -1,68 +1,69 @@
 // src/renderer/components/AssociatedListsPopover.tsx
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import type { Goal, GoalList as GoalListType } from '../data/goalListsStore';
-import * as goalListStore from '../data/goalListsStore';
-import { dispatchOpenGoalListEvent } from './Sidebar';
-import { X, Plus, Link2 as LinkIcon, Link2Off, Eye } from 'lucide-react';
+import React, { useState, useEffect, useRef } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { RootState, AppDispatch } from "../store/store";
+import {
+  listAdded,
+  goalAssociated,
+  goalDisassociated,
+} from "../store/listsSlice";
+import type { Goal, GoalList } from "../types";
+import { dispatchOpenGoalListEvent } from "./Sidebar";
+import { X, Plus, Link2 as LinkIcon, Link2Off, Eye } from "lucide-react";
 
 interface AssociatedListsPopoverProps {
   targetGoal: Goal;
-  listIdOfTargetGoal: string; 
   onClose: () => void;
-  onDataShouldRefresh: () => void; 
-  onSidebarShouldRefreshLists: () => void; 
 }
 
 const AssociatedListsPopover: React.FC<AssociatedListsPopoverProps> = ({
   targetGoal,
-  listIdOfTargetGoal, // ID списку, до якого фізично належить targetGoal (не для асоціацій)
   onClose,
-  onDataShouldRefresh,
-  onSidebarShouldRefreshLists,
 }) => {
-  const [allListsForSelect, setAllListsForSelect] = useState<GoalListType[]>([]);
-  const [associatedListDetails, setAssociatedListDetails] = useState<GoalListType[]>([]);
-  
-  const [showCreateNewListForm, setShowCreateNewListForm] = useState(false);
-  const [newListName, setNewListName] = useState('');
-  const [listIdToAssociateSelection, setListIdToAssociateSelection] = useState('');
+  const dispatch = useDispatch<AppDispatch>();
 
+  const { associatedListDetails, availableListsToSelect } = useSelector(
+    (state: RootState) => {
+      const currentTargetGoal = state.goals[targetGoal.id] || targetGoal;
+      const associatedIds = new Set(currentTargetGoal.associatedListIds || []);
+      const allLists = Object.values(state.goalLists);
+      const associatedDetails = allLists.filter((list: GoalList) =>
+        associatedIds.has(list.id),
+      );
+      const availableLists = allLists.filter(
+        (list: GoalList) => !associatedIds.has(list.id),
+      );
+      return {
+        associatedListDetails: associatedDetails,
+        availableListsToSelect: availableLists,
+      };
+    },
+  );
+
+  // ... (решта коду компонента залишається такою ж, як я надавав раніше)
+  // Я прибрав її тут для стислості, але ви маєте використати повну версію з моєї попередньої відповіді.
+  // Головне - це виправлені імпорти та useSelector вище.
+
+  // Якщо ви не маєте повної версії, ось вона знову:
+  const [showCreateNewListForm, setShowCreateNewListForm] = useState(false);
+  const [newListName, setNewListName] = useState("");
+  const [listIdToAssociateSelection, setListIdToAssociateSelection] =
+    useState("");
   const popoverRef = useRef<HTMLDivElement>(null);
   const newListInputRef = useRef<HTMLInputElement>(null);
 
-  const refreshLocalStateAndAvailableLists = useCallback(() => {
-    const currentAllGoalLists = goalListStore.getAllGoalLists();
-    // Отримуємо актуальну ціль, оскільки вона могла змінитися
-    const currentTargetGoal = goalListStore.getGoalById(targetGoal.id) || targetGoal; 
-    const currentAssociatedIds = currentTargetGoal.associatedListIds || [];
-
-    setAssociatedListDetails(
-      currentAllGoalLists.filter(list => currentAssociatedIds.includes(list.id))
-    );
-    
-    setAllListsForSelect(
-      currentAllGoalLists.filter(list => 
-        !currentAssociatedIds.includes(list.id)
-        // Можна додати додаткову умову, якщо потрібно:
-        // && list.id !== listIdOfTargetGoal // Не асоціювати зі списком, в якому ціль вже є елементом
-      )
-    );
-    setListIdToAssociateSelection(''); 
-  }, [targetGoal.id]); // Змінив залежність на targetGoal.id
-
-  useEffect(() => {
-    refreshLocalStateAndAvailableLists();
-  }, [refreshLocalStateAndAvailableLists]);
-
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(event.target as Node)
+      ) {
         onClose();
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [onClose]);
 
@@ -74,46 +75,34 @@ const AssociatedListsPopover: React.FC<AssociatedListsPopoverProps> = ({
 
   const handleAssociateList = (selectedListId: string) => {
     if (!selectedListId) return;
-    try {
-      goalListStore.associateGoalWithDetailList(targetGoal.id, selectedListId);
-      refreshLocalStateAndAvailableLists();
-      onDataShouldRefresh(); 
-    } catch (error) {
-      alert(`Помилка асоціації списку: ${(error as Error).message}`);
-    }
+    dispatch(goalAssociated({ goalId: targetGoal.id, listId: selectedListId }));
+    setListIdToAssociateSelection("");
   };
 
   const handleDisassociateList = (listIdToDisassociate: string) => {
-    try {
-      goalListStore.disassociateGoalFromDetailList(targetGoal.id, listIdToDisassociate);
-      refreshLocalStateAndAvailableLists();
-      onDataShouldRefresh();
-    } catch (error) {
-      alert(`Помилка відв'язування списку: ${(error as Error).message}`);
-    }
+    dispatch(
+      goalDisassociated({
+        goalId: targetGoal.id,
+        listId: listIdToDisassociate,
+      }),
+    );
   };
-  
+
   const handleCreateAndAssociateList = () => {
-    if (!newListName.trim()) {
+    const trimmedName = newListName.trim();
+    if (!trimmedName) {
       alert("Назва списку не може бути порожньою.");
       if (newListInputRef.current) newListInputRef.current.focus();
       return;
     }
-    try {
-      // Створюємо новий список глобально
-      const newList = goalListStore.createGoalList(newListName.trim());
-      // Асоціюємо його з нашою ціллю
-      goalListStore.associateGoalWithDetailList(targetGoal.id, newList.id);
-      
-      refreshLocalStateAndAvailableLists(); // Оновлюємо списки в поповері
-      onDataShouldRefresh(); // Оновлюємо батьківський компонент (GoalListPage)
-      onSidebarShouldRefreshLists(); // Оновлюємо Sidebar
+    const newListAction = listAdded({ name: trimmedName });
+    const newListId = newListAction.payload.id;
 
-      setShowCreateNewListForm(false);
-      setNewListName('');
-    } catch (error) {
-      alert((error as Error).message);
-    }
+    dispatch(newListAction);
+    dispatch(goalAssociated({ goalId: targetGoal.id, listId: newListId }));
+
+    setShowCreateNewListForm(false);
+    setNewListName("");
   };
 
   const handleOpenAssociatedList = (listId: string, listName: string) => {
@@ -121,7 +110,8 @@ const AssociatedListsPopover: React.FC<AssociatedListsPopoverProps> = ({
     onClose();
   };
 
-  const buttonClass = "p-1 rounded text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-none";
+  const buttonClass =
+    "p-1 rounded text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-none";
   const smallButtonClass = "px-2 py-1 text-xs rounded-md font-medium";
 
   return (
@@ -132,40 +122,53 @@ const AssociatedListsPopover: React.FC<AssociatedListsPopoverProps> = ({
       onClick={(e) => e.stopPropagation()}
     >
       <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-200 dark:border-slate-700">
-        <h4 className="font-semibold text-slate-900 dark:text-slate-100 truncate pr-2" title={`Для цілі: ${targetGoal.text}`}>
+        <h4
+          className="font-semibold text-slate-900 dark:text-slate-100 truncate pr-2"
+          title={`Для цілі: ${targetGoal.text}`}
+        >
           Асоційовані списки
         </h4>
-        <button onClick={onClose} className={`${buttonClass} hover:text-red-500 dark:hover:text-red-400`}>
+        <button
+          onClick={onClose}
+          className={`${buttonClass} hover:text-red-500 dark:hover:text-red-400`}
+        >
           <X size={18} />
         </button>
       </div>
 
       <div className="mb-3">
-        <h5 className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Прив'язані списки:</h5>
+        <h5 className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">
+          Прив'язані списки:
+        </h5>
         <div className="max-h-28 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
           {associatedListDetails.length === 0 && (
-            <p className="text-xs text-slate-400 dark:text-slate-500 italic px-1">Немає асоційованих списків.</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 italic px-1">
+              Немає асоційованих списків.
+            </p>
           )}
-          {associatedListDetails.map(list => (
-            <div key={list.id} className="flex justify-between items-center py-1 group hover:bg-slate-50 dark:hover:bg-slate-700/60 px-1.5 rounded-md">
-              <span 
-                className="truncate flex-grow mr-2 cursor-pointer hover:underline" 
+          {associatedListDetails.map((list) => (
+            <div
+              key={list.id}
+              className="flex justify-between items-center py-1 group hover:bg-slate-50 dark:hover:bg-slate-700/60 px-1.5 rounded-md"
+            >
+              <span
+                className="truncate flex-grow mr-2 cursor-pointer hover:underline"
                 title={`Відкрити список: ${list.name}`}
                 onClick={() => handleOpenAssociatedList(list.id, list.name)}
               >
                 {list.name}
               </span>
               <div className="flex-shrink-0 flex items-center space-x-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                <button 
-                  onClick={() => handleOpenAssociatedList(list.id, list.name)} 
-                  title="Відкрити список" 
+                <button
+                  onClick={() => handleOpenAssociatedList(list.id, list.name)}
+                  title="Відкрити список"
                   className={`${buttonClass} hover:text-blue-500 dark:hover:text-blue-400`}
                 >
                   <Eye size={14} />
                 </button>
-                <button 
-                  onClick={() => handleDisassociateList(list.id)} 
-                  title="Відв'язати цей список" 
+                <button
+                  onClick={() => handleDisassociateList(list.id)}
+                  title="Відв'язати цей список"
                   className={`${buttonClass} hover:text-orange-500 dark:hover:text-orange-400`}
                 >
                   <Link2Off size={14} />
@@ -176,9 +179,12 @@ const AssociatedListsPopover: React.FC<AssociatedListsPopoverProps> = ({
         </div>
       </div>
 
-      {!showCreateNewListForm && allListsForSelect.length > 0 && (
+      {!showCreateNewListForm && availableListsToSelect.length > 0 && (
         <div className="mb-3 pt-3 border-t border-slate-200 dark:border-slate-700">
-          <label htmlFor="associate-list-select" className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+          <label
+            htmlFor="associate-list-select"
+            className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1"
+          >
             Прив'язати існуючий список:
           </label>
           <div className="flex space-x-2">
@@ -186,14 +192,16 @@ const AssociatedListsPopover: React.FC<AssociatedListsPopoverProps> = ({
               id="associate-list-select"
               value={listIdToAssociateSelection}
               onChange={(e) => setListIdToAssociateSelection(e.target.value)}
-              className="flex-grow block w-full pl-2 pr-7 py-1.5 text-xs border-slate-300 dark:border-slate-600 
+              className="flex-grow block w-full pl-2 pr-7 py-1.5 text-xs border-slate-300 dark:border-slate-600
                          bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100
-                         focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:focus:ring-indigo-400 
+                         focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:focus:ring-indigo-400
                          focus:border-indigo-500 dark:focus:border-indigo-400 rounded-md"
             >
               <option value="">Виберіть список...</option>
-              {allListsForSelect.map(list => (
-                <option key={list.id} value={list.id}>{list.name}</option>
+              {availableListsToSelect.map((list) => (
+                <option key={list.id} value={list.id}>
+                  {list.name}
+                </option>
               ))}
             </select>
             <button
@@ -206,11 +214,14 @@ const AssociatedListsPopover: React.FC<AssociatedListsPopoverProps> = ({
           </div>
         </div>
       )}
-      
+
       <div className="pt-3 border-t border-slate-200 dark:border-slate-700">
         {showCreateNewListForm ? (
           <div>
-            <label htmlFor="new-associated-list-name" className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+            <label
+              htmlFor="new-associated-list-name"
+              className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1"
+            >
               Назва нового списку для прив'язки:
             </label>
             <input
@@ -224,13 +235,19 @@ const AssociatedListsPopover: React.FC<AssociatedListsPopoverProps> = ({
                          bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100
                          focus:ring-1 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 placeholder-slate-400 dark:placeholder-slate-500"
               onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreateAndAssociateList();
-                if (e.key === 'Escape') { setShowCreateNewListForm(false); setNewListName(''); }
+                if (e.key === "Enter") handleCreateAndAssociateList();
+                if (e.key === "Escape") {
+                  setShowCreateNewListForm(false);
+                  setNewListName("");
+                }
               }}
             />
             <div className="flex justify-end space-x-2">
               <button
-                onClick={() => { setShowCreateNewListForm(false); setNewListName(''); }}
+                onClick={() => {
+                  setShowCreateNewListForm(false);
+                  setNewListName("");
+                }}
                 className={`${smallButtonClass} bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-500`}
               >
                 Скасувати
@@ -239,7 +256,7 @@ const AssociatedListsPopover: React.FC<AssociatedListsPopoverProps> = ({
                 onClick={handleCreateAndAssociateList}
                 className={`${smallButtonClass} bg-green-500 hover:bg-green-600 text-white dark:bg-green-600 dark:hover:bg-green-700 flex items-center`}
               >
-                 <Plus size={14} className="mr-1" /> Створити і зв'язати
+                <Plus size={14} className="mr-1" /> Створити і зв'язати
               </button>
             </div>
           </div>
@@ -248,7 +265,8 @@ const AssociatedListsPopover: React.FC<AssociatedListsPopoverProps> = ({
             onClick={() => setShowCreateNewListForm(true)}
             className="w-full text-left px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-700/60 rounded-md text-xs text-green-600 dark:text-green-400 font-medium flex items-center"
           >
-            <Plus size={14} className="mr-1.5" /> Створити новий список та прив'язати
+            <Plus size={14} className="mr-1.5" /> Створити новий список та
+            прив'язати
           </button>
         )}
       </div>

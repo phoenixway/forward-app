@@ -9,10 +9,10 @@ import {
   ChevronUp,
   Link as LinkIconLucide,
 } from "lucide-react";
-import type { Goal } from "../data/goalListsStore";
 import GoalTextRenderer from "./GoalTextRenderer";
 import { parseGoalData } from "../utils/textProcessing";
 import AssociatedListsPopover from "./AssociatedListsPopover";
+import { Goal } from "../types";
 
 export interface SortableGoalItemProps {
   goal: Goal;
@@ -220,12 +220,7 @@ function SortableGoalItem({
             {isAssocPopoverOpen && (
               <AssociatedListsPopover
                 targetGoal={goal}
-                listIdOfTargetGoal={listIdThisGoalBelongsTo}
                 onClose={closeAssocPopover}
-                onDataShouldRefresh={onDataShouldRefreshInParent}
-                onSidebarShouldRefreshLists={
-                  onSidebarShouldRefreshListsInParent
-                }
               />
             )}
           </div>

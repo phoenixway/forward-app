@@ -9,22 +9,13 @@
     "allowSyntheticDefaultImports": true,
     "strict": true,
     "forceConsistentCasingInFileNames": true,
-    "skipLibCheck": false, // <--- ЗМІНА: Спробуємо false для глибшої перевірки
+    "skipLibCheck": false,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
     "allowJs": true,
-    "types": ["react", "react-dom", "node"] // <--- ДОДАНО: Явно вказуємо типи
+    "types": ["react", "react-dom", "node"]
   },
-  "include": [
-    "src/renderer/**/*",
-    "src/shared/**/*",
-    "src/types/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "release_builds",
-    "src/main/**/*"
-  ]
+  "include": ["src/renderer/**/*", "src/shared/**/*", "src/types/**/*"],
+  "exclude": ["node_modules", "dist", "release_builds", "src/main/**/*"]
 }

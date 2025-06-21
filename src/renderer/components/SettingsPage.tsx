@@ -1,17 +1,16 @@
 // src/renderer/components/SettingsPage.tsx
 import React, { useState, useEffect, useCallback } from "react";
-import * as goalListStore from "../data/goalListsStore";
-import type {
-  GoalList as GoalListTypeImport,
-  Goal as GoalImport,
-} from "../data/goalListsStore";
+import { useSelector, useDispatch } from "react-redux";
+import { RootState, AppDispatch } from "../store/store";
+import { stateReplaced } from "../store/listsSlice";
+import type { GoalList, Goal } from "../types";
 
 interface AppBackupDataFormat {
   version: number;
   exportedAt: string;
   data: {
-    goalLists: GoalListTypeImport[];
-    goals: GoalImport[];
+    goalLists: GoalList[];
+    goals: Goal[];
   };
 }
 
@@ -30,6 +29,9 @@ function SettingsPage({
   onObsidianVaultChange,
   onDataImported,
 }: SettingsPageProps) {
+  const dispatch = useDispatch<AppDispatch>();
+  const fullState = useSelector((state: RootState) => state); // Отримуємо весь стан для експорту
+
   const [obsidianVaultPath, setObsidianVaultPath] =
     useState(initialObsidianVault);
 
@@ -111,8 +113,8 @@ function SettingsPage({
     }
 
     try {
-      const allGoalLists = goalListStore.getAllGoalLists();
-      const allGoals = goalListStore.getAllGoals();
+      const allGoalLists = Object.values(fullState.goalLists);
+      const allGoals = Object.values(fullState.goals);
 
       if (allGoalLists.length === 0 && allGoals.length === 0) {
         alert("Немає даних для експорту.");
@@ -213,9 +215,23 @@ function SettingsPage({
             return;
           }
 
-          goalListStore.dangerouslyReplaceAllData(
-            importedObject.data.goalLists,
-            importedObject.data.goals,
+          dispatch(
+            stateReplaced({
+              goals: importedObject.data.goals.reduce(
+                (acc, goal) => {
+                  acc[goal.id] = goal;
+                  return acc;
+                },
+                {} as Record<string, Goal>,
+              ),
+              goalLists: importedObject.data.goalLists.reduce(
+                (acc, list) => {
+                  acc[list.id] = list;
+                  return acc;
+                },
+                {} as Record<string, GoalList>,
+              ),
+            }),
           );
 
           alert("Дані успішно імпортовано!");

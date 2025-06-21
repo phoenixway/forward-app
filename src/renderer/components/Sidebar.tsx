@@ -1,8 +1,7 @@
 // src/renderer/components/Sidebar.tsx
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { dispatchOpenSettingsEvent } from "../events";
-import * as goalListStore from "../data/goalListsStore"; // <--- ВИПРАВЛЕНО ІМПОРТ
-import type { GoalList as GoalListType } from "../data/goalListsStore";
+import type { Goal, GoalList } from "../types";
 import {
   Plus,
   Edit3,
@@ -11,11 +10,13 @@ import {
   Search,
   X as XIcon,
 } from "lucide-react";
-import { DragDropContext, Droppable } from "@hello-pangea/dnd";
+import { Droppable } from "@hello-pangea/dnd";
+import { useSelector, useDispatch } from "react-redux";
+import { RootState, AppDispatch } from "../store/store";
+import { listAdded, listRemoved, listUpdated } from "../store/listsSlice";
 
 export const OPEN_GOAL_LIST_EVENT = "app:open-goal-list";
-export const SIDEBAR_REFRESH_LISTS_EVENT = "app:sidebar-refresh-lists";
-export const MAIN_PANEL_REFRESH_CONTENT = "app:main-panel-refresh-content"; // <-- ДОДАЙТЕ ЦЕЙ РЯДОК
+export const MAIN_PANEL_REFRESH_CONTENT = "app:main-panel-refresh-content";
 
 export interface OpenGoalListDetail {
   listId: string;
@@ -31,8 +32,14 @@ export function dispatchOpenGoalListEvent(listId: string, listName: string) {
 }
 
 function Sidebar() {
-  const [allLists, setAllLists] = useState<GoalListType[]>([]);
-  const [filteredLists, setFilteredLists] = useState<GoalListType[]>([]);
+  const dispatch = useDispatch<AppDispatch>();
+
+  // --- ЗМІНЕНО: Отримуємо списки напряму з Redux. Вони завжди актуальні. ---
+  const allLists = useSelector((state: RootState) =>
+    Object.values(state.goalLists),
+  );
+
+  const [filteredLists, setFilteredLists] = useState<GoalList[]>([]);
   const [filterText, setFilterText] = useState("");
 
   const [editingListId, setEditingListId] = useState<string | null>(null);
@@ -47,22 +54,11 @@ function Sidebar() {
   const editNameInputRef = useRef<HTMLInputElement>(null);
   const filterInputRef = useRef<HTMLInputElement>(null);
 
-  const loadLists = useCallback(() => {
-    const listsFromStore = goalListStore.getAllGoalLists();
-    setAllLists(listsFromStore);
-  }, []);
-
-  useEffect(() => {
-    loadLists();
-    const handleRefreshRequest = () => loadLists();
-    window.addEventListener(SIDEBAR_REFRESH_LISTS_EVENT, handleRefreshRequest);
-    return () => {
-      window.removeEventListener(
-        SIDEBAR_REFRESH_LISTS_EVENT,
-        handleRefreshRequest,
-      );
-    };
-  }, [loadLists]);
+  // --- ВИДАЛЕНО: Цей блок більше не потрібен завдяки useSelector ---
+  // const [allLists, setAllLists] = useState<GoalListType[]>([]);
+  // const loadLists = useCallback(() => { ... });
+  // useEffect(() => { loadLists(); ... });
+  // -----------------------------------------------------------------
 
   useEffect(() => {
     if (!filterText.trim()) {
@@ -86,7 +82,7 @@ function Sidebar() {
   }, [isCreatingNewList, editingListId]);
 
   const handleOpenSettings = () => dispatchOpenSettingsEvent();
-  const handleOpenGoalList = (list: GoalListType) =>
+  const handleOpenGoalList = (list: GoalList) =>
     dispatchOpenGoalListEvent(list.id, list.name);
 
   const handleCreateNewListClick = () => {
@@ -96,24 +92,32 @@ function Sidebar() {
     setFilterText("");
   };
 
+  // --- ЗМІНЕНО: Використовуємо dispatch для створення списку ---
   const submitNewList = () => {
-    if (newListName.trim()) {
-      try {
-        goalListStore.createGoalList(
-          newListName.trim(),
-          newListDescription.trim(),
-        );
-        setIsCreatingNewList(false);
-        window.dispatchEvent(new CustomEvent(SIDEBAR_REFRESH_LISTS_EVENT));
-      } catch (error) {
-        alert((error as Error).message);
+    const trimmedName = newListName.trim();
+    if (trimmedName) {
+      // Перевірка на існування списку з такою ж назвою
+      const listExists = allLists.some(
+        (list) => list.name.toLowerCase() === trimmedName.toLowerCase(),
+      );
+      if (listExists) {
+        alert(`Список з назвою "${trimmedName}" вже існує.`);
+        return;
       }
+
+      dispatch(
+        listAdded({
+          name: trimmedName,
+          description: newListDescription.trim(),
+        }),
+      );
+      setIsCreatingNewList(false);
     } else {
       setIsCreatingNewList(false);
     }
   };
 
-  const handleStartEdit = (list: GoalListType) => {
+  const handleStartEdit = (list: GoalList) => {
     setEditingListId(list.id);
     setEditingListName(list.name);
     setEditingListDescription(list.description || "");
@@ -126,32 +130,36 @@ function Sidebar() {
     setEditingListDescription("");
   };
 
+  // --- ЗМІНЕНО: Використовуємо dispatch для оновлення списку ---
   const submitRenameList = (listId: string) => {
-    if (editingListName.trim() && listId) {
-      try {
-        goalListStore.updateGoalListName(
-          listId,
-          editingListName.trim(),
-          editingListDescription.trim(),
-        );
-        handleCancelEdit();
-        window.dispatchEvent(new CustomEvent(SIDEBAR_REFRESH_LISTS_EVENT));
-      } catch (error) {
-        alert((error as Error).message);
+    const trimmedName = editingListName.trim();
+    if (trimmedName && listId) {
+      const listExists = allLists.some(
+        (list) =>
+          list.id !== listId &&
+          list.name.toLowerCase() === trimmedName.toLowerCase(),
+      );
+      if (listExists) {
+        alert(`Список з назвою "${trimmedName}" вже існує.`);
+        return;
       }
+      dispatch(
+        listUpdated({
+          id: listId,
+          name: trimmedName,
+          description: editingListDescription.trim(),
+        }),
+      );
+      handleCancelEdit();
     } else {
       handleCancelEdit();
     }
   };
 
+  // --- Ця функція вже була оновлена, залишаємо її ---
   const handleDeleteList = (listId: string, listName: string) => {
-    if (
-      window.confirm(
-        `Видалити список "${listName}"? (Цілі в ньому НЕ будуть видалені глобально)`,
-      )
-    ) {
-      goalListStore.deleteGoalList(listId);
-      window.dispatchEvent(new CustomEvent(SIDEBAR_REFRESH_LISTS_EVENT));
+    if (window.confirm(`Видалити список "${listName}"?`)) {
+      dispatch(listRemoved(listId));
     }
   };
 
@@ -163,8 +171,6 @@ function Sidebar() {
     setFilterText("");
     filterInputRef.current?.focus();
   };
-
-  const onDragEnd = useCallback(() => {}, []); // <--- ВИПРАВЛЕНО ЗАЛЕЖНІСТЬ
 
   return (
     <div className="p-4 h-full flex flex-col bg-slate-100 dark:bg-slate-800">
@@ -263,17 +269,15 @@ function Sidebar() {
         </div>
       )}
 
-      <div className=" flex-grow space-y-0.5 -mr-2 pr-2 custom-scrollbar">
+      <div className="flex-grow space-y-0.5 -mr-2 pr-2 custom-scrollbar">
         {filteredLists.length === 0 && !isCreatingNewList && (
           <div className="text-slate-500 dark:text-slate-400 text-sm text-center py-4">
-            {" "}
             {filterText.trim()
               ? "Списків за фільтром не знайдено."
               : "Списки не знайдено."}
           </div>
         )}
         {filteredLists.map((list) => (
-          // <DragDropContext onDragEnd={onDragEnd}>
           <Droppable
             key={`sidebar-drop-${list.id}`}
             droppableId={`sidebar-${list.id}`}

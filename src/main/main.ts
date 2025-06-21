@@ -528,7 +528,9 @@ Type=Fixed
           {
             label: "Відвідати GitHub",
             click: async () => {
-              await shell.openExternal("https://github.com/your-repo-link"); // Замініть на ваше посилання
+              await shell.openExternal(
+                "https://github.com/phoenixway/forwardapp",
+              ); // Замініть на ваше посилання
             },
           },
         ],

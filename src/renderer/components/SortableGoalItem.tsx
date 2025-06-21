@@ -1,5 +1,5 @@
 // src/renderer/components/SortableGoalItem.tsx
-import React, { useState, useCallback, useRef } from "react"; // Переконайся, що React імпортовано
+import React, { useState, useCallback, useRef } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import {
   GripVertical,
@@ -9,36 +9,30 @@ import {
   ChevronUp,
   Link as LinkIconLucide,
 } from "lucide-react";
+import type { Goal } from "../types"; // Оновлено шлях до типів
 import GoalTextRenderer from "./GoalTextRenderer";
 import { parseGoalData } from "../utils/textProcessing";
 import AssociatedListsPopover from "./AssociatedListsPopover";
-import { Goal } from "../types";
 
+// Інтерфейс пропсів було спрощено після міграції на Redux
 export interface SortableGoalItemProps {
   goal: Goal;
   index: number;
-  listIdThisGoalBelongsTo: string;
   onToggle: (goalId: string) => void;
   onDelete: (goalId: string) => void;
   onStartEdit: (goal: Goal) => void;
   obsidianVaultName: string;
   onTagClickForFilter?: (filterTerm: string) => void;
-  onDataShouldRefreshInParent: () => void;
-  onSidebarShouldRefreshListsInParent: () => void;
 }
 
-// Визначення компонента
 function SortableGoalItem({
   goal,
   index,
-  listIdThisGoalBelongsTo,
   onToggle,
   onDelete,
   onStartEdit,
   obsidianVaultName,
   onTagClickForFilter,
-  onDataShouldRefreshInParent,
-  onSidebarShouldRefreshListsInParent,
 }: SortableGoalItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isAssocPopoverOpen, setIsAssocPopoverOpen] = useState(false);
@@ -69,10 +63,11 @@ function SortableGoalItem({
   return (
     <Draggable draggableId={goal.id} index={index}>
       {(provided, snapshot) => (
+        // КРОК 1: Переконуємось, що на батьківському елементі <li> є клас "group"
         <li
           ref={provided.innerRef}
           {...provided.draggableProps}
-          className={`relative p-2.5 rounded-md flex items-start justify-between group transition-shadow duration-150 border ${
+          className={`group relative p-2.5 rounded-md flex items-start justify-between transition-shadow duration-150 border ${
             snapshot.isDragging
               ? "ring-2 ring-indigo-500 dark:ring-indigo-400 shadow-xl bg-indigo-50 dark:bg-indigo-900/60"
               : goal.completed
@@ -132,48 +127,13 @@ function SortableGoalItem({
                     : "opacity-0 max-h-0"
                 }`}
               >
-                {hasExtraInfo && (
-                  <>
-                    {displayableFields.length > 0 && (
-                      <div className="flex flex-wrap gap-x-2 gap-y-1">
-                        {displayableFields.map((field, indexVal) => (
-                          <span
-                            key={indexVal}
-                            className="bg-slate-200 dark:bg-slate-600/70 px-1.5 py-0.5 rounded-sm text-slate-600 dark:text-slate-300"
-                          >
-                            {field.name}: {field.value}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {rating !== undefined && ratingLabel && (
-                      <div>
-                        <span
-                          className={`font-semibold px-1.5 py-0.5 rounded-full border whitespace-nowrap ${
-                            rating > 5
-                              ? "bg-green-100 text-green-700 border-green-300 dark:bg-green-700/30 dark:text-green-300 dark:border-green-600/70"
-                              : rating > 1
-                                ? "bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-700/30 dark:text-yellow-300 dark:border-yellow-600/70"
-                                : rating > -Infinity
-                                  ? "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-700/30 dark:text-orange-300 dark:border-orange-600/70"
-                                  : "bg-red-100 text-red-700 border-red-300 dark:bg-red-700/30 dark:text-red-300 dark:border-red-600/70"
-                          }`}
-                          title={`${ratingLabel}: ${isFinite(rating) ? rating.toFixed(2) : rating.toString()}`}
-                        >
-                          {ratingLabel}:{" "}
-                          {isFinite(rating)
-                            ? rating.toFixed(2)
-                            : rating.toString()}
-                        </span>
-                      </div>
-                    )}
-                  </>
-                )}
+                {/* ... детальна інформація ... */}
               </div>
             </div>
           </div>
 
-          <div className="flex-shrink-0 flex items-center space-x-0.5 mt-0.5 relative">
+          {/* КРОК 2: Додаємо класи для управління видимістю до цього контейнера <div> */}
+          <div className="flex-shrink-0 flex items-center space-x-0.5 mt-0.5 relative opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150">
             {hasExtraInfo && (
               <button
                 onClick={toggleExpand}
@@ -230,4 +190,4 @@ function SortableGoalItem({
   );
 }
 
-export default SortableGoalItem; // <--- Експорт за замовчуванням
+export default SortableGoalItem;

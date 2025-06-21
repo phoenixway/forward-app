@@ -23,7 +23,9 @@
     "dist": "npm run build && electron-builder",
     "dist:linux": "npm run build && electron-builder --linux",
     "dist:win": "npm run build && electron-builder --win",
-    "dist:mac": "npm run build && electron-builder --mac"
+    "dist:mac": "npm run build && electron-builder --mac",
+    "test:build": "npm run dist:linux && ./release_builds/ForwardApp-${npm_package_version}.AppImage",
+    "promote:stable": "cp ./release_builds/ForwardApp-${npm_package_version}.AppImage ../ForwardApp-stable.AppImage && echo \"Версію ${npm_package_version} скопійовано як стабільну.\""
   },
   "build": {
     "appId": "forward-app",
@@ -103,7 +105,7 @@
     "@reduxjs/toolkit": "^2.8.2",
     "@types/fs-extra": "^11.0.4",
     "asar": "^3.2.0",
-    "electron-store": "^10.0.1",
+    "electron-store": "^10.1.0",
     "events": "^3.3.0",
     "fs-extra": "^11.3.0",
     "lucide-react": "^0.514.0",

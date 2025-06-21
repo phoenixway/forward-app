@@ -213,16 +213,11 @@ function GoalListPage({
                 key={goal.id}
                 goal={goal}
                 index={itemIndex}
-                listIdThisGoalBelongsTo={listId}
                 onToggle={handleToggleGoal}
-                obsidianVaultName={obsidianVaultName}
-                onTagClickForFilter={onTagClickForFilter}
                 onDelete={handleDeleteGoal}
                 onStartEdit={handleStartEditGoal}
-                onDataShouldRefreshInParent={() => {}} // Цей проп більше не потрібен
-                onSidebarShouldRefreshListsInParent={
-                  onNeedsSidebarRefresh || (() => {})
-                } // Залишаємо
+                obsidianVaultName={obsidianVaultName}
+                onTagClickForFilter={onTagClickForFilter}
               />
             ))}
           </ul>

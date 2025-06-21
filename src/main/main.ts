@@ -1,4 +1,4 @@
-import { app, ipcMain, dialog, BrowserWindow, shell } from "electron";
+import { app, ipcMain, dialog, BrowserWindow, Menu, shell } from "electron"; // <-- Додайте Menu
 import path from "path";
 import fs from "fs-extra";
 import os from "os";
@@ -6,6 +6,8 @@ import { exec, execSync } from "child_process";
 import installExtension, {
   REACT_DEVELOPER_TOOLS,
 } from "electron-devtools-installer";
+import Store from "electron-store"; // +++ ДОДАЙТЕ ЦЕЙ ІМПОРТ +++
+const store = new Store();
 
 // app.disableHardwareAcceleration(); // Розкоментуйте, якщо є проблеми з рендерингом
 // app.commandLine.appendSwitch("disable-gpu-compositing"); // Розкоментуйте, якщо є проблеми з рендерингом
@@ -487,6 +489,56 @@ Type=Fixed
       .then((name) => console.log(`Added Extension:  ${name}`))
       .catch((err) => console.log("An error occurred: ", err));
 
+    // 1. Створюємо шаблон меню
+    const menuTemplate: (
+      | Electron.MenuItemConstructorOptions
+      | Electron.MenuItem
+    )[] = [
+      {
+        label: "Файл",
+        submenu: [
+          {
+            label: "Вихід",
+            role: "quit", // 'role' автоматично обробляє вихід з програми
+          },
+        ],
+      },
+      {
+        label: "Допомога",
+        submenu: [
+          {
+            label: `Про програму ${app.getName()}`,
+            click: () => {
+              // --- ДОДАНО ПЕРЕВІРКУ ---
+              if (mainWindowInstance) {
+                dialog.showMessageBox(mainWindowInstance, {
+                  type: "info",
+                  title: `Про програму`,
+                  message: app.getName(),
+                  detail: `Версія: ${app.getVersion()}\nАвтор: Roman\n\nЦей додаток створено для керування вашими цілями та завданнями.`,
+                });
+              } else {
+                console.error(
+                  "Не вдалося показати вікно 'Про програму', оскільки головне вікно не доступне.",
+                );
+              }
+            },
+          },
+
+          {
+            label: "Відвідати GitHub",
+            click: async () => {
+              await shell.openExternal("https://github.com/your-repo-link"); // Замініть на ваше посилання
+            },
+          },
+        ],
+      },
+    ];
+
+    // 3. Створюємо та встановлюємо меню з нашого шаблону
+    const menu = Menu.buildFromTemplate(menuTemplate);
+    Menu.setApplicationMenu(menu);
+
     // Реєстрація обробника протоколу
     // Це має бути зроблено після того, як програма готова
     if (process.platform !== "darwin") {
@@ -535,17 +587,28 @@ Type=Fixed
     });
 
     ipcMain.handle(IPC_CHANNELS_FROM_PRELOAD.GET_APP_SETTINGS, async () => {
-      console.log("[Main] GET_APP_SETTINGS called");
-      return { exampleSetting: "exampleValueFromMain" };
+      console.log(
+        "[Main] GET_APP_SETTINGS called, returning data from electron-store.",
+      );
+      // Повертаємо весь вміст сховища. '.store' повертає об'єкт з усіма даними.
+      return store.store;
     });
 
+    // Обробник для збереження налаштувань
     ipcMain.handle(
       IPC_CHANNELS_FROM_PRELOAD.SET_APP_SETTING,
       async (_event, key: string, value: any) => {
-        console.log(
-          `[Main] SET_APP_SETTING called with key: ${key}, value: ${value}`,
-        );
-        return { success: true, message: `Setting ${key} saved.` };
+        try {
+          console.log(
+            `[Main] SET_APP_SETTING called with key: ${key}, value: ${value}. Saving to electron-store.`,
+          );
+          // Зберігаємо налаштування за ключем
+          store.set(key, value);
+          return { success: true, message: `Налаштування '${key}' збережено.` };
+        } catch (error) {
+          console.error(`[Main] Failed to save setting '${key}':`, error);
+          return { success: false, error: (error as Error).message };
+        }
       },
     );
 

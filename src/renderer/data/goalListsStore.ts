@@ -26,6 +26,19 @@ interface AppDataStore {
   goalLists: Record<string, GoalList>;
 }
 
+// +++ НОВИЙ ТИП ДЛЯ РЕЗУЛЬТАТУ ПЕРЕМІЩЕННЯ +++
+export type MoveGoalResult =
+  | {
+      success: true;
+      updatedSourceList?: GoalList;
+      updatedDestinationList: GoalList;
+      movedGoal: Goal;
+    }
+  | {
+      success: false;
+      error: string;
+    };
+
 // Ключі для localStorage
 const STORE_KEY_GOALS_V2 = "forwardApp_goals_v2";
 const STORE_KEY_GOAL_LISTS_V2 = "forwardApp_goal_lists_v2";
@@ -375,7 +388,6 @@ export const updateGoalOrderInList = (
     validGoalIds.has(id),
   );
 
-  // Перевіряємо, чи дійсно є зміни, щоб уникнути зайвого запису
   const orderChanged =
     list.itemGoalIds.length !== newOrderedItemGoalIds.length ||
     list.itemGoalIds.some((id, index) => id !== newOrderedItemGoalIds[index]);
@@ -452,7 +464,6 @@ export const disassociateGoalFromDetailList = (
   return { ...mainGoal };
 };
 
-// Функція для повного перезаписування даних (Імпорт)
 export function dangerouslyReplaceAllData(
   newGoalListsData: GoalList[],
   newGoalsData: Goal[],
@@ -474,7 +485,96 @@ export function dangerouslyReplaceAllData(
   saveGoalsData();
   saveGoalListsData();
   console.log("All data has been replaced from import. Store re-initialized.");
-  // Після цього рендерер має оновити свій стан з цього стору
+}
+
+// +++ ОНОВЛЕНА ФУНКЦІЯ moveGoalToList +++
+export function moveGoalToList(
+  goalId: string,
+  sourceListId: string,
+  destinationListId: string,
+  destinationIndex: number = -1,
+): MoveGoalResult {
+  const sourceList = getGoalListById(sourceListId);
+  const destinationList = getGoalListById(destinationListId);
+  const goalToMove = getGoalById(goalId);
+
+  if (!destinationList || !goalToMove) {
+    const errorMsg = `Не вдалося перемістити ціль: ${
+      !destinationList
+        ? `список призначення (${destinationListId}) не знайдено`
+        : ""
+    } ${!goalToMove ? `ціль (${goalId}) не знайдено` : ""}`.trim();
+    console.error(`[goalListsStore] ${errorMsg}`, {
+      destListExists: !!destinationList,
+      goalExists: !!goalToMove,
+    });
+    return { success: false, error: errorMsg };
+  }
+
+  if (sourceListId === destinationListId) {
+    // Ця функція призначена для переміщення МІЖ списками.
+    // Для сортування в межах одного списку краще використовувати updateGoalOrderInList.
+    // Повертаємо помилку, щоб уникнути неочікуваної поведінки.
+    const errorMsg =
+      "Спроба перемістити ціль в той самий список. Для зміни порядку використовуйте updateGoalOrderInList.";
+    console.warn(`[goalListsStore] ${errorMsg}`);
+    return { success: false, error: errorMsg };
+  }
+
+  let finalUpdatedSourceList: GoalList | undefined = undefined;
+
+  // 1. Видалити goalId зі списку-джерела (якщо він існує)
+  if (sourceList && sourceList.itemGoalIds.includes(goalId)) {
+    const updatedSourceGoalIds = sourceList.itemGoalIds.filter(
+      (id) => id !== goalId,
+    );
+    finalUpdatedSourceList = {
+      ...sourceList,
+      itemGoalIds: updatedSourceGoalIds,
+      updatedAt: new Date().toISOString(),
+    };
+    store.goalLists[sourceList.id] = finalUpdatedSourceList;
+  }
+
+  // 2. Додати goalId до списку-призначення
+  const updatedDestinationGoalIds = [...destinationList.itemGoalIds];
+
+  // Видаляємо ціль, якщо вона вже є, щоб уникнути дублікатів і перемістити її
+  const existingIndex = updatedDestinationGoalIds.indexOf(goalId);
+  if (existingIndex > -1) {
+    updatedDestinationGoalIds.splice(existingIndex, 1);
+  }
+
+  // Вставляємо ціль на нову позицію
+  if (
+    destinationIndex >= 0 &&
+    destinationIndex <= updatedDestinationGoalIds.length
+  ) {
+    updatedDestinationGoalIds.splice(destinationIndex, 0, goalId);
+  } else {
+    updatedDestinationGoalIds.push(goalId); // Додати в кінець, якщо індекс невалідний
+  }
+
+  const finalUpdatedDestinationList = {
+    ...destinationList,
+    itemGoalIds: updatedDestinationGoalIds,
+    updatedAt: new Date().toISOString(),
+  };
+  store.goalLists[destinationList.id] = finalUpdatedDestinationList;
+
+  // Зберегти зміни
+  saveGoalListsData();
+
+  console.log(
+    `[goalListsStore] Ціль ${goalId} успішно переміщено з ${sourceListId} до ${destinationListId}`,
+  );
+
+  return {
+    success: true,
+    updatedSourceList: finalUpdatedSourceList,
+    updatedDestinationList: finalUpdatedDestinationList,
+    movedGoal: goalToMove,
+  };
 }
 
 loadData();

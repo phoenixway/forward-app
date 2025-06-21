@@ -3,6 +3,9 @@ import path from "path";
 import fs from "fs-extra";
 import os from "os";
 import { exec, execSync } from "child_process";
+import installExtension, {
+  REACT_DEVELOPER_TOOLS,
+} from "electron-devtools-installer";
 
 // app.disableHardwareAcceleration(); // Розкоментуйте, якщо є проблеми з рендерингом
 // app.commandLine.appendSwitch("disable-gpu-compositing"); // Розкоментуйте, якщо є проблеми з рендерингом
@@ -480,6 +483,10 @@ Type=Fixed
 
   // --- Реєстрація IPC обробників ---
   app.whenReady().then(() => {
+    installExtension(REACT_DEVELOPER_TOOLS)
+      .then((name) => console.log(`Added Extension:  ${name}`))
+      .catch((err) => console.log("An error occurred: ", err));
+
     // Реєстрація обробника протоколу
     // Це має бути зроблено після того, як програма готова
     if (process.platform !== "darwin") {

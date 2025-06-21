@@ -1,5 +1,5 @@
 // src/renderer/components/SortableGoalItem.tsx
-import React, { useState, useCallback, useRef } from "react"; // Додано useRef
+import React, { useState, useCallback, useRef } from "react"; // Переконайся, що React імпортовано
 import { Draggable } from "@hello-pangea/dnd";
 import {
   GripVertical,
@@ -7,17 +7,17 @@ import {
   Trash2,
   ChevronDown,
   ChevronUp,
-  Link as LinkIconLucide, // Іконка для асоційованих списків
+  Link as LinkIconLucide,
 } from "lucide-react";
 import type { Goal } from "../data/goalListsStore";
 import GoalTextRenderer from "./GoalTextRenderer";
 import { parseGoalData } from "../utils/textProcessing";
-import AssociatedListsPopover from "./AssociatedListsPopover"; // Імпортуємо поповер
+import AssociatedListsPopover from "./AssociatedListsPopover";
 
 export interface SortableGoalItemProps {
   goal: Goal;
   index: number;
-  listIdThisGoalBelongsTo: string; // Цей проп важливий для AssociatedListsPopover
+  listIdThisGoalBelongsTo: string;
   onToggle: (goalId: string) => void;
   onDelete: (goalId: string) => void;
   onStartEdit: (goal: Goal) => void;
@@ -27,21 +27,22 @@ export interface SortableGoalItemProps {
   onSidebarShouldRefreshListsInParent: () => void;
 }
 
+// Визначення компонента
 function SortableGoalItem({
   goal,
   index,
-  listIdThisGoalBelongsTo, // Будемо використовувати
+  listIdThisGoalBelongsTo,
   onToggle,
   onDelete,
   onStartEdit,
   obsidianVaultName,
   onTagClickForFilter,
-  onDataShouldRefreshInParent, // Передаємо в поповер
-  onSidebarShouldRefreshListsInParent, // Передаємо в поповер
+  onDataShouldRefreshInParent,
+  onSidebarShouldRefreshListsInParent,
 }: SortableGoalItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isAssocPopoverOpen, setIsAssocPopoverOpen] = useState(false); // Стан для поповера
-  const popoverAnchorRef = useRef<HTMLButtonElement>(null); // Для позиціонування поповера
+  const [isAssocPopoverOpen, setIsAssocPopoverOpen] = useState(false);
+  const popoverAnchorRef = useRef<HTMLButtonElement>(null);
 
   const { displayableFields, rating, ratingLabel } = parseGoalData(goal.text);
   const hasExtraInfo =
@@ -57,7 +58,7 @@ function SortableGoalItem({
   );
 
   const toggleAssocPopover = useCallback((event: React.MouseEvent) => {
-    event.stopPropagation(); // Зупиняємо спливання, щоб клік не закрив поповер одразу, якщо він вже відкритий
+    event.stopPropagation();
     setIsAssocPopoverOpen((prev) => !prev);
   }, []);
 
@@ -104,7 +105,7 @@ function SortableGoalItem({
                   const targetElement = e.target as HTMLElement;
                   const isChildInteractive =
                     targetElement.closest("a") ||
-                    targetElement.closest("button") || // Включаємо кнопки, щоб не спрацьовувало при кліку на кнопки всередині
+                    targetElement.closest("button") ||
                     targetElement.closest("span[data-tag-name]");
                   if (!isChildInteractive && !goal.completed) {
                     onStartEdit(goal);
@@ -131,7 +132,6 @@ function SortableGoalItem({
                     : "opacity-0 max-h-0"
                 }`}
               >
-                {/* ... (код для displayableFields та rating залишається тут) ... */}
                 {hasExtraInfo && (
                   <>
                     {displayableFields.length > 0 && (
@@ -174,8 +174,6 @@ function SortableGoalItem({
           </div>
 
           <div className="flex-shrink-0 flex items-center space-x-0.5 mt-0.5 relative">
-            {" "}
-            {/* Змінено space-x-1 на space-x-0.5 та додано relative */}
             {hasExtraInfo && (
               <button
                 onClick={toggleExpand}
@@ -189,10 +187,9 @@ function SortableGoalItem({
                 )}
               </button>
             )}
-            {/* Кнопка для асоційованих списків */}
             {!goal.completed && (
               <button
-                ref={popoverAnchorRef} // Реф для позиціонування
+                ref={popoverAnchorRef}
                 onClick={toggleAssocPopover}
                 className={`p-1 text-slate-500 dark:text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 focus:outline-none rounded hover:bg-purple-100 dark:hover:bg-purple-700/50 ${
                   isAssocPopoverOpen
@@ -220,7 +217,6 @@ function SortableGoalItem({
             >
               <Trash2 size={16} />
             </button>
-            {/* Відображення поповера */}
             {isAssocPopoverOpen && (
               <AssociatedListsPopover
                 targetGoal={goal}
@@ -239,4 +235,4 @@ function SortableGoalItem({
   );
 }
 
-export default SortableGoalItem;
+export default SortableGoalItem; // <--- Експорт за замовчуванням

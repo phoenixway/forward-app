@@ -2,8 +2,11 @@
 import React, { useState, useEffect, useCallback } from "react";
 import "./styles.css"; // Глобальні стилі або стилі для App
 import Layout from "./components/Layout";
-import Sidebar from "./components/Sidebar";
+import Sidebar, { MAIN_PANEL_REFRESH_CONTENT } from "./components/Sidebar";
 import MainPanel from "./components/MainPanel";
+import { DragDropContext, DropResult } from "@hello-pangea/dnd";
+import { SIDEBAR_REFRESH_LISTS_EVENT } from "./components/Sidebar"; // Додайте цей імпорт
+import * as goalListStore from "./data/goalListsStore";
 
 const ZOOM_STEP = 0.1;
 const MIN_ZOOM = 0.5;
@@ -12,6 +15,65 @@ const OBSIDIAN_VAULT_SETTING_KEY = "obsidianVaultPath";
 
 const App: React.FC = () => {
   console.log("[App.tsx] Рендеринг компонента App");
+
+  const handleDragEnd = useCallback((result: DropResult) => {
+    const { source, destination, draggableId, type } = result;
+
+    // 1. Вийти, якщо перетягнули поза зоною
+    if (!destination) {
+      return;
+    }
+
+    // 2. Вийти, якщо це не перетягування цілі
+    if (type !== "GOAL") {
+      return;
+    }
+
+    // 3. Очищення ID призначення (з табів та сайдбару)
+    let destinationListId = destination.droppableId;
+    if (destination.droppableId.startsWith("sidebar-")) {
+      destinationListId = destination.droppableId.substring("sidebar-".length);
+    } else if (destination.droppableId.startsWith("tab-")) {
+      destinationListId = destination.droppableId.substring("tab-".length);
+    }
+    const sourceListId = source.droppableId;
+
+    // 4. Пересортування в межах одного списку
+    if (sourceListId === destinationListId) {
+      const currentGoals = goalListStore.getGoalsForList(sourceListId);
+      if (!currentGoals) return;
+
+      const reorderedGoals = Array.from(currentGoals);
+      const [movedGoal] = reorderedGoals.splice(source.index, 1);
+      if (movedGoal) {
+        reorderedGoals.splice(destination.index, 0, movedGoal);
+        const newOrderIds = reorderedGoals.map((g) => g.id);
+        goalListStore.updateGoalOrderInList(sourceListId, newOrderIds);
+      }
+    }
+    // 5. Переміщення між різними списками
+    else {
+      const moveResult = goalListStore.moveGoalToList(
+        draggableId,
+        sourceListId,
+        destinationListId,
+        destination.index,
+      );
+
+      if (!moveResult.success) {
+        console.error(
+          `[App.tsx] Failed to move goal: ${moveResult.error}`,
+          result,
+        );
+        alert(`Помилка переміщення цілі: ${moveResult.error}`);
+      }
+    }
+
+    // 6. Надіслати глобальну подію для оновлення всіх компонентів
+    // Це повідомить і MainPanel, і Sidebar про необхідність оновити дані.
+    window.dispatchEvent(new CustomEvent(SIDEBAR_REFRESH_LISTS_EVENT)); // Оновлює бічну панель
+    window.dispatchEvent(new CustomEvent(MAIN_PANEL_REFRESH_CONTENT)); // <-- ЗАМІНІТЬ/ДОДАЙТЕ ЦЕЙ РЯДОК
+  }, []);
 
   // --- Сигнал готовності рендерера ---
   useEffect(() => {
@@ -241,17 +303,20 @@ const App: React.FC = () => {
 
   return (
     <>
-      <Layout
-        sidebar={<Sidebar />}
-        mainPanel={
-          <MainPanel
-            currentThemePreference={userPreference}
-            onChangeThemePreference={handleThemePreferenceChange}
-            obsidianVaultPath={obsidianVaultPath}
-            onObsidianVaultChange={handleObsidianVaultChange}
-          />
-        }
-      />
+      {" "}
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <Layout
+          sidebar={<Sidebar />}
+          mainPanel={
+            <MainPanel
+              currentThemePreference={userPreference}
+              onChangeThemePreference={handleThemePreferenceChange}
+              obsidianVaultPath={obsidianVaultPath}
+              onObsidianVaultChange={handleObsidianVaultChange}
+            />
+          }
+        />
+      </DragDropContext>
     </>
   );
 };

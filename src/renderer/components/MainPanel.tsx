@@ -1,7 +1,6 @@
 // src/renderer/components/MainPanel.tsx
 import React, { useState, useEffect, useCallback, useRef } from "react";
-// Типи GoalList та Goal тепер відповідають новій структурі зі стору
-import type { GoalList as GoalListType, Goal } from "../data/goalListsStore"; // Додав Goal
+import type { GoalList as GoalListType, Goal } from "../data/goalListsStore";
 import * as goalListStore from "../data/goalListsStore";
 import GoalListPage from "./GoalListPage";
 import NoListSelected from "./NoListSelected";
@@ -9,12 +8,12 @@ import InputPanel, { CommandMode, InputPanelRef } from "./InputPanel";
 import TabsContainer from "./TabsContainer";
 import SettingsPage from "./SettingsPage";
 import LogContent, { LogMessage } from "./LogContent";
-// Переконайтеся, що ці івенти та типи імпортовані
 import {
   OPEN_GOAL_LIST_EVENT,
   OpenGoalListDetail,
   SIDEBAR_REFRESH_LISTS_EVENT,
-} from "./Sidebar";
+  MAIN_PANEL_REFRESH_CONTENT, // <-- Додайте імпорт нової константи
+} from "./Sidebar"; // Переконайтеся, що Sidebar експортує це
 import { OPEN_SETTINGS_EVENT } from "../events";
 import ListToolbar from "./ListToolbar";
 import {
@@ -22,6 +21,10 @@ import {
   parseImportedText,
   parseGoalData,
 } from "../utils/textProcessing";
+import { Droppable } from "@hello-pangea/dnd"; // Залишіть тільки Droppable
+import { error } from "console";
+import { text } from "stream/consumers";
+import SortableGoalItem from "./SortableGoalItem";
 
 export interface MainPanelProps {
   currentThemePreference: string;
@@ -107,7 +110,9 @@ function MainPanel({
 
   const [globalFilterText, setGlobalFilterText] = useState("");
   const [logMessages, setLogMessages] = useState<LogMessage[]>(initialLogs);
-  const [refreshSignal, setRefreshSignal] = useState(0);
+  const [refreshSignal, setRefreshSignal] = useState(0); // Цей сигнал для окремих GoalListPage, якщо потрібно
+  const [refreshSignalForAllTabs, setRefreshSignalForAllTabs] = useState(0); // <--- ОГОЛОШЕНО ТУТ
+
   const editingListModalRef = useRef<HTMLDivElement>(null);
 
   const [showImportArea, setShowImportArea] = useState(false);
@@ -120,8 +125,6 @@ function MainPanel({
 
   const importTextAreaRef = useRef<HTMLTextAreaElement>(null);
   const exportTextAreaRef = useRef<HTMLTextAreaElement>(null);
-
-  // src/renderer/components/MainPanel.tsx
 
   const refreshListsAndTabs = useCallback(() => {
     setTabs((prevTabs) => {
@@ -136,17 +139,15 @@ function MainPanel({
               if (tab.title !== correspondingList.name) {
                 return { ...tab, title: correspondingList.name };
               }
-              // Повертаємо tab як є, якщо назва не змінилася
               return tab;
             } else {
-              return null; // Список видалено, вкладку треба закрити
+              return null;
             }
           }
           return tab;
         })
         .filter(Boolean) as Tab[];
 
-      // Оновлюємо activeTabId у функціональний спосіб, щоб уникнути залежності від activeTabId
       setActiveTabId((currentActiveTabId) => {
         if (
           currentActiveTabId &&
@@ -158,35 +159,28 @@ function MainPanel({
         } else if (!currentActiveTabId && newTabs.length > 0) {
           return newTabs[0].id;
         }
-        // Якщо активна вкладка все ще існує в newTabs, або newTabs порожні,
-        // а currentActiveTabId був null, то currentActiveTabId є коректним.
         return currentActiveTabId;
       });
       return newTabs;
     });
-    setRefreshSignal((prev) => prev + 1);
-  }, [setTabs, setActiveTabId, setRefreshSignal]); // setTabs, setActiveTabId, setRefreshSignal - стабільні функції з useState
-
-  // src/renderer/components/MainPanel.tsx
+    setRefreshSignal((prev: number) => prev + 1); // <--- Додано тип для prev
+  }, []); // Залежності setTabs, setActiveTabId, setRefreshSignal стабільні, якщо вони з useState
 
   const handleDataImported = useCallback(() => {
     console.log(
       "[MainPanel] handleDataImported called, refreshing lists and tabs.",
     );
-    refreshListsAndTabs(); // refreshListsAndTabs тепер стабільний
+    refreshListsAndTabs();
     window.dispatchEvent(new CustomEvent(SIDEBAR_REFRESH_LISTS_EVENT));
 
     setTabs((prevTabs) => {
       const filteredTabs = prevTabs.filter(
         (tab) => tab.type === "settings" || tab.type === "log",
       );
-      // Логіка встановлення активної вкладки після імпорту
-      setActiveTabId((_prevActiveTabId) => {
-        // _prevActiveTabId не використовується, оскільки логіка залежить від filteredTabs
+      setActiveTabId(() => {
+        // prevActiveTabId не потрібен
         const settingsTab = filteredTabs.find((tab) => tab.type === "settings");
-        if (settingsTab) {
-          return settingsTab.id;
-        }
+        if (settingsTab) return settingsTab.id;
         const logTab = filteredTabs.find((tab) => tab.type === "log");
         return logTab ? logTab.id : null;
       });
@@ -196,7 +190,18 @@ function MainPanel({
     alert(
       "Дані оновлено після імпорту. Відкрийте потрібні списки з бічної панелі.",
     );
-  }, [refreshListsAndTabs, setTabs, setActiveTabId]); // setActiveTabId і setTabs стабільні, refreshListsAndTabs стабільний
+  }, [refreshListsAndTabs]); // Залежності setTabs, setActiveTabId стабільні
+
+  const handleGoalMovedBetweenLists = useCallback(
+    (sourceListId: string, destinationListId: string, movedGoalId: string) => {
+      console.log(
+        `[MainPanel] Goal ${movedGoalId} moved from ${sourceListId} to ${destinationListId}. Triggering refresh for all tabs and sidebar.`,
+      );
+      setRefreshSignalForAllTabs((prev: number) => prev + 1); // <--- Додано тип для prev
+      window.dispatchEvent(new CustomEvent(SIDEBAR_REFRESH_LISTS_EVENT));
+    },
+    [], // setRefreshSignalForAllTabs стабільний
+  );
 
   const getActiveListIdFromTab = useCallback((): string | null => {
     const activeTab = tabs.find((tab) => tab.id === activeTabId);
@@ -204,8 +209,6 @@ function MainPanel({
   }, [tabs, activeTabId]);
 
   const currentActiveListId = getActiveListIdFromTab();
-
-  // refreshAllListDataForDisplay (видалено, так як refreshListsAndTabs робить більше)
 
   useEffect(() => {
     localStorage.setItem("openTabs", JSON.stringify(tabs));
@@ -216,150 +219,81 @@ function MainPanel({
     else localStorage.removeItem("activeTabId");
   }, [activeTabId]);
 
-  // src/renderer/components/MainPanel.tsx
-
-  // src/renderer/components/MainPanel.tsx
-
   const handleIncomingCustomUrl = useCallback((url: string) => {
     console.log(`[MainPanel] Received custom URL: ${url}`);
     if (!url || !url.startsWith(`${MY_APP_PROTOCOL}://`)) {
       console.warn(`[MainPanel] Invalid or non-matching protocol URL: ${url}`);
       return;
     }
-
     try {
       const protocolPrefix = `${MY_APP_PROTOCOL}://`;
       const urlWithoutProtocol = url.substring(protocolPrefix.length);
-
       const questionMarkIndex = urlWithoutProtocol.indexOf("?");
       let pathAndCommandPart = urlWithoutProtocol;
-      let queryStringContent = ""; // Вміст після "?"
+      let queryStringContent = "";
       let listIdFromQuery: string | null = null;
 
       if (questionMarkIndex !== -1) {
         pathAndCommandPart = urlWithoutProtocol.substring(0, questionMarkIndex);
         queryStringContent = urlWithoutProtocol.substring(
           questionMarkIndex + 1,
-        ); // Отримуємо все, що після "?"
-
-        // Перевіряємо, чи queryStringContent містить "="
+        );
         if (queryStringContent.includes("=")) {
-          // Якщо є "=", використовуємо URLSearchParams
-          const searchParams = new URLSearchParams(queryStringContent); // Передаємо "ключ=значення"
+          const searchParams = new URLSearchParams(queryStringContent);
           listIdFromQuery = searchParams.get("id");
         } else if (queryStringContent) {
-          // Якщо немає "=", і queryStringContent не порожній, то це і є наш ID
           listIdFromQuery = queryStringContent;
         }
       }
-
       const pathSegments = pathAndCommandPart.split("/");
       const command = pathSegments[0];
-
-      console.log(
-        `[MainPanel] Parsed URL - Raw URL: "${url}", Command: "${command}", List ID from query: "${listIdFromQuery}" (Query string content: "${queryStringContent}")`,
-      );
-
-      if (command === "open-list") {
-        if (listIdFromQuery) {
-          console.log(
-            `[MainPanel] Attempting to process 'open-list' command for list ID: "${listIdFromQuery}"`,
-          );
-          const listToOpen = goalListStore.getGoalListById(listIdFromQuery);
-          if (listToOpen) {
-            console.log(
-              `[MainPanel] List found in store: ID="${listToOpen.id}", Name="${listToOpen.name}". Dispatching OPEN_GOAL_LIST_EVENT.`,
+      if (command === "open-list" && listIdFromQuery) {
+        const listToOpen = goalListStore.getGoalListById(listIdFromQuery);
+        if (listToOpen) {
+          const eventDetail: OpenGoalListDetail = {
+            listId: listToOpen.id,
+            listName: listToOpen.name,
+          };
+          setTimeout(() => {
+            window.dispatchEvent(
+              new CustomEvent<OpenGoalListDetail>(OPEN_GOAL_LIST_EVENT, {
+                detail: eventDetail,
+              }),
             );
-            const eventDetail: OpenGoalListDetail = {
-              listId: listToOpen.id,
-              listName: listToOpen.name,
-            };
-            setTimeout(() => {
-              console.log(
-                `[MainPanel] (Delayed) Dispatching OPEN_GOAL_LIST_EVENT with detail:`,
-                eventDetail,
-              );
-              window.dispatchEvent(
-                new CustomEvent<OpenGoalListDetail>(OPEN_GOAL_LIST_EVENT, {
-                  detail: eventDetail,
-                }),
-              );
-            }, 50);
-            console.log(
-              `[MainPanel] OPEN_GOAL_LIST_EVENT dispatch initiated with detail:`,
-              eventDetail,
-            );
-          } else {
-            alert(`Список з ID "${listIdFromQuery}" не знайдено у сховищі.`);
-            console.warn(
-              `[MainPanel] List with ID "${listIdFromQuery}" not found in store.`,
-            );
-          }
+          }, 50);
         } else {
-          alert(
-            "Не вказано ID списку в URL (параметр 'id' або сам ID після '?' відсутній або порожній).",
-          );
-          console.warn(
-            "[MainPanel] List ID missing or empty in URL for 'open-list' command.",
-          );
+          alert(`Список з ID "${listIdFromQuery}" не знайдено.`);
         }
+      } else if (command === "open-list" && !listIdFromQuery) {
+        alert("Не вказано ID списку в URL.");
       } else {
-        alert(
-          `Невідома команда в URL: "${command}". Очікувалась команда "open-list". Ваш URL: ${url}`,
-        );
-        console.warn(
-          `[MainPanel] Unknown command in URL: "${command}". Expected "open-list". URL: ${url}`,
-        );
+        alert(`Невідома команда в URL: "${command}".`);
       }
     } catch (error) {
-      console.error(
-        `[MainPanel] Error parsing or processing custom URL "${url}":`,
-        error,
-      );
-      alert("Помилка обробки URL-посилання. Перевірте консоль для деталей.");
+      console.error(`[MainPanel] Error parsing URL "${url}":`, error);
+      alert("Помилка обробки URL.");
     }
   }, []);
-  // src/renderer/components/MainPanel.tsx
 
   const handleOpenGoalListEventCallback = useCallback(
     (event: Event) => {
       const customEvent = event as CustomEvent<OpenGoalListDetail>;
       const { listId, listName } = customEvent.detail;
-
-      if (!listId || !listName) {
-        console.warn(
-          "[MainPanel] Event Handler: Received event with invalid listId or listName.",
-          customEvent.detail,
-        );
-        return;
-      }
-
-      console.log(
-        `[MainPanel] Event Handler: handleOpenGoalListEventCallback CALLED for listId: ${listId}, listName: ${listName}`,
-      );
-
+      if (!listId || !listName) return;
       const tabIdForGoalList = `goal-list-${listId}`;
-
       setTabs((prevTabs) => {
         const existingTab = prevTabs.find((tab) => tab.id === tabIdForGoalList);
-
         if (existingTab) {
-          console.log(
-            `[MainPanel] Event Handler: Tab for list ${listId} (id: ${tabIdForGoalList}) already exists.`,
-          );
           if (existingTab.title !== listName) {
             const updatedTabs = prevTabs.map((t) =>
               t.id === tabIdForGoalList ? { ...t, title: listName } : t,
             );
-            setActiveTabId(tabIdForGoalList); // Встановлюємо активну вкладку тут
+            setActiveTabId(tabIdForGoalList);
             return updatedTabs;
           }
-          setActiveTabId(tabIdForGoalList); // Встановлюємо активну вкладку тут, якщо вона не змінилась
+          setActiveTabId(tabIdForGoalList);
           return prevTabs;
         } else {
-          console.log(
-            `[MainPanel] Event Handler: Tab for list ${listId} (id: ${tabIdForGoalList}) does not exist. Creating new tab.`,
-          );
           const newTab: Tab = {
             id: tabIdForGoalList,
             title: listName,
@@ -368,34 +302,24 @@ function MainPanel({
             isClosable: true,
           };
           const newTabsArray = [...prevTabs, newTab];
-          setActiveTabId(tabIdForGoalList); // Встановлюємо активну вкладку тут
-          console.log(
-            `[MainPanel] Event Handler: New tab created. New tabs count: ${newTabsArray.length}. Activating tab id ${tabIdForGoalList}.`,
-          );
+          setActiveTabId(tabIdForGoalList);
           return newTabsArray;
         }
       });
-      // setActiveTabId(tabIdForGoalList); // Перенесено всередину setTabs для синхронності
       setGlobalFilterText("");
-      setRefreshSignal((prev) => prev + 1);
+      setRefreshSignal((prev: number) => prev + 1); // <--- Додано тип для prev
     },
-    [setTabs, setActiveTabId, setGlobalFilterText, setRefreshSignal], // Всі ці функції стабільні
+    [], // Залежності setTabs, setActiveTabId, setGlobalFilterText, setRefreshSignal стабільні
   );
 
-  // src/renderer/components/MainPanel.tsx
-
   const handleOpenSettingsEventCallback = useCallback(() => {
-    console.log(
-      "[MainPanel] Event Handler: handleOpenSettingsEventCallback CALLED",
-    );
     const settingsTabId = "settings-tab";
-
     setTabs((prevTabs) => {
       const existingSettingsTab = prevTabs.find(
         (tab) => tab.id === settingsTabId,
       );
       if (existingSettingsTab) {
-        setActiveTabId(settingsTabId); // Встановлюємо активну вкладку тут
+        setActiveTabId(settingsTabId);
         return prevTabs;
       } else {
         const newSettingsTab: Tab = {
@@ -404,58 +328,27 @@ function MainPanel({
           type: "settings",
           isClosable: true,
         };
-        const newTabsArray = [...prevTabs, newSettingsTab];
-        setActiveTabId(settingsTabId); // Встановлюємо активну вкладку тут
-        return newTabsArray;
+        setActiveTabId(settingsTabId);
+        return [...prevTabs, newSettingsTab];
       }
     });
-    // setActiveTabId(settingsTabId); // Перенесено всередину setTabs
-  }, [setTabs, setActiveTabId]); // Стабільні залежності
+  }, []); // Залежності setTabs, setActiveTabId стабільні
 
   useEffect(() => {
-    if (
-      window.electronAPI &&
-      typeof window.electronAPI.onCustomUrl === "function"
-    ) {
-      console.log(
-        "[MainPanel] Subscribing to custom URL events from main process (via electronAPI).",
-      );
+    if (window.electronAPI?.onCustomUrl) {
       const unsubscribe = window.electronAPI.onCustomUrl(
         handleIncomingCustomUrl,
       );
       return () => {
-        console.log("[MainPanel] Unsubscribing from custom URL events.");
-        if (typeof unsubscribe === "function") {
-          unsubscribe();
-        }
+        if (typeof unsubscribe === "function") unsubscribe();
       };
-    } else {
-      console.warn(
-        "[MainPanel] window.electronAPI.onCustomUrl is not available.",
-      );
     }
   }, [handleIncomingCustomUrl]);
 
   useEffect(() => {
-    console.log(
-      "[MainPanel] Adding global window event listeners (OPEN_GOAL_LIST_EVENT, OPEN_SETTINGS_EVENT, SIDEBAR_REFRESH_LISTS_EVENT, app-data-imported).",
-    );
+    const handleSidebarRefreshEvent = () => refreshListsAndTabs();
+    const handleAppDataImportedEvent = () => handleDataImported();
 
-    const handleSidebarRefreshEvent = () => {
-      console.log(
-        "[MainPanel] Received SIDEBAR_REFRESH_LISTS_EVENT. Calling refreshListsAndTabs.",
-      );
-      refreshListsAndTabs(); // refreshListsAndTabs стабільний
-    };
-
-    const handleAppDataImportedEvent = () => {
-      console.log(
-        "[MainPanel] Event 'app-data-imported' received. Calling handleDataImported.",
-      );
-      handleDataImported(); // handleDataImported стабільний
-    };
-
-    // handleOpenGoalListEventCallback та handleOpenSettingsEventCallback тепер стабільні
     window.addEventListener(
       OPEN_GOAL_LIST_EVENT,
       handleOpenGoalListEventCallback as EventListener,
@@ -466,15 +359,14 @@ function MainPanel({
     );
     window.addEventListener(
       SIDEBAR_REFRESH_LISTS_EVENT,
-      handleSidebarRefreshEvent, // Цей колбек визначено всередині useEffect, тому він теж стабільний в рамках цього ефекту
+      handleSidebarRefreshEvent,
     );
     window.addEventListener(
       "app-data-imported",
-      handleAppDataImportedEvent as EventListener, // Цей колбек також стабільний в рамках цього ефекту
+      handleAppDataImportedEvent as EventListener,
     );
 
     return () => {
-      console.log("[MainPanel] Removing global window event listeners.");
       window.removeEventListener(
         OPEN_GOAL_LIST_EVENT,
         handleOpenGoalListEventCallback as EventListener,
@@ -493,10 +385,10 @@ function MainPanel({
       );
     };
   }, [
-    handleOpenGoalListEventCallback, // Стабільний
-    handleOpenSettingsEventCallback, // Стабільний
-    refreshListsAndTabs, // Стабільний
-    handleDataImported, // Стабільний
+    handleOpenGoalListEventCallback,
+    handleOpenSettingsEventCallback,
+    refreshListsAndTabs,
+    handleDataImported,
   ]);
 
   const handleGlobalFilterChange = useCallback((query: string) => {
@@ -506,10 +398,11 @@ function MainPanel({
   const handleTagClickFromGoalRenderer = useCallback(
     (tagFilterTerm: string) => {
       setGlobalFilterText(tagFilterTerm);
-      const listToolbarFilterInput = document.querySelector<HTMLInputElement>(
-        '.h-10 input[type="text"][placeholder="Фільтрувати цілі..."]',
-      );
-      listToolbarFilterInput?.focus();
+      document
+        .querySelector<HTMLInputElement>(
+          '.h-10 input[type="text"][placeholder="Фільтрувати цілі..."]',
+        )
+        ?.focus();
     },
     [],
   );
@@ -525,11 +418,14 @@ function MainPanel({
         target.tagName === "TEXTAREA" ||
         target.isContentEditable
       ) {
-        const listToolbarFilterInput = document.querySelector(
-          '.h-10 input[type="text"][placeholder="Фільтрувати цілі..."]',
-        );
-        if (target === listToolbarFilterInput) return;
-        if (target !== inputPanelElement) return;
+        if (
+          target !==
+            document.querySelector(
+              '.h-10 input[type="text"][placeholder="Фільтрувати цілі..."]',
+            ) &&
+          target !== inputPanelElement
+        )
+          return;
       }
       if (
         event.code === TARGET_KEYCODE &&
@@ -553,12 +449,12 @@ function MainPanel({
         const clickedTab = tabs.find((t) => t.id === tabId);
         if (clickedTab?.type === "goal-list") {
           setGlobalFilterText("");
-          setRefreshSignal((prev) => prev + 1);
+          setRefreshSignal((prev: number) => prev + 1); // <--- Додано тип для prev
         }
       }
     },
-    [tabs, activeTabId, setActiveTabId],
-  );
+    [tabs, activeTabId],
+  ); // setActiveTabId, setGlobalFilterText, setRefreshSignal стабільні
 
   const handleTabClose = useCallback(
     (tabIdToClose: string) => {
@@ -567,9 +463,7 @@ function MainPanel({
           (tab) => tab.id === tabIdToClose,
         );
         if (indexToClose === -1) return prevTabs;
-
         const newTabs = prevTabs.filter((tab) => tab.id !== tabIdToClose);
-
         if (activeTabId === tabIdToClose) {
           if (newTabs.length > 0) {
             const newActiveIndex = Math.max(0, indexToClose - 1);
@@ -583,8 +477,8 @@ function MainPanel({
         return newTabs;
       });
     },
-    [activeTabId, setActiveTabId],
-  );
+    [activeTabId],
+  ); // setActiveTabId стабільний
 
   const handleNewTab = useCallback(() => {
     const settingsTabId = "settings-tab";
@@ -600,15 +494,14 @@ function MainPanel({
       ]);
     }
     setActiveTabId(settingsTabId);
-  }, [tabs, setActiveTabId]);
+  }, [tabs]); // setActiveTabId, setTabs стабільні
 
   const promptCreateNewList = useCallback(async () => {
     const name = prompt("Введіть назву нового списку:");
-    if (name && name.trim()) {
+    if (name?.trim()) {
       try {
         const newList = goalListStore.createGoalList(name.trim());
         window.dispatchEvent(new CustomEvent(SIDEBAR_REFRESH_LISTS_EVENT));
-
         const eventDetail: OpenGoalListDetail = {
           listId: newList.id,
           listName: newList.name,
@@ -629,9 +522,7 @@ function MainPanel({
       const listToDelete = goalListStore.getGoalListById(listId);
       if (
         listToDelete &&
-        window.confirm(
-          `Видалити список "${listToDelete.name}"? (Цілі в ньому не будуть видалені глобально)`,
-        )
+        window.confirm(`Видалити список "${listToDelete.name}"?`)
       ) {
         goalListStore.deleteGoalList(listId);
         refreshListsAndTabs();
@@ -645,13 +536,13 @@ function MainPanel({
     setEditingList(list);
     setEditingListName(list.name);
     setEditingListDescription(list.description || "");
-  }, []);
+  }, []); // setEditingList, setEditingListName, setEditingListDescription стабільні
 
   const handleCancelEditList = useCallback(() => {
     setEditingList(null);
     setEditingListName("");
     setEditingListDescription("");
-  }, []);
+  }, []); // setEditingList, setEditingListName, setEditingListDescription стабільні
 
   const handleSubmitEditList = useCallback(() => {
     if (editingList && editingListName.trim()) {
@@ -678,63 +569,24 @@ function MainPanel({
     handleCancelEditList,
   ]);
 
-  // src/renderer/components/MainPanel.tsx
-
   const handleAddGoalToCurrentList = useCallback(
     (listId: string, text: string) => {
-      console.log(
-        `[MainPanel] handleAddGoalToCurrentList: listId=${listId}, text="${text}"`,
-      );
       if (!listId) {
         alert("Будь ласка, спочатку виберіть або відкрийте список.");
-        console.warn(
-          "[MainPanel] handleAddGoalToCurrentList: listId не надано.",
-        );
         return;
       }
       try {
-        console.log(
-          "[MainPanel] handleAddGoalToCurrentList: Перед викликом goalListStore.createGoalAndAddToList",
-        );
-        const result = goalListStore.createGoalAndAddToList(listId, text);
-        if (result) {
-          console.log(
-            `[MainPanel] handleAddGoalToCurrentList: Ціль "${result.newGoal.text}" успішно додано до списку "${result.list.name}".`,
-          );
-        } else {
-          console.warn(
-            "[MainPanel] handleAddGoalToCurrentList: goalListStore.createGoalAndAddToList повернуло undefined (список не знайдено?).",
-          );
-        }
-
-        console.log(
-          "[MainPanel] handleAddGoalToCurrentList: Перед викликом setRefreshSignal",
-        );
-        setRefreshSignal((prev) => {
-          const next = prev + 1;
-          console.log(
-            `[MainPanel] handleAddGoalToCurrentList: setRefreshSignal з ${prev} на ${next}`,
-          );
-          return next;
-        });
-        console.log(
-          "[MainPanel] handleAddGoalToCurrentList: Після виклику setRefreshSignal",
-        );
+        goalListStore.createGoalAndAddToList(listId, text);
+        setRefreshSignal((prev: number) => prev + 1); // <--- Додано тип для prev
       } catch (error: any) {
         alert((error as Error).message);
-        console.error(
-          "[MainPanel] handleAddGoalToCurrentList: Помилка:",
-          error,
-        );
       }
     },
     [],
-  );
+  ); // setRefreshSignal стабільний
 
   const handleSearchGoals = useCallback(
-    (query: string) => {
-      handleGlobalFilterChange(query);
-    },
+    (query: string) => handleGlobalFilterChange(query),
     [handleGlobalFilterChange],
   );
 
@@ -763,7 +615,6 @@ function MainPanel({
     (commandWithArgs: string) => {
       const [command, ...args] = commandWithArgs.trim().split(/\s+/);
       const argString = args.join(" ").trim();
-
       switch (command.toLowerCase()) {
         case "create-list":
         case "new-list":
@@ -811,7 +662,7 @@ function MainPanel({
               alert((error as Error).message);
             }
           } else if (!currentActiveListId) {
-            alert("Спочатку відкрийте список, який хочете перейменувати.");
+            alert("Спочатку відкрийте список.");
           } else {
             alert("Вкажіть нову назву: > rename-list Нова Назва");
           }
@@ -820,8 +671,8 @@ function MainPanel({
           alert(`Невідома команда: ${command}`);
       }
     },
-    [refreshListsAndTabs, tabs, currentActiveListId, setActiveTabId],
-  );
+    [refreshListsAndTabs, tabs, currentActiveListId],
+  ); // setActiveTabId, setTabs стабільні
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -846,88 +697,73 @@ function MainPanel({
       return (
         <NoListSelected
           onSelectList={(id: string) => {
-            const list = goalListStore.getGoalListById(id);
-            if (list) {
-              const eventDetail: OpenGoalListDetail = {
-                listId: list.id,
-                listName: list.name,
-              };
-              window.dispatchEvent(
-                new CustomEvent<OpenGoalListDetail>(OPEN_GOAL_LIST_EVENT, {
-                  detail: eventDetail,
-                }),
-              );
-            }
+            /* ... */
           }}
           onCreateList={promptCreateNewList}
         />
       );
     }
     const activeTabData = tabs.find((tab) => tab.id === activeTabId);
-
     if (activeTabId && !activeTabData && tabs.length > 0) {
-      // Якщо активна вкладка вказана, але не знайдена, а вкладки є, активуємо першу
-      console.warn(
-        `[MainPanel] Активна вкладка ${activeTabId} не знайдена, активуємо першу доступну.`,
-      );
-      setActiveTabId(tabs[0].id); // Це може викликати перерендер, будьте уважні
-      return null; // Повертаємо null, щоб React міг обробити зміну стану і перерендерити
+      setActiveTabId(tabs[0].id);
+      return null;
     }
     if (!activeTabData) {
-      if (tabs.length === 0) {
-        return (
-          <NoListSelected
-            onCreateList={promptCreateNewList}
-            onSelectList={() => {}} // Порожня функція, оскільки немає списків для вибору
-          />
-        );
-      }
-      // Цей блок може бути недосяжним, якщо логіка вище спрацювала
-      console.warn(
-        "[MainPanel] activeTabData не знайдено, але вкладки існують. Це не мало статися.",
-      );
-      return (
-        <div className="p-4 text-slate-600 dark:text-slate-400">
-          Помилка: Не вдалося знайти дані для активної вкладки.
-        </div>
+      return tabs.length === 0 ? (
+        <NoListSelected
+          onCreateList={promptCreateNewList}
+          onSelectList={() => {}}
+        />
+      ) : (
+        <div>Помилка: Активна вкладка не знайдена.</div>
       );
     }
 
     switch (activeTabData.type) {
       case "goal-list":
-        if (activeTabData.listId) {
-          const listExists = goalListStore.getGoalListById(
-            activeTabData.listId,
-          );
-          if (!listExists) {
-            console.warn(
-              `[MainPanel] Список ${activeTabData.listId} для вкладки не існує. Можливо, його було видалено.`,
-            );
-            return (
-              <div className="p-4 text-slate-600 dark:text-slate-400">
-                {" "}
-                Список для цієї вкладки було видалено. Будь ласка, закрийте
-                її.{" "}
-              </div>
-            );
-          }
+        if (!activeTabData.listId) {
+          // <--- Перевірка, чи listId існує
           return (
-            <GoalListPage
-              key={activeTabData.listId} // <--- ЗМІНА: ТІЛЬКИ listId
-              listId={activeTabData.listId}
-              filterText={globalFilterText}
-              refreshSignal={refreshSignal} // refreshSignal передається як проп
-              obsidianVaultName={obsidianVaultPath}
-              onTagClickForFilter={handleTagClickFromGoalRenderer}
-              onNeedsSidebarRefresh={handleSidebarNeedsRefreshFromPage}
-            />
-            // <MinimalDndTestPageMovable />
+            <div className="p-4">
+              Помилка: ID списку для вкладки не знайдено.
+            </div>
           );
         }
-        return (
-          <div className="p-4">Помилка: ID списку для вкладки не знайдено.</div>
+        const listExists = goalListStore.getGoalListById(activeTabData.listId);
+        if (!listExists) {
+          return (
+            <div className="p-4 text-slate-600 dark:text-slate-400">
+              Список видалено.
+            </div>
+          );
+        }
+        const goalsForCurrentList = goalListStore.getGoalsForList(
+          activeTabData.listId!,
         );
 
+        return (
+          <Droppable droppableId={activeTabData.listId!} type="GOAL">
+            {(provided, snapshot) => (
+              <div
+                ref={provided.innerRef}
+                {...provided.droppableProps}
+                className={`h-full ${snapshot.isDraggingOver ? "bg-green-50 dark:bg-green-900/30" : ""}`}
+              >
+                <GoalListPage
+                  key={`${activeTabData.listId}-${refreshSignalForAllTabs}`}
+                  listId={activeTabData.listId!} // <--- non-null assertion, оскільки ми перевірили вище
+                  filterText={globalFilterText}
+                  refreshSignal={refreshSignalForAllTabs}
+                  obsidianVaultName={obsidianVaultPath}
+                  onTagClickForFilter={handleTagClickFromGoalRenderer}
+                  onNeedsSidebarRefresh={handleSidebarNeedsRefreshFromPage}
+                  onGoalMovedBetweenLists={handleGoalMovedBetweenLists}
+                />
+                {provided.placeholder} {/* <--- ДОДАЙТЕ ПЛЕЙСХОЛДЕР ТУТ */}
+              </div>
+            )}
+          </Droppable>
+        );
       case "settings":
         return (
           <SettingsPage
@@ -941,7 +777,6 @@ function MainPanel({
       case "log":
         return <LogContent messages={logMessages} />;
       default:
-        // TypeScript має запобігти цьому, але для безпеки:
         const _exhaustiveCheck: never = activeTabData.type;
         console.error("[MainPanel] Невідомий тип вкладки:", _exhaustiveCheck);
         return <div className="p-4">Невідомий тип вкладки.</div>;
@@ -954,25 +789,22 @@ function MainPanel({
     ? activeTabInfo?.listId || null
     : null;
 
-  const handleToggleAutoSort = useCallback((listId: string) => {
-    alert(`Дія: Перемкнути авто-сортування для списку ${listId}`);
-  }, []);
-
-  const handleCopyListId = useCallback((listId: string) => {
-    navigator.clipboard
-      .writeText(listId)
-      .then(() => alert(`ID списку "${listId}" скопійовано.`))
-      .catch((err) => console.error("Could not copy text: ", err));
-  }, []);
-
+  const handleToggleAutoSort = useCallback(
+    (listId: string) => alert(`Дія: Авто-сортування для списку ${listId}`),
+    [],
+  );
+  const handleCopyListId = useCallback(
+    (listId: string) =>
+      navigator.clipboard
+        .writeText(listId)
+        .then(() => alert(`ID списку "${listId}" скопійовано.`)),
+    [],
+  );
   const handleOpenListSettings = useCallback(
     (listId: string) => {
       const listToEdit = goalListStore.getGoalListById(listId);
-      if (listToEdit) {
-        handleStartEditList(listToEdit);
-      } else {
-        alert("Список не знайдено.");
-      }
+      if (listToEdit) handleStartEditList(listToEdit);
+      else alert("Список не знайдено.");
     },
     [handleStartEditList],
   );
@@ -984,7 +816,6 @@ function MainPanel({
     setImportText("");
     setTimeout(() => importTextAreaRef.current?.focus(), 0);
   }, []);
-
   const handleOpenExportArea = useCallback((listId: string) => {
     const goalsToExport = goalListStore.getGoalsForList(listId);
     if (goalsToExport) {
@@ -995,7 +826,6 @@ function MainPanel({
       setTimeout(() => exportTextAreaRef.current?.select(), 0);
     }
   }, []);
-
   const handleCancelImportExport = () => {
     setShowImportArea(false);
     setShowExportArea(false);
@@ -1003,69 +833,55 @@ function MainPanel({
     setExportText("");
     setListForImportExport(null);
   };
-
   const handleSubmitImport = useCallback(() => {
     if (!listForImportExport || !importText.trim()) {
       handleCancelImportExport();
       return;
     }
-    const linesFromImport = parseImportedText(importText);
-    if (linesFromImport.length > 0) {
-      const goalsToImport: Array<{ text: string; completed?: boolean }> =
-        linesFromImport
-          .map((line) => line.trim())
-          .filter((line) => line.length > 0)
-          .map((text) => ({ text: text, completed: false }));
-
+    const lines = parseImportedText(importText);
+    if (lines.length > 0) {
+      const goalsToImport = lines
+        .map((line) => ({ text: line.trim(), completed: false }))
+        .filter((g) => g.text.length > 0);
       if (goalsToImport.length > 0) {
         goalListStore.addMultipleGoalsToList(
           listForImportExport,
           goalsToImport,
         );
-        setRefreshSignal((prev) => prev + 1);
-        alert(`${goalsToImport.length} цілей імпортовано до списку.`);
+        setRefreshSignal((prev: number) => prev + 1); // <--- Додано тип для prev
+        alert(`${goalsToImport.length} цілей імпортовано.`);
       } else {
-        alert(
-          "Не знайдено тексту для імпорту цілей (після обробки порожніх рядків).",
-        );
+        alert("Не знайдено тексту для імпорту.");
       }
     } else {
-      alert("Не знайдено цілей для імпорту в наданому тексті.");
+      alert("Не знайдено цілей для імпорту.");
     }
     handleCancelImportExport();
-  }, [listForImportExport, importText]);
-
+  }, [listForImportExport, importText]); // setRefreshSignal стабільний
   const handleCopyExportText = useCallback(() => {
     if (exportText && exportTextAreaRef.current) {
       navigator.clipboard
         .writeText(exportText)
         .then(() => alert("Експортовані цілі скопійовано!"))
-        .catch((/*err*/) => alert("Помилка копіювання."));
+        .catch(() => alert("Помилка копіювання."));
     }
   }, [exportText]);
 
-  // ВИПРАВЛЕННЯ ТИПІВ ДЛЯ СОРТУВАННЯ
   const handleSortByRating = useCallback((listId: string) => {
     const goalsToSort = goalListStore.getGoalsForList(listId);
     if (!goalsToSort || goalsToSort.length === 0) return;
-
-    // Використовуємо імпортований тип Goal
     const goalsWithRating: Array<{ goal: Goal; ratingValue: number }> = [];
     const goalsWithoutRating: Goal[] = [];
-
     goalsToSort.forEach((goal) => {
       if (goal.completed) {
         goalsWithoutRating.push(goal);
         return;
       }
       const { rating } = parseGoalData(goal.text);
-      if (rating !== undefined) {
+      if (rating !== undefined)
         goalsWithRating.push({ goal, ratingValue: rating });
-      } else {
-        goalsWithoutRating.push(goal);
-      }
+      else goalsWithoutRating.push(goal);
     });
-
     goalsWithRating.sort((a, b) => {
       if (a.ratingValue === Infinity && b.ratingValue !== Infinity) return -1;
       if (a.ratingValue !== Infinity && b.ratingValue === Infinity) return 1;
@@ -1073,20 +889,36 @@ function MainPanel({
       if (a.ratingValue !== -Infinity && b.ratingValue === -Infinity) return -1;
       return b.ratingValue - a.ratingValue;
     });
-
     const sortedGoalIds = [
       ...goalsWithRating.map((item) => item.goal.id),
       ...goalsWithoutRating.filter((g) => !g.completed).map((goal) => goal.id),
       ...goalsWithoutRating.filter((g) => g.completed).map((goal) => goal.id),
     ];
-
     try {
       goalListStore.updateGoalOrderInList(listId, sortedGoalIds);
-      setRefreshSignal((prev) => prev + 1);
+      setRefreshSignal((prev: number) => prev + 1); // <--- Додано тип для prev
     } catch (error) {
       alert(`Помилка сортування: ${(error as Error).message}`);
     }
-  }, []);
+  }, []); // setRefreshSignal стабільний
+
+  useEffect(() => {
+    const handleContentRefresh = () => {
+      console.log(
+        "[MainPanel] Отримано сигнал оновлення контенту. Оновлюємо refreshSignalForAllTabs.",
+      );
+      setRefreshSignalForAllTabs((prev) => prev + 1);
+    };
+
+    window.addEventListener(MAIN_PANEL_REFRESH_CONTENT, handleContentRefresh);
+
+    return () => {
+      window.removeEventListener(
+        MAIN_PANEL_REFRESH_CONTENT,
+        handleContentRefresh,
+      );
+    };
+  }, []); // Порожній масив залежностей, щоб слухач додався один раз
 
   return (
     <div className="flex flex-col h-full w-full overflow-hidden bg-slate-200 dark:bg-slate-950">
@@ -1165,13 +997,13 @@ function MainPanel({
       {showImportArea && listForImportExport === currentActiveListId && (
         <div className="p-3 border-b border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-700/50 flex-shrink-0">
           <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-            Імпорт цілей до списку
+            Імпорт цілей
           </h3>
           <textarea
             ref={importTextAreaRef}
             value={importText}
             onChange={(e) => setImportText(e.target.value)}
-            placeholder="Вставте сюди список цілей, кожна ціль з нового рядка..."
+            placeholder="Вставте список цілей..."
             className="w-full h-24 p-2 border border-slate-300 dark:border-slate-600 rounded-md text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-1 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 placeholder-slate-400 dark:placeholder-slate-500"
           />
           <div className="flex justify-end space-x-2 mt-2">
@@ -1179,15 +1011,13 @@ function MainPanel({
               onClick={handleCancelImportExport}
               className="px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 rounded-md font-medium"
             >
-              {" "}
-              Скасувати{" "}
+              Скасувати
             </button>
             <button
               onClick={handleSubmitImport}
               className="px-3 py-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white dark:bg-indigo-500 dark:hover:bg-indigo-600 rounded-md font-medium"
             >
-              {" "}
-              Імпортувати{" "}
+              Імпортувати
             </button>
           </div>
         </div>
@@ -1195,7 +1025,7 @@ function MainPanel({
       {showExportArea && listForImportExport === currentActiveListId && (
         <div className="p-3 border-b border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-700/50 flex-shrink-0">
           <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-            Експорт цілей зі списку
+            Експорт цілей
           </h3>
           <textarea
             ref={exportTextAreaRef}
@@ -1208,15 +1038,13 @@ function MainPanel({
               onClick={handleCopyExportText}
               className="px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 rounded-md font-medium"
             >
-              {" "}
-              Копіювати{" "}
+              Копіювати
             </button>
             <button
               onClick={handleCancelImportExport}
               className="px-3 py-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white dark:bg-indigo-500 dark:hover:bg-indigo-600 rounded-md font-medium"
             >
-              {" "}
-              Готово{" "}
+              Готово
             </button>
           </div>
         </div>

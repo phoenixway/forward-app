@@ -100,6 +100,7 @@ function createWindow() {
   mainWindowInstance = new BrowserWindow({
     width: 1200,
     height: 800,
+    title: `${app.getName()} v${app.getVersion()}`,
     webPreferences: {
       preload: path.join(__dirname, "../preload/preload.js"),
     },
@@ -529,7 +530,7 @@ Type=Fixed
             label: "Відвідати GitHub",
             click: async () => {
               await shell.openExternal(
-                "https://github.com/phoenixway/forwardapp",
+                "https://github.com/phoenixway/forward-app",
               ); // Замініть на ваше посилання
             },
           },

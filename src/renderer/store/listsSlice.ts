@@ -1,41 +1,23 @@
 // src/renderer/store/listsSlice.ts
 import { createSlice, PayloadAction, nanoid } from "@reduxjs/toolkit";
-import type { Goal, GoalInstance, GoalList } from "../types";
+import type { Goal, GoalInstance, GoalList } from "../types"; // <-- Імпортуємо з єдиного джерела
 
-// Оновлюємо стан, додаючи goalInstances
 export interface ListsState {
   goals: Record<string, Goal>;
   goalLists: Record<string, GoalList>;
-  goalInstances: Record<string, GoalInstance>; // <--- Нове поле
+  goalInstances: Record<string, GoalInstance>;
 }
 
-const loadInitialState = (): ListsState => {
-  try {
-    const savedStateRaw = localStorage.getItem("persist:root"); // redux-persist за замовчуванням використовує цей ключ
-    if (savedStateRaw) {
-      const savedState = JSON.parse(savedStateRaw);
-      // redux-persist зберігає кожен slice як рядок, тому їх треба парсити окремо
-      const listsSliceState = savedState.lists
-        ? JSON.parse(savedState.lists)
-        : {};
-
-      if (listsSliceState.goalInstances) {
-        return listsSliceState;
-      }
-    }
-  } catch (e) {
-    console.error("Не вдалося завантажити стан з localStorage", e);
-  }
-  return { goals: {}, goalLists: {}, goalInstances: {} };
+const initialState: ListsState = {
+  goals: {},
+  goalLists: {},
+  goalInstances: {},
 };
-
-const initialState: ListsState = loadInitialState();
 
 const listsSlice = createSlice({
   name: "lists",
   initialState,
   reducers: {
-    // --- РЕДЮСЕРИ ДЛЯ СПИСКІВ ---
     listAdded: {
       reducer: (state, action: PayloadAction<GoalList>) => {
         state.goalLists[action.payload.id] = action.payload;
@@ -48,7 +30,7 @@ const listsSlice = createSlice({
             id,
             name: payload.name,
             description: payload.description || "",
-            itemInstanceIds: [], // <-- ВИПРАВЛЕНО
+            itemInstanceIds: [],
             createdAt,
             updatedAt: createdAt,
           },
@@ -73,7 +55,6 @@ const listsSlice = createSlice({
       const listId = action.payload;
       const list = state.goalLists[listId];
       if (list) {
-        // Видаляємо всі екземпляри, що належали цьому списку
         list.itemInstanceIds.forEach((instanceId) => {
           delete state.goalInstances[instanceId];
         });
@@ -310,6 +291,49 @@ const listsSlice = createSlice({
         goal.updatedAt = new Date().toISOString();
       }
     },
+    goalCopied(
+      state,
+      action: PayloadAction<{
+        sourceGoalId: string;
+        destinationListId: string;
+        destinationIndex: number;
+      }>,
+    ) {
+      const { sourceGoalId, destinationListId, destinationIndex } =
+        action.payload;
+      const originalGoal = state.goals[sourceGoalId];
+      const destinationList = state.goalLists[destinationListId];
+
+      if (originalGoal && destinationList) {
+        const newGoalId = nanoid();
+        const newInstanceId = nanoid();
+        const now = new Date().toISOString();
+
+        // 1. Створюємо повну копію цілі з новим ID
+        const newGoal: Goal = {
+          ...originalGoal,
+          id: newGoalId,
+          text: `${originalGoal.text} (копія)`, // Додаємо позначку, щоб розрізняти
+          createdAt: now,
+          updatedAt: now,
+          associatedListIds: [], // Копія не успадковує асоціації
+        };
+        state.goals[newGoalId] = newGoal;
+
+        // 2. Створюємо новий екземпляр для цієї нової цілі
+        state.goalInstances[newInstanceId] = {
+          id: newInstanceId,
+          goalId: newGoalId,
+        };
+
+        // 3. Додаємо екземпляр у новий список
+        destinationList.itemInstanceIds.splice(
+          destinationIndex,
+          0,
+          newInstanceId,
+        );
+      }
+    },
     stateReplaced(state, action: PayloadAction<ListsState>) {
       // Новий підхід: створюємо новий об'єкт стану
       return {
@@ -341,6 +365,7 @@ export const {
   goalReferenceAdded,
   instanceRemovedFromList,
   goalPermanentlyDeleted,
+  goalCopied,
 } = listsSlice.actions;
 
 export default listsSlice.reducer;

@@ -65,8 +65,9 @@ function MainPanel({
   onObsidianVaultChange,
 }: MainPanelProps) {
   const { goals, goalLists, goalInstances } = useSelector(
-    (state: RootState) => state,
+    (state: RootState) => state.lists,
   );
+
   const dispatch = useDispatch<AppDispatch>();
 
   const inputPanelGlobalRef = useRef<InputPanelRef>(null);
@@ -123,7 +124,7 @@ function MainPanel({
   const [globalFilterText, setGlobalFilterText] = useState("");
   const [logMessages, setLogMessages] = useState<LogMessage[]>(initialLogs);
   const [refreshSignal, setRefreshSignal] = useState(0);
-  const [refreshSignalForAllTabs, setRefreshSignalForAllTabs] = useState(0);
+  // const [refreshSignalForAllTabs, setRefreshSignalForAllTabs] = useState(0);
 
   const editingListModalRef = useRef<HTMLDivElement>(null);
 
@@ -202,17 +203,6 @@ function MainPanel({
       "Дані оновлено після імпорту. Відкрийте потрібні списки з бічної панелі.",
     );
   }, [refreshListsAndTabs]);
-
-  const handleGoalMovedBetweenLists = useCallback(
-    (sourceListId: string, destinationListId: string, movedGoalId: string) => {
-      console.log(
-        `[MainPanel] Goal ${movedGoalId} moved from ${sourceListId} to ${destinationListId}. Triggering refresh for all tabs and sidebar.`,
-      );
-      setRefreshSignalForAllTabs((prev: number) => prev + 1);
-      window.dispatchEvent(new CustomEvent(SIDEBAR_REFRESH_LISTS_EVENT));
-    },
-    [],
-  );
 
   const getActiveListIdFromTab = useCallback((): string | null => {
     const activeTab = tabs.find((tab) => tab.id === activeTabId);
@@ -747,7 +737,7 @@ function MainPanel({
                 className={`h-full ${snapshot.isDraggingOver ? "bg-green-50 dark:bg-green-900/30" : ""}`}
               >
                 <GoalListPage
-                  key={`${activeTabData.listId!}-${refreshSignalForAllTabs}`}
+                  key={activeTabData.listId!} // Ключ тепер стабільний для однієї вкладки
                   listId={activeTabData.listId!}
                   filterText={globalFilterText}
                   obsidianVaultName={obsidianVaultPath}
@@ -958,24 +948,6 @@ function MainPanel({
     },
     [dispatch, goals, goalLists, goalInstances],
   ); // Важливо вказати всі залежності
-
-  useEffect(() => {
-    const handleContentRefresh = () => {
-      console.log(
-        "[MainPanel] Отримано сигнал оновлення контенту. Оновлюємо refreshSignalForAllTabs.",
-      );
-      setRefreshSignalForAllTabs((prev) => prev + 1);
-    };
-
-    window.addEventListener(MAIN_PANEL_REFRESH_CONTENT, handleContentRefresh);
-
-    return () => {
-      window.removeEventListener(
-        MAIN_PANEL_REFRESH_CONTENT,
-        handleContentRefresh,
-      );
-    };
-  }, []);
 
   return (
     <div className="flex flex-col h-full w-full overflow-hidden bg-slate-200 dark:bg-slate-950">

@@ -1,17 +1,31 @@
 // src/renderer/components/SettingsPage.tsx
 import React, { useState, useEffect, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
+import { nanoid } from "@reduxjs/toolkit";
 import { RootState, AppDispatch } from "../store/store";
 import { ListsState, stateReplaced } from "../store/listsSlice";
-import type { GoalList, Goal, GoalInstance } from "../types";
+import type { Goal, GoalList, GoalInstance } from "../types";
+
+// Типи для розбору старих і нових форматів бекапу
+interface OldGoalListFormat {
+  id: string;
+  name: string;
+  itemGoalIds?: string[]; // У вашому файлі це поле може називатися інакше або бути відсутнім
+  itemInstanceIds?: string[]; // Додаємо можливу наявність нового поля
+  createdAt?: string;
+  updatedAt?: string;
+  [key: string]: any;
+}
+
+interface OldBackupData {
+  goalLists: OldGoalListFormat[];
+  goals: Goal[];
+}
 
 interface AppBackupDataFormat {
   version: number;
   exportedAt: string;
-  data: {
-    goalLists: GoalList[];
-    goals: Goal[];
-  };
+  data: OldBackupData | ListsState;
 }
 
 interface SettingsPageProps {
@@ -30,14 +44,10 @@ function SettingsPage({
   onDataImported,
 }: SettingsPageProps) {
   const dispatch = useDispatch<AppDispatch>();
-  const fullState = useSelector((state: RootState) => ({
-    goals: state.goals,
-    goalLists: state.goalLists,
-    goalInstances: state.goalInstances,
-  }));
+  const listsStateForExport = useSelector((state: RootState) => state.lists);
+
   const [obsidianVaultPath, setObsidianVaultPath] =
     useState(initialObsidianVault);
-
   const [isLinuxAppImage, setIsLinuxAppImage] = useState(false);
   const [userDesktopFileExists, setUserDesktopFileExists] = useState(true);
   const [desktopFileMessage, setDesktopFileMessage] = useState<string | null>(
@@ -51,7 +61,6 @@ function SettingsPage({
 
   useEffect(() => {
     const checkDesktopIntegrationStatus = async () => {
-      // Перевіряємо платформу в рендерері перед викликом API
       if (
         window.electronAPI &&
         navigator.platform.toUpperCase().indexOf("LINUX") >= 0
@@ -62,30 +71,13 @@ function SettingsPage({
           if (isAppImage) {
             const hasFile = await window.electronAPI.hasUserDesktopFile();
             setUserDesktopFileExists(hasFile);
-            if (hasFile) {
-              setDesktopFileMessage(
-                "Ярлик для меню вже існує для поточного користувача.",
-              );
-            } else {
-              setDesktopFileMessage(null);
-            }
-          } else {
-            // Не AppImage на Linux, кнопка не потрібна або буде неактивна
-            setUserDesktopFileExists(true);
           }
         } catch (error) {
           console.error(
             "Помилка перевірки статусу інтеграції з робочим столом:",
             error,
           );
-          setIsLinuxAppImage(false);
-          setUserDesktopFileExists(true);
-          setDesktopFileMessage("Не вдалося перевірити статус ярлика.");
         }
-      } else {
-        // Не Linux, функція неактуальна
-        setIsLinuxAppImage(false);
-        setUserDesktopFileExists(true);
       }
     };
     checkDesktopIntegrationStatus();
@@ -106,33 +98,16 @@ function SettingsPage({
   }, [obsidianVaultPath, onObsidianVaultChange]);
 
   const handleExportData = async () => {
-    if (!window.electronAPI?.showSaveDialog) {
-      // Додано перевірку наявності методу
+    if (!window.electronAPI?.showSaveDialog || !window.electronAPI.writeFile) {
       alert("Electron API не доступне для операцій з файлами.");
-      console.error(
-        "Electron API (window.electronAPI.showSaveDialog) not found.",
-      );
       return;
     }
-
     try {
-      const allGoalLists = Object.values(fullState.goalLists);
-      const allGoals = Object.values(fullState.goals);
-
-      if (allGoalLists.length === 0 && allGoals.length === 0) {
-        alert("Немає даних для експорту.");
-        return;
-      }
-
-      const exportData: AppBackupDataFormat = {
-        version: 1,
+      const exportData = {
+        version: 2, // Завжди експортуємо в новому форматі
         exportedAt: new Date().toISOString(),
-        data: {
-          goalLists: allGoalLists,
-          goals: allGoals,
-        },
+        data: listsStateForExport,
       };
-
       const result = await window.electronAPI.showSaveDialog({
         title: "Експорт всіх даних",
         defaultPath: `forward-app-backup-${new Date().toISOString().split("T")[0]}.json`,
@@ -142,45 +117,33 @@ function SettingsPage({
       if (!result.canceled && result.filePath) {
         const jsonContent = JSON.stringify(exportData, null, 2);
         const writeResult = await window.electronAPI.writeFile(
-          // Перевірка writeFile також потрібна, якщо вона може бути відсутня
           result.filePath,
           jsonContent,
         );
         if (writeResult.success) {
           alert("Дані успішно експортовано!");
-          console.log("Data exported successfully to:", result.filePath);
         } else {
           alert(`Помилка експорту: ${writeResult.error || "Невідома помилка"}`);
-          console.error("Export error:", writeResult.error);
         }
-      } else {
-        console.log("Export dialog was canceled by user.");
       }
     } catch (error) {
-      console.error("Помилка під час експорту даних:", error);
       alert(
         `Сталася помилка експорту: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   };
 
-  // src/renderer/components/SettingsPage.tsx
-
   const handleImportData = async () => {
     if (!window.electronAPI?.showOpenDialog || !window.electronAPI.readFile) {
       alert("Electron API не доступне для операцій з файлами.");
       return;
     }
-
     const confirmImport = window.confirm(
       "УВАГА! Імпорт даних повністю ПЕРЕЗАПИШЕ всі ваші поточні списки та цілі. " +
         "Рекомендується зробити резервну копію (експорт) перед продовженням.\n\n" +
         "Ви впевнені, що хочете продовжити?",
     );
-
-    if (!confirmImport) {
-      return;
-    }
+    if (!confirmImport) return;
 
     try {
       const result = await window.electronAPI.showOpenDialog({
@@ -189,84 +152,91 @@ function SettingsPage({
         properties: ["openFile"],
       });
 
-      if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
-        const filePath = result.filePaths[0];
-        const readResult = await window.electronAPI.readFile(filePath);
+      if (
+        result.canceled ||
+        !result.filePaths ||
+        result.filePaths.length === 0
+      ) {
+        return;
+      }
+      const filePath = result.filePaths[0];
+      const readResult = await window.electronAPI.readFile(filePath);
 
-        if (readResult.success && typeof readResult.content === "string") {
-          const importedObject = JSON.parse(readResult.content);
+      if (readResult.success && typeof readResult.content === "string") {
+        const importedObject: AppBackupDataFormat = JSON.parse(
+          readResult.content,
+        );
 
-          if (!importedObject.version || !importedObject.data) {
-            alert("Файл має невірний формат або пошкоджений.");
-            return;
-          }
-
-          // --- ОСНОВНА ЗМІНА ТУТ ---
-          // Ми створюємо змінну типу ListsState, а не RootState
-          let finalState: ListsState;
-
-          if (importedObject.version === 1) {
-            // ... логіка конвертації старого формату (залишається без змін)
-            const oldData = importedObject.data;
-            const newInstances: Record<string, GoalInstance> = {};
-            const newLists: Record<string, any> = {};
-            Object.values(oldData.goalLists).forEach((list: any) => {
-              const newInstanceIds: string[] = [];
-              if (list.itemGoalIds && Array.isArray(list.itemGoalIds)) {
-                list.itemGoalIds.forEach((goalId: string) => {
-                  if (oldData.goals.find((g: any) => g.id === goalId)) {
-                    const instanceId = `inst_${Math.random().toString(36).substr(2, 9)}`;
-                    newInstanceIds.push(instanceId);
-                    newInstances[instanceId] = {
-                      id: instanceId,
-                      goalId: goalId,
-                    };
-                  }
-                });
-              }
-              newLists[list.id] = { ...list, itemInstanceIds: newInstanceIds };
-              delete newLists[list.id].itemGoalIds;
-            });
-            const goalsAsRecord = oldData.goals.reduce(
-              (acc: Record<string, Goal>, goal: Goal) => {
-                acc[goal.id] = goal;
-                return acc;
-              },
-              {},
-            );
-            finalState = {
-              goals: goalsAsRecord,
-              goalLists: newLists,
-              goalInstances: newInstances,
-            };
-          } else {
-            finalState = importedObject.data;
-          }
-
-          if (
-            !finalState.goals ||
-            !finalState.goalLists ||
-            !finalState.goalInstances
-          ) {
-            alert("Помилка обробки даних імпорту. Відсутні необхідні поля.");
-            return;
-          }
-
-          // Тепер ми передаємо в dispatch об'єкт правильного типу
-          dispatch(stateReplaced(finalState));
-
-          alert("Дані успішно імпортовано!");
-          if (onDataImported) {
-            onDataImported();
-          }
-        } else {
-          alert(
-            `Помилка читання файлу: ${readResult.error || "Невідома помилка."}`,
-          );
+        if (!importedObject.version || !importedObject.data) {
+          throw new Error("Файл має невірний формат.");
         }
+
+        let finalState: ListsState;
+
+        if (importedObject.version === 1) {
+          const oldData = importedObject.data as OldBackupData;
+
+          const goalsAsRecord = (oldData.goals || []).reduce(
+            (acc: Record<string, Goal>, goal: Goal) => {
+              acc[goal.id] = goal;
+              return acc;
+            },
+            {},
+          );
+
+          const newInstances: Record<string, GoalInstance> = {};
+          const newLists: Record<string, GoalList> = {};
+
+          (oldData.goalLists || []).forEach((list) => {
+            const newInstanceIds: string[] = [];
+            // --- ВИПРАВЛЕННЯ: Шукаємо ID або в старому, або в новому полі ---
+            const idsToProcess = list.itemGoalIds || list.itemInstanceIds || [];
+
+            if (Array.isArray(idsToProcess)) {
+              idsToProcess.forEach((id: string) => {
+                // Визначаємо, чи це ID цілі, чи ID вже існуючого екземпляра
+                const isInstanceId = id.startsWith("inst_");
+                const goalId = isInstanceId ? undefined : id;
+
+                if (goalId && goalsAsRecord[goalId]) {
+                  const instanceId = nanoid();
+                  newInstanceIds.push(instanceId);
+                  newInstances[instanceId] = { id: instanceId, goalId: goalId };
+                } else if (isInstanceId) {
+                  // Якщо це вже ID екземпляра з бекапу, ми не можемо знати goalId.
+                  // Це вказує на пошкоджений/змішаний бекап. Ми його пропустимо.
+                  console.warn(
+                    `Пропущено ID екземпляра '${id}' зі списку '${list.name}', оскільки його походження невідоме.`,
+                  );
+                }
+              });
+            }
+
+            const { itemGoalIds, itemInstanceIds, ...restOfList } = list;
+            newLists[list.id] = {
+              ...restOfList,
+              id: list.id,
+              name: list.name,
+              itemInstanceIds: newInstanceIds,
+              createdAt: list.createdAt || new Date().toISOString(),
+              updatedAt: list.updatedAt || new Date().toISOString(),
+            };
+          });
+
+          finalState = {
+            goals: goalsAsRecord,
+            goalLists: newLists,
+            goalInstances: newInstances,
+          };
+        } else {
+          finalState = importedObject.data as ListsState;
+        }
+
+        dispatch(stateReplaced(finalState));
+        alert("Дані успішно імпортовано!");
+        if (onDataImported) onDataImported();
       }
     } catch (error) {
-      console.error("Помилка під час імпорту даних:", error);
       alert(
         `Сталася помилка імпорту: ${error instanceof Error ? error.message : String(error)}.`,
       );

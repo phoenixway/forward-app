@@ -9,17 +9,17 @@ export interface Goal {
   associatedListIds?: string[];
 }
 
-// Оновлюємо тип GoalList
+export interface GoalInstance {
+  id: string;
+  goalId: string;
+}
+
+// --- ВИПРАВЛЕНО: Використовуємо itemInstanceIds ---
 export interface GoalList {
   id: string;
   name: string;
   description?: string;
-  itemInstanceIds: string[]; // <--- Перейменовано з itemGoalIds
+  itemInstanceIds: string[];
   createdAt: string;
   updatedAt: string;
-}
-
-export interface GoalInstance {
-  id: string; // Унікальний ID для цього екземпляра
-  goalId: string; // ID оригінальної цілі, на яку він посилається
 }

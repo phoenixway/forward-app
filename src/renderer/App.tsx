@@ -6,6 +6,8 @@ import MainPanel from "./components/MainPanel";
 import { DragDropContext, DropResult } from "@hello-pangea/dnd";
 import Sidebar, { MAIN_PANEL_REFRESH_CONTENT } from "./components/Sidebar";
 import { SIDEBAR_REFRESH_LISTS_EVENT } from "./events";
+import { openDropActionMenu } from "./store/uiSlice"; // <-- Імпортуємо дію для відкриття меню
+import DropActionMenu from "./components/DropActionMenu"; // <-- Імпортуємо сам компонент меню
 
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "./store/store";
@@ -24,12 +26,15 @@ const App: React.FC = () => {
   console.log("[App.tsx] Рендеринг компонента App");
   const dispatch = useDispatch<AppDispatch>();
 
-  const goals = useSelector((state: RootState) => state.goals);
+  // const goals = useSelector((state: RootState) => state.goals);
   const isCtrlPressedRef = useRef(false);
-  const { goalLists, goalInstances } = useSelector((state: RootState) => ({
-    goalLists: state.goalLists,
-    goalInstances: state.goalInstances,
-  }));
+  //
+  // const { goalLists, goalInstances } = useSelector((state: RootState) => ({
+  //   goalLists: state.goalLists,
+  //   goalInstances: state.goalInstances,
+  // }));
+
+  const goalLists = useSelector((state: RootState) => state.lists.goalLists);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -53,48 +58,20 @@ const App: React.FC = () => {
 
   const handleDragEnd = useCallback(
     (result: DropResult) => {
-      const { source, destination, draggableId, type } = result;
+      const { source, destination } = result;
 
-      if (!destination || type !== "GOAL") {
-        isCtrlPressedRef.current = false; // Скидаємо на випадок скасування
-        return;
-      }
+      if (!destination) return;
 
       const sourceListId = source.droppableId;
-      let destinationListId = destination.droppableId;
-      if (destination.droppableId.startsWith("sidebar-")) {
-        destinationListId = destination.droppableId.substring(
-          "sidebar-".length,
-        );
-      }
+      const destinationListId = destination.droppableId;
 
-      const instanceId = draggableId; // В DND draggableId - це наш instanceId
-
-      // Перевіряємо, чи натиснута клавіша Ctrl і чи це перетягування між різними списками
-      if (isCtrlPressedRef.current && sourceListId !== destinationListId) {
-        // --- Логіка створення посилання ---
-        const instance = goalInstances[instanceId];
-        if (instance && instance.goalId) {
-          dispatch(
-            goalReferenceAdded({
-              listId: destinationListId,
-              goalId: instance.goalId,
-            }),
-          );
-        } else {
-          console.warn(
-            `Не вдалося знайти оригінал цілі для екземпляра ${instanceId}`,
-          );
-        }
-      } else if (sourceListId === destinationListId) {
-        // --- Логіка сортування в межах одного списку ---
+      if (sourceListId === destinationListId) {
+        // Якщо сортуємо в межах одного списку - просто виконуємо дію
         const list = goalLists[sourceListId];
         if (!list) return;
-
         const reorderedInstanceIds = Array.from(list.itemInstanceIds);
         const [movedItem] = reorderedInstanceIds.splice(source.index, 1);
         reorderedInstanceIds.splice(destination.index, 0, movedItem);
-
         dispatch(
           goalOrderUpdated({
             listId: sourceListId,
@@ -102,21 +79,11 @@ const App: React.FC = () => {
           }),
         );
       } else {
-        // --- Логіка переміщення (стандартна поведінка) ---
-        dispatch(
-          goalMoved({
-            instanceId: instanceId,
-            sourceListId: sourceListId,
-            destinationListId: destinationListId,
-            destinationIndex: destination.index,
-          }),
-        );
+        // Якщо перетягуємо в інший список - відкриваємо меню вибору
+        dispatch(openDropActionMenu(result));
       }
-
-      // Завжди скидаємо стан клавіші після завершення операції
-      isCtrlPressedRef.current = false;
     },
-    [dispatch, goalLists, goalInstances],
+    [dispatch, goalLists],
   );
 
   // --- Сигнал готовності рендерера ---
@@ -347,7 +314,6 @@ const App: React.FC = () => {
 
   return (
     <>
-      {" "}
       <DragDropContext onDragEnd={handleDragEnd}>
         <Layout
           sidebar={<Sidebar />}
@@ -361,6 +327,7 @@ const App: React.FC = () => {
           }
         />
       </DragDropContext>
+      <DropActionMenu /> {/* <-- Рендеримо наше меню тут */}
     </>
   );
 };

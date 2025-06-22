@@ -3,20 +3,24 @@ import { createSelector } from "reselect";
 import { RootState } from "./store";
 import type { Goal, GoalInstance, GoalList } from "../types";
 
-// Базові селектори
-const selectGoals = (state: RootState) => state.goals;
-const selectGoalLists = (state: RootState) => state.goalLists;
-const selectGoalInstances = (state: RootState) => state.goalInstances;
+// --- ВИПРАВЛЕНО: Всі селектори тепер дивляться в state.lists ---
+const selectListsSlice = (state: RootState) => state.lists;
+
+const selectGoals = createSelector([selectListsSlice], (lists) => lists.goals);
+const selectGoalLists = createSelector(
+  [selectListsSlice],
+  (lists) => lists.goalLists,
+);
+const selectGoalInstances = createSelector(
+  [selectListsSlice],
+  (lists) => lists.goalInstances,
+);
 const selectListId = (_state: RootState, listId: string) => listId;
 
-// +++ ДОДАЙТЕ ЦЕЙ НОВИЙ СЕЛЕКТОР +++
-// Він буде повертати масив списків і кешувати результат.
-// Новий масив буде створено тільки якщо об'єкт goalLists зміниться.
 export const selectAllLists = createSelector([selectGoalLists], (goalLists) =>
   Object.values(goalLists),
 );
 
-// --- Існуючий селектор для GoalListPage ---
 export const makeSelectListInfo = () => {
   return createSelector(
     [selectGoalLists, selectListId],

@@ -50,7 +50,7 @@ const InputPanel = forwardRef<InputPanelRef, InputPanelProps>(
     const [placeholder, setPlaceholder] = useState("");
     const internalLocalInputRef = useRef<HTMLInputElement>(null);
 
-    const allLists = useSelector((state: RootState) => state.goalLists);
+    const allLists = useSelector((state: RootState) => state.lists.goalLists);
 
     const modeTriggers = useRef([
       { prefix: "@", mode: CommandMode.LIST_NAV, icon: "📜", name: "Список" },

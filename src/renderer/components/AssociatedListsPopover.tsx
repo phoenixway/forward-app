@@ -22,17 +22,21 @@ const AssociatedListsPopover: React.FC<AssociatedListsPopoverProps> = ({
 }) => {
   const dispatch = useDispatch<AppDispatch>();
 
+  // --- ВИПРАВЛЕНО: Вказуємо правильні шляхи до даних у state.lists ---
   const { associatedListDetails, availableListsToSelect } = useSelector(
     (state: RootState) => {
-      const currentTargetGoal = state.goals[targetGoal.id] || targetGoal;
+      const currentTargetGoal = state.lists.goals[targetGoal.id] || targetGoal;
       const associatedIds = new Set(currentTargetGoal.associatedListIds || []);
-      const allLists = Object.values(state.goalLists);
+
+      const allLists = Object.values(state.lists.goalLists);
+
       const associatedDetails = allLists.filter((list: GoalList) =>
         associatedIds.has(list.id),
       );
       const availableLists = allLists.filter(
         (list: GoalList) => !associatedIds.has(list.id),
       );
+
       return {
         associatedListDetails: associatedDetails,
         availableListsToSelect: availableLists,

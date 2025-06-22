@@ -1,4 +1,4 @@
-import { configureStore } from "@reduxjs/toolkit";
+import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import {
   persistStore,
   persistReducer,
@@ -10,8 +10,13 @@ import {
   REGISTER,
 } from "redux-persist";
 import storage from "redux-persist/lib/storage"; // за замовчуванням localStorage для вебу
-
 import listsReducer from "./listsSlice"; // Імпортуємо наш новий редюсер
+import uiReducer from "./uiSlice"; // <-- ДОДАЙТЕ ІМПОРТ
+
+const rootReducer = combineReducers({
+  lists: listsReducer,
+  ui: uiReducer,
+});
 
 const persistConfig = {
   key: "root", // Ключ для збереження в localStorage
@@ -20,7 +25,7 @@ const persistConfig = {
   // але за замовчуванням зберігається все
 };
 
-const persistedReducer = persistReducer(persistConfig, listsReducer);
+const persistedReducer = persistReducer(persistConfig, rootReducer);
 
 export const store = configureStore({
   reducer: persistedReducer,

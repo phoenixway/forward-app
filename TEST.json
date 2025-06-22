@@ -1,0 +1,1702 @@
+{
+  "version": 2,
+  "exportedAt": "2025-06-22T12:21:24.188876Z",
+  "data": {
+    "goals": {
+      "2f677d76-54d6-40e1-adad-cb2052cb50e6": {
+        "id": "2f677d76-54d6-40e1-adad-cb2052cb50e6",
+        "text": "Марії ант",
+        "completed": false,
+        "createdAt": "2025-06-11T23:40:01.442Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:40:01.442Z"
+      },
+      "642dfbba-1681-4b22-85e0-652deaa6ac85": {
+        "id": "642dfbba-1681-4b22-85e0-652deaa6ac85",
+        "text": "Марії для печінки",
+        "completed": false,
+        "createdAt": "2025-06-11T23:40:01.442Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:40:01.442Z"
+      },
+      "05d587fe-2f07-47c8-9eab-8c400fb95fb8": {
+        "id": "05d587fe-2f07-47c8-9eab-8c400fb95fb8",
+        "text": "Марію поїти",
+        "completed": false,
+        "createdAt": "2025-06-11T23:40:01.442Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:40:01.442Z"
+      },
+      "faf0b00f-110f-450a-98bf-a128d23aa457": {
+        "id": "faf0b00f-110f-450a-98bf-a128d23aa457",
+        "text": "список пацієнтів",
+        "completed": false,
+        "createdAt": "2025-06-11T23:40:01.442Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:40:01.442Z"
+      },
+      "b160e0ce-e3ea-470a-b706-44683280a074": {
+        "id": "b160e0ce-e3ea-470a-b706-44683280a074",
+        "text": "[[adrian-goal]] он, впр бл #hqm  #buy проектування і реалізація ! #week #mental",
+        "completed": false,
+        "createdAt": "2025-06-11T23:39:39.190Z",
+        "associatedListIds": [
+          "6905fd34-57d1-43bc-8285-ad8b8645d9d2",
+          "iS9pol_QXCAH2Qh4KgQIr"
+        ],
+        "updatedAt": "2025-06-22T07:39:47.078Z"
+      },
+      "c3e4803b-0f43-47f2-91e4-b2f24a5b39ea": {
+        "id": "c3e4803b-0f43-47f2-91e4-b2f24a5b39ea",
+        "text": "впорядкувати цілі mts за моєю системою оцінки цілей @future-projecting",
+        "completed": false,
+        "createdAt": "2025-06-11T23:39:39.190Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-12T18:06:57.681Z"
+      },
+      "c2ad4609-f0c1-4059-abec-84e90b26e559": {
+        "id": "c2ad4609-f0c1-4059-abec-84e90b26e559",
+        "text": "чого практично не вистачає для успіху апдріан цілі?",
+        "completed": false,
+        "createdAt": "2025-06-11T23:39:39.190Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:39:39.190Z"
+      },
+      "b097a114-f709-476a-994b-b706a4522ed6": {
+        "id": "b097a114-f709-476a-994b-b706a4522ed6",
+        "text": "забезпечити лікування вр , зокрема терапевтичне #critical🆘",
+        "completed": false,
+        "createdAt": "2025-06-11T23:39:39.190Z",
+        "associatedListIds": [
+          "1de6684e-3ebf-4336-9321-a6bc28fee7ac",
+          "001ead12-f9a9-42f6-ab04-8e5506f1c709"
+        ],
+        "updatedAt": "2025-06-12T17:57:42.319Z"
+      },
+      "2bf43968-11cd-4db7-837e-f82c707a0958": {
+        "id": "2bf43968-11cd-4db7-837e-f82c707a0958",
+        "text": "[[health-n-healing-level-up]]  ~",
+        "completed": false,
+        "createdAt": "2025-06-11T23:39:39.190Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:39:39.190Z"
+      },
+      "3139b665-ffcc-4c72-9105-96407dfeed68": {
+        "id": "3139b665-ffcc-4c72-9105-96407dfeed68",
+        "text": "де йде лапа 3в модель @health💊 #device📱 #day",
+        "completed": false,
+        "createdAt": "2025-06-11T23:39:39.190Z",
+        "associatedListIds": [
+          "1de6684e-3ebf-4336-9321-a6bc28fee7ac"
+        ],
+        "updatedAt": "2025-06-12T17:59:03.698Z"
+      },
+      "0c580073-fe21-4479-b9cf-6d563c6bf082": {
+        "id": "0c580073-fe21-4479-b9cf-6d563c6bf082",
+        "text": "проектування наступної ті, сстр, рго #iw #top #week",
+        "completed": false,
+        "createdAt": "2025-06-11T23:39:39.190Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:39:39.190Z"
+      },
+      "6d068b03-a3ec-4eaa-b2f0-817bf0a6267d": {
+        "id": "6d068b03-a3ec-4eaa-b2f0-817bf0a6267d",
+        "text": "обов'язкове лікування всіх кого треба #critical #unclear ❤️‍🩹 [icon::⭐]",
+        "completed": false,
+        "createdAt": "2025-06-11T23:39:17.164Z",
+        "associatedListIds": [
+          "1de6684e-3ebf-4336-9321-a6bc28fee7ac",
+          "001ead12-f9a9-42f6-ab04-8e5506f1c709"
+        ],
+        "updatedAt": "2025-06-22T07:34:40.988Z"
+      },
+      "bc2b2b7d-0d93-4921-bc2d-3a9483a1b64a": {
+        "id": "bc2b2b7d-0d93-4921-bc2d-3a9483a1b64a",
+        "text": "прибирання 🧹🪣",
+        "completed": false,
+        "createdAt": "2025-06-11T23:39:17.164Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-22T07:43:58.245Z"
+      },
+      "1f2cb285-d518-439c-a64e-95d5782d8658": {
+        "id": "1f2cb285-d518-439c-a64e-95d5782d8658",
+        "text": "побриться",
+        "completed": false,
+        "createdAt": "2025-06-11T23:39:17.164Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:39:17.164Z"
+      },
+      "5340033e-6ad7-40cb-bc36-76f1eed58d0e": {
+        "id": "5340033e-6ad7-40cb-bc36-76f1eed58d0e",
+        "text": "лв",
+        "completed": false,
+        "createdAt": "2025-06-11T23:39:17.164Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:39:17.164Z"
+      },
+      "98f13cfa-1266-413c-bb52-e69dbcc87acd": {
+        "id": "98f13cfa-1266-413c-bb52-e69dbcc87acd",
+        "text": "str-review #mental",
+        "completed": false,
+        "createdAt": "2025-06-11T23:39:17.164Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:39:17.164Z"
+      },
+      "c04e6ed4-87f9-490d-869d-1f9422eab3f9": {
+        "id": "c04e6ed4-87f9-490d-869d-1f9422eab3f9",
+        "text": "#health дати цефтріаксон комусь з котенят зі схожими симптомами",
+        "completed": false,
+        "createdAt": "2025-06-11T23:38:37.163Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:38:37.163Z"
+      },
+      "a764b701-44e3-45b3-8e22-07a78057f066": {
+        "id": "a764b701-44e3-45b3-8e22-07a78057f066",
+        "text": "розрахувати дозування і спосіб давання цефтріаксону #health",
+        "completed": false,
+        "createdAt": "2025-06-11T23:38:37.163Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:38:37.163Z"
+      },
+      "2af38d44-0719-45be-ac87-144e6b144d88": {
+        "id": "2af38d44-0719-45be-ac87-144e6b144d88",
+        "text": "відконектиться від програмування",
+        "completed": false,
+        "createdAt": "2025-06-11T23:38:37.163Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:38:37.163Z"
+      },
+      "92470d0f-b456-4902-a6cb-6a5266b21839": {
+        "id": "92470d0f-b456-4902-a6cb-6a5266b21839",
+        "text": "планування доби",
+        "completed": false,
+        "createdAt": "2025-06-11T23:38:37.163Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:38:37.163Z"
+      },
+      "dc388e60-91e0-4b96-968c-0676c558d2b6": {
+        "id": "dc388e60-91e0-4b96-968c-0676c558d2b6",
+        "text": "як помогти Мерліну?  !",
+        "completed": false,
+        "createdAt": "2025-06-11T23:38:37.163Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:38:37.163Z"
+      },
+      "3a20fe73-b719-4027-973a-8c9481214792": {
+        "id": "3a20fe73-b719-4027-973a-8c9481214792",
+        "text": "лз кому треба",
+        "completed": false,
+        "createdAt": "2025-06-11T23:38:37.163Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:38:37.163Z"
+      },
+      "07e4b4e4-e531-4669-a3d0-7e972305bb74": {
+        "id": "07e4b4e4-e531-4669-a3d0-7e972305bb74",
+        "text": "прибирання",
+        "completed": false,
+        "createdAt": "2025-06-11T23:38:37.163Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:38:37.163Z"
+      },
+      "f69be137-a565-45bb-8b6c-5beff744a981": {
+        "id": "f69be137-a565-45bb-8b6c-5beff744a981",
+        "text": "замовлення забрати",
+        "completed": false,
+        "createdAt": "2025-06-11T23:38:37.163Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:38:37.163Z"
+      },
+      "a4d91e51-c440-4166-a737-cef8cb326f54": {
+        "id": "a4d91e51-c440-4166-a737-cef8cb326f54",
+        "text": "мін необх забезпечення",
+        "completed": false,
+        "createdAt": "2025-06-11T23:38:37.163Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:38:37.163Z"
+      },
+      "7f01013e-00df-44fd-85fd-2cc9761a16ec": {
+        "id": "7f01013e-00df-44fd-85fd-2cc9761a16ec",
+        "text": "forward",
+        "completed": false,
+        "createdAt": "2025-06-11T23:38:37.163Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:38:37.163Z"
+      },
+      "df2996ac-a90a-4b91-9c84-d39dd23dfd4c": {
+        "id": "df2996ac-a90a-4b91-9c84-d39dd23dfd4c",
+        "text": "обов'язкове лікування всіх кого треба #critical #unclear",
+        "completed": false,
+        "createdAt": "2025-06-11T23:38:59.737Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:38:59.737Z"
+      },
+      "a8e89fa0-dc25-4449-beb9-886d2f91164f": {
+        "id": "a8e89fa0-dc25-4449-beb9-886d2f91164f",
+        "text": "прибирання",
+        "completed": false,
+        "createdAt": "2025-06-11T23:38:59.737Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:38:59.737Z"
+      },
+      "9823b2d3-4729-49ec-aa1e-3a972ae7a290": {
+        "id": "9823b2d3-4729-49ec-aa1e-3a972ae7a290",
+        "text": "побриться",
+        "completed": false,
+        "createdAt": "2025-06-11T23:38:59.737Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:38:59.737Z"
+      },
+      "fe7fde04-3904-41b5-8e7c-ac1c7f1484d1": {
+        "id": "fe7fde04-3904-41b5-8e7c-ac1c7f1484d1",
+        "text": "лв",
+        "completed": false,
+        "createdAt": "2025-06-11T23:38:59.737Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:38:59.737Z"
+      },
+      "20498f1d-4246-4692-b8b4-666f60f3cf72": {
+        "id": "20498f1d-4246-4692-b8b4-666f60f3cf72",
+        "text": "str-review #mental",
+        "completed": false,
+        "createdAt": "2025-06-11T23:38:59.737Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:38:59.737Z"
+      },
+      "d21e9afe-c892-415f-9419-4409a96d5127": {
+        "id": "d21e9afe-c892-415f-9419-4409a96d5127",
+        "text": "підтримка печінки посилена",
+        "completed": false,
+        "createdAt": "2025-06-12T11:55:02.615Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-12T18:07:29.830Z"
+      },
+      "98e4896b-7a3d-4262-8b64-43943d4caeaa": {
+        "id": "98e4896b-7a3d-4262-8b64-43943d4caeaa",
+        "text": "режим застосування доксицикліну для котів",
+        "completed": false,
+        "createdAt": "2025-06-12T11:26:10.734Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-12T18:07:30.508Z"
+      },
+      "1e391c5a-b121-4e39-ae7f-530a3d2d5b05": {
+        "id": "1e391c5a-b121-4e39-ae7f-530a3d2d5b05",
+        "text": "антибіотика два дати",
+        "completed": false,
+        "createdAt": "2025-06-12T09:45:33.387Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-12T09:45:33.387Z"
+      },
+      "69a833dc-51f0-47bb-96f9-6d36c2adb887": {
+        "id": "69a833dc-51f0-47bb-96f9-6d36c2adb887",
+        "text": "цефтріаксон розрахувати",
+        "completed": false,
+        "createdAt": "2025-06-12T09:45:24.572Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-12T09:45:24.572Z"
+      },
+      "fb11ee0b-f546-4f7c-9866-e56692584b60": {
+        "id": "fb11ee0b-f546-4f7c-9866-e56692584b60",
+        "text": "що можна купити?",
+        "completed": false,
+        "createdAt": "2025-06-12T09:34:54.555Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-12T09:34:54.555Z"
+      },
+      "9808aab1-75b1-4e46-ba68-274d394f2058": {
+        "id": "9808aab1-75b1-4e46-ba68-274d394f2058",
+        "text": "що робити з запаленням в легенях? чи давати преднізолон? як обійтися? яка респіраторних проблем програма лікування",
+        "completed": false,
+        "createdAt": "2025-06-12T09:33:57.487Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-12T09:33:57.487Z"
+      },
+      "ca23869a-b10e-4afb-83e1-b6b52dd08fda": {
+        "id": "ca23869a-b10e-4afb-83e1-b6b52dd08fda",
+        "text": "модель лікування ока",
+        "completed": false,
+        "createdAt": "2025-06-12T09:32:42.674Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-12T09:32:42.674Z"
+      },
+      "f952bd27-5bc0-476c-a155-22648bbbb0c2": {
+        "id": "f952bd27-5bc0-476c-a155-22648bbbb0c2",
+        "text": "[[rhinitis]] model treatment",
+        "completed": false,
+        "createdAt": "2025-06-12T09:30:18.532Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-12T09:30:18.532Z"
+      },
+      "15213773-e990-4adf-aec0-0875b9774846": {
+        "id": "15213773-e990-4adf-aec0-0875b9774846",
+        "text": "пл рз",
+        "completed": false,
+        "createdAt": "2025-06-11T23:36:10.838Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:36:10.838Z"
+      },
+      "67748952-0e37-439f-9738-0fe1189c3309": {
+        "id": "67748952-0e37-439f-9738-0fe1189c3309",
+        "text": "забезпечити живлення",
+        "completed": false,
+        "createdAt": "2025-06-11T23:36:10.838Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:36:10.838Z"
+      },
+      "d3b379c8-38c2-4eb6-88fb-8f823dc24d51": {
+        "id": "d3b379c8-38c2-4eb6-88fb-8f823dc24d51",
+        "text": "забезпечити гідратацію",
+        "completed": false,
+        "createdAt": "2025-06-11T23:36:10.838Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:36:10.838Z"
+      },
+      "dedb13f9-fe95-4399-978a-a4882467ca89": {
+        "id": "dedb13f9-fe95-4399-978a-a4882467ca89",
+        "text": "рег контроль дихання; тиску; темп Мерліну",
+        "completed": false,
+        "createdAt": "2025-06-11T23:36:10.838Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:36:10.838Z"
+      },
+      "c4263882-672e-4b73-bb38-2d8f9a818ae9": {
+        "id": "c4263882-672e-4b73-bb38-2d8f9a818ae9",
+        "text": "для печінки",
+        "completed": false,
+        "createdAt": "2025-06-11T23:36:10.838Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:36:10.838Z"
+      },
+      "613c8fe9-0616-461d-a876-93a599d6c1b6": {
+        "id": "613c8fe9-0616-461d-a876-93a599d6c1b6",
+        "text": "дати подихати",
+        "completed": false,
+        "createdAt": "2025-06-11T23:36:10.838Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:36:10.838Z"
+      },
+      "740fab46-6cee-430d-8f5e-36ab0f708251": {
+        "id": "740fab46-6cee-430d-8f5e-36ab0f708251",
+        "text": "що робиться з Мерліном? які ключові проблеми?",
+        "completed": false,
+        "createdAt": "2025-06-11T23:36:10.838Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:36:10.838Z"
+      },
+      "683e4a3c-de63-45e3-9265-f350619dd77a": {
+        "id": "683e4a3c-de63-45e3-9265-f350619dd77a",
+        "text": "[[da]] str update #hqm #str-must [parent_value::0.89] [impact::0.89] [costs::3]",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "600f874f-388b-4590-b4e5-f3a12b3ee910": {
+        "id": "600f874f-388b-4590-b4e5-f3a12b3ee910",
+        "text": "[[m1]], m2 #buy #paper #str-must #pm [parent_value::0.89] [impact::0.89] [costs::8]",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "13aecc7e-df18-415e-a989-b696f01ca85d": {
+        "id": "13aecc7e-df18-415e-a989-b696f01ca85d",
+        "text": "[[piw-plus-pist]] #str-must [parent_value::0.89] [impact::0.21] [costs::3] @productivity",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "72013592-d25d-4ee5-99ca-b1e43767992b": {
+        "id": "72013592-d25d-4ee5-99ca-b1e43767992b",
+        "text": "[[catheterization]] #manual⚒️  #research🔬 #Slavik #str-must [parent_value::0.89] [impact::0.34] [costs::8] @health",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "550d88d4-2a3e-4631-966f-3f2011fb300e": {
+        "id": "550d88d4-2a3e-4631-966f-3f2011fb300e",
+        "text": "[[future-projecting]] #hqm [parent_value::0.55] [impact::0.55] [costs::8]",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "b49dafd9-070c-4a58-aada-62613140e36c": {
+        "id": "b49dafd9-070c-4a58-aada-62613140e36c",
+        "text": "[[ch]] #str-must [parent_value::0.89] [impact::0.89] [costs::21]",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "db3cf4e6-dc8b-49f9-9265-a034dbc8bade": {
+        "id": "db3cf4e6-dc8b-49f9-9265-a034dbc8bade",
+        "text": "[[water]] #manual⚒️  [parent_value::0.89] [impact::0.21] [costs::8]",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "3409b235-1f69-4b09-846d-1f1d5b8e1672": {
+        "id": "3409b235-1f69-4b09-846d-1f1d5b8e1672",
+        "text": "[[adrian-goal]] он, впр бл #hqm  #buy проектування і реалізація  [parent_value::0.89] [impact::0.89] [costs::34] @health",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "e81269e4-ff1d-44b2-a664-6cbba6ca327b": {
+        "id": "e81269e4-ff1d-44b2-a664-6cbba6ca327b",
+        "text": "[[tortyk-project]] #buy [parent_value::0.89] [impact::0.05] [costs::3] @time-saving",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "71281a71-b41f-426c-b808-34b1d200b14d": {
+        "id": "71281a71-b41f-426c-b808-34b1d200b14d",
+        "text": "[[mtu-value]] рр в дост мірі #str-should",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "ff30f4c8-18a3-46d4-9acc-ccce4e44e888": {
+        "id": "ff30f4c8-18a3-46d4-9acc-ccce4e44e888",
+        "text": "[[information-defence]]",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "a6da2538-0e51-4abe-9720-42e7aec45b4b": {
+        "id": "a6da2538-0e51-4abe-9720-42e7aec45b4b",
+        "text": "[[sharing-true]]",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "ada3fc5b-7520-4586-9025-2cdf7e32c45a": {
+        "id": "ada3fc5b-7520-4586-9025-2cdf7e32c45a",
+        "text": "п по [[reputation]]. донесення робіт",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "fc2dd730-67e3-451e-b1e3-6d4fcbf9ef6f": {
+        "id": "fc2dd730-67e3-451e-b1e3-6d4fcbf9ef6f",
+        "text": "[[live-before-die-value]]",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "b203c940-ceff-40ce-819e-091d3cfa5b97": {
+        "id": "b203c940-ceff-40ce-819e-091d3cfa5b97",
+        "text": "[[decision-making]] hl.  в сфері здоров'я та захисту, уд. в управлінні добою",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "8de2f968-3c4a-429b-b53b-bfcdd44c866b": {
+        "id": "8de2f968-3c4a-429b-b53b-bfcdd44c866b",
+        "text": "активувати [[FI]] і довести її роботу до високого рівня достатньо",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "a2594dfb-0268-417b-81f6-ae9c8562dc55": {
+        "id": "a2594dfb-0268-417b-81f6-ae9c8562dc55",
+        "text": "[[finances]] ++",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "ea49752b-a90b-4be6-9114-28923d531a9c": {
+        "id": "ea49752b-a90b-4be6-9114-28923d531a9c",
+        "text": "[[publishing]]",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "0ff06ec0-1c12-4570-9c38-e3941ac0a260": {
+        "id": "0ff06ec0-1c12-4570-9c38-e3941ac0a260",
+        "text": "[[mining]]",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "4dcc6c21-6c59-4e18-bc87-5af63191e154": {
+        "id": "4dcc6c21-6c59-4e18-bc87-5af63191e154",
+        "text": "[[goals-selection]]",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "5c333be2-027a-4d14-a1ae-067fb9d07e5d": {
+        "id": "5c333be2-027a-4d14-a1ae-067fb9d07e5d",
+        "text": "[[mld]]",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "9b905b4f-4479-4b2a-b7a4-9d70e5a0428d": {
+        "id": "9b905b4f-4479-4b2a-b7a4-9d70e5a0428d",
+        "text": "[[selesta-project]]",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "aabcfc8f-8f5d-47af-b516-58babc08fc5a": {
+        "id": "aabcfc8f-8f5d-47af-b516-58babc08fc5a",
+        "text": "[[eshield]]",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "4f024158-4321-47e9-afb7-3f804714fd6e": {
+        "id": "4f024158-4321-47e9-afb7-3f804714fd6e",
+        "text": "захист повітряний кімнат #critical🆘  #hqm",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "b0593006-5349-406e-a695-89cc57a0270a": {
+        "id": "b0593006-5349-406e-a695-89cc57a0270a",
+        "text": "беззвучна витяжка на вулицю #manual⚒️ #buy",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "183b40ae-8ba8-4c8a-a327-45dad4262b5a": {
+        "id": "183b40ae-8ba8-4c8a-a327-45dad4262b5a",
+        "text": "зх від прослуховування #hqm",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "e9447cf2-4c23-4caa-9c22-3a97affe3e3f": {
+        "id": "e9447cf2-4c23-4caa-9c22-3a97affe3e3f",
+        "text": "￼￼￼￼￼ ￼￼cultural-life￼￼",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "9cef5de5-dd24-442e-bf2d-6557bd8affce": {
+        "id": "9cef5de5-dd24-442e-bf2d-6557bd8affce",
+        "text": "￼￼￼￼￼ ￼￼medical-research￼￼",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "bbf3415c-3a70-4672-bd22-8ce6ea4f37f5": {
+        "id": "bbf3415c-3a70-4672-bd22-8ce6ea4f37f5",
+        "text": "￼￼￼￼￼ бекап #manual￼⚒️￼",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "0e5f9cc7-4bfd-46f4-ae05-9dfd8a03f5ad": {
+        "id": "0e5f9cc7-4bfd-46f4-ae05-9dfd8a03f5ad",
+        "text": "оновлення списків втрат, зокрема часу",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "194bb76b-1e18-49f7-bd4e-d39414ffa36e": {
+        "id": "194bb76b-1e18-49f7-bd4e-d39414ffa36e",
+        "text": "#str",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "c9f91a4d-1cc8-4b08-a439-315cc2a11166": {
+        "id": "c9f91a4d-1cc8-4b08-a439-315cc2a11166",
+        "text": "￼￼time-losing￼￼, ￼￼attacks￼￼",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "c931e3bb-fd21-470a-b15f-bd6c7201282e": {
+        "id": "c931e3bb-fd21-470a-b15f-bd6c7201282e",
+        "text": "перелік ￼￼attacks￼￼ за ост півроку #mental",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "21d66a80-7a4a-404a-b6d4-23f52ba65e3a": {
+        "id": "21d66a80-7a4a-404a-b6d4-23f52ba65e3a",
+        "text": "доробити по ife-progress",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "2dbd146c-c3d2-4ce4-93f6-632768f6cb46": {
+        "id": "2dbd146c-c3d2-4ce4-93f6-632768f6cb46",
+        "text": "оновити  ￼￼main-problems-solving￼￼, ￼￼attacks￼￼, ￼￼time-losing￼￼ #mental #hqm",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "caa67150-eb06-41b8-853c-586fd27ac2f2": {
+        "id": "caa67150-eb06-41b8-853c-586fd27ac2f2",
+        "text": "розвантажити себе ід лз щоб займатися цілями вищих рівнів #level-up⬆️",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "29c6c63f-500c-4df5-9306-e6da2b42b4d5": {
+        "id": "29c6c63f-500c-4df5-9306-e6da2b42b4d5",
+        "text": "уніфікація всього по дс стр проектуванню майбутнього, орієнтирах #level-up⬆️",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "31641eb7-cdf2-48e2-b122-f48d31e47021": {
+        "id": "31641eb7-cdf2-48e2-b122-f48d31e47021",
+        "text": "доробити [[information-services-security]]",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "8c55bcf6-b394-4e7a-be1c-9fdd9f62d98f": {
+        "id": "8c55bcf6-b394-4e7a-be1c-9fdd9f62d98f",
+        "text": "Єва, дпж, ввл #middle-term⭐",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "6ec0a74c-8c49-4d47-b5e1-6ad565d956ea": {
+        "id": "6ec0a74c-8c49-4d47-b5e1-6ad565d956ea",
+        "text": "[[authentic-life]] ✍️🔨",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "0b6d6f3a-0a48-4636-b9f7-a3f0544697d3": {
+        "id": "0b6d6f3a-0a48-4636-b9f7-a3f0544697d3",
+        "text": "[[high-level-every-day]]  ⬆️",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "14e947e6-6b52-47d5-af08-4789765f456f": {
+        "id": "14e947e6-6b52-47d5-af08-4789765f456f",
+        "text": "[[threats-defence]]",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "a08a5e25-81b5-4768-95bc-d97ff0c44614": {
+        "id": "a08a5e25-81b5-4768-95bc-d97ff0c44614",
+        "text": "[[fulfill-own-potential]] ✍️🔨",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "38f08dda-5f56-4fcd-b3e2-a649011fc00e": {
+        "id": "38f08dda-5f56-4fcd-b3e2-a649011fc00e",
+        "text": "[[msh]] ⬆️",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "43f1d198-2198-470a-ac5c-0b37c7aec5e9": {
+        "id": "43f1d198-2198-470a-ac5c-0b37c7aec5e9",
+        "text": "[[mbr-projecting]] bl",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "fc986e11-d446-41db-bec3-2223faee5661": {
+        "id": "fc986e11-d446-41db-bec3-2223faee5661",
+        "text": "[[my-best-version]] ✍️🔨",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "0a6666ce-664b-42b7-a681-1ace23fa3e90": {
+        "id": "0a6666ce-664b-42b7-a681-1ace23fa3e90",
+        "text": "відео трансляція з телефону на телефон #research🔬",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "2c36b648-6fe4-46b0-88d0-079eb54b364f": {
+        "id": "2c36b648-6fe4-46b0-88d0-079eb54b364f",
+        "text": "знайти безплатний редактор відео #research🔬",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "273efc06-1013-4c06-95f5-5416477de173": {
+        "id": "273efc06-1013-4c06-95f5-5416477de173",
+        "text": "записи в щоден",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "d32efb32-4fac-438d-aa86-4caa34536f9b": {
+        "id": "d32efb32-4fac-438d-aa86-4caa34536f9b",
+        "text": "ник злочинів фашистів",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "48fc7447-4b54-46eb-8c5f-1078f51af8b5": {
+        "id": "48fc7447-4b54-46eb-8c5f-1078f51af8b5",
+        "text": "зробить надійні таймери для різних контльних годин для лікування поточного. для сессій контролю поточнго лікування. зробити з цього залізну щоденну практику. #critical🆘",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "3afab3db-d1e1-4371-afec-a7202af11482": {
+        "id": "3afab3db-d1e1-4371-afec-a7202af11482",
+        "text": "∞ фі",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "0b19cec7-090b-4a6e-a0ac-3f1e9bd6f316": {
+        "id": "0b19cec7-090b-4a6e-a0ac-3f1e9bd6f316",
+        "text": "[[cultural-life]]",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "6f5f3eb6-1b0e-4c04-9b1d-49eb40c38b8b": {
+        "id": "6f5f3eb6-1b0e-4c04-9b1d-49eb40c38b8b",
+        "text": "[[medical-research]]",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "8a31fa3d-2078-4c31-ad50-502fb3daa9d0": {
+        "id": "8a31fa3d-2078-4c31-ad50-502fb3daa9d0",
+        "text": "бекап #manual⚒️ #device",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "38439e62-240e-4d37-b247-4a558f6d9ba4": {
+        "id": "38439e62-240e-4d37-b247-4a558f6d9ba4",
+        "text": "оновлення списків втрат, зокрема часу",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "3a40a2ad-4534-447d-8716-e3770cf14573": {
+        "id": "3a40a2ad-4534-447d-8716-e3770cf14573",
+        "text": "[[time-losing]], [[attacks]]",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "ff3dd5a3-81d6-44c6-97ce-e6a571c22245": {
+        "id": "ff3dd5a3-81d6-44c6-97ce-e6a571c22245",
+        "text": "перелік [[attacks]] за ост півроку #mental",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "0a1aebcd-f9fa-4dcb-9e1f-eb9b9c6d9243": {
+        "id": "0a1aebcd-f9fa-4dcb-9e1f-eb9b9c6d9243",
+        "text": "доробити по [[life-progress]]",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "e1a52ba9-b60b-4aa2-9176-af463149ee0a": {
+        "id": "e1a52ba9-b60b-4aa2-9176-af463149ee0a",
+        "text": "оновити  [[main-problems-solving]], [[attacks]], [[time-losing]] #mental #hqm",
+        "completed": false,
+        "createdAt": "2025-06-11T23:35:03.504Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:35:03.504Z"
+      },
+      "37982a34-d3f6-4f7a-a9dd-bd29cbdab4ae": {
+        "id": "37982a34-d3f6-4f7a-a9dd-bd29cbdab4ae",
+        "text": "Підготувати презентацію",
+        "completed": false,
+        "createdAt": "2025-06-11T23:14:56.133Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:14:56.133Z"
+      },
+      "d5f27b3c-365a-47fe-b7ea-59a95f65e1ea": {
+        "id": "d5f27b3c-365a-47fe-b7ea-59a95f65e1ea",
+        "text": "Завершити звіт по проекту Х",
+        "completed": false,
+        "createdAt": "2025-06-11T23:14:56.133Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:14:56.133Z"
+      },
+      "38c7e9b4-3e12-40bc-8fc5-4acfe445df23": {
+        "id": "38c7e9b4-3e12-40bc-8fc5-4acfe445df23",
+        "text": "Помити посуд",
+        "completed": true,
+        "createdAt": "2025-06-11T23:14:56.133Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:14:56.133Z"
+      },
+      "15f87724-bf4a-471a-8430-1a58877b01a6": {
+        "id": "15f87724-bf4a-471a-8430-1a58877b01a6",
+        "text": "Сходити в спортзал",
+        "completed": false,
+        "createdAt": "2025-06-11T23:14:56.133Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:14:56.133Z"
+      },
+      "3b8d046c-c2cf-43db-a98c-6f7a9dd9651e": {
+        "id": "3b8d046c-c2cf-43db-a98c-6f7a9dd9651e",
+        "text": "Прочитати книгу",
+        "completed": false,
+        "createdAt": "2025-06-11T23:14:56.133Z",
+        "associatedListIds": [],
+        "updatedAt": "2025-06-11T23:14:56.133Z"
+      },
+      "ef1780e0-7209-4c74-b69c-63e5114cb22e": {
+        "id": "ef1780e0-7209-4c74-b69c-63e5114cb22e",
+        "text": "test",
+        "completed": false,
+        "createdAt": "2025-06-12T18:00:15.790Z",
+        "updatedAt": "2025-06-12T18:00:15.790Z",
+        "associatedListIds": []
+      },
+      "d4a55d22-9f75-4574-bdf4-38327649d2f0": {
+        "id": "d4a55d22-9f75-4574-bdf4-38327649d2f0",
+        "text": "уніфікація дс оп [[future-projecting]] #mental #pm #week",
+        "completed": false,
+        "createdAt": "2025-06-17T04:55:15.270Z",
+        "updatedAt": "2025-06-19T09:33:38.152Z",
+        "associatedListIds": []
+      },
+      "e969cf3b-caae-4c8d-8c01-7516755be51c": {
+        "id": "e969cf3b-caae-4c8d-8c01-7516755be51c",
+        "text": "#week #pm #device [[future-projecting]] он сс стр",
+        "completed": false,
+        "createdAt": "2025-06-17T04:56:42.181Z",
+        "updatedAt": "2025-06-19T09:33:38.788Z",
+        "associatedListIds": []
+      },
+      "a0ce366d-5f06-4584-9cf5-af4c63f5918c": {
+        "id": "a0ce366d-5f06-4584-9cf5-af4c63f5918c",
+        "text": "[[strategic-review]] #mental",
+        "completed": false,
+        "createdAt": "2025-06-17T04:58:52.558Z",
+        "updatedAt": "2025-06-22T07:24:09.578Z",
+        "associatedListIds": []
+      },
+      "0201b17c-9f11-4210-b831-07cbe98cdd43": {
+        "id": "0201b17c-9f11-4210-b831-07cbe98cdd43",
+        "text": "ctrl-tab",
+        "completed": false,
+        "createdAt": "2025-06-17T04:59:47.198Z",
+        "updatedAt": "2025-06-17T04:59:47.198Z",
+        "associatedListIds": []
+      },
+      "e4418343-3617-4ac5-b9d9-92cf3e200805": {
+        "id": "e4418343-3617-4ac5-b9d9-92cf3e200805",
+        "text": "[BUG] ctrl-w закриває всю програму",
+        "completed": false,
+        "createdAt": "2025-06-18T08:01:31.317Z",
+        "updatedAt": "2025-06-19T14:10:51.369Z",
+        "associatedListIds": []
+      },
+      "2061348d-3a8e-436d-83fd-404ffe96e1de": {
+        "id": "2061348d-3a8e-436d-83fd-404ffe96e1de",
+        "text": "футболки",
+        "completed": false,
+        "createdAt": "2025-06-19T08:01:18.077Z",
+        "updatedAt": "2025-06-19T13:47:38.581Z",
+        "associatedListIds": []
+      },
+      "79cb30e6-2337-4d8b-a5df-52883aab3c52": {
+        "id": "79cb30e6-2337-4d8b-a5df-52883aab3c52",
+        "text": "bluen",
+        "completed": false,
+        "createdAt": "2025-06-19T08:01:48.222Z",
+        "updatedAt": "2025-06-19T13:47:39.702Z",
+        "associatedListIds": []
+      },
+      "83377fa3-aebc-491a-87e5-37bad3880b68": {
+        "id": "83377fa3-aebc-491a-87e5-37bad3880b68",
+        "text": "[[Leonardo-06-2025]] #health",
+        "completed": false,
+        "createdAt": "2025-06-19T08:03:15.623Z",
+        "updatedAt": "2025-06-19T08:03:15.624Z",
+        "associatedListIds": []
+      },
+      "385d3fd2-cc32-4ca6-90a7-a48baced9b57": {
+        "id": "385d3fd2-cc32-4ca6-90a7-a48baced9b57",
+        "text": "[[espe]] ++",
+        "completed": false,
+        "createdAt": "2025-06-19T08:05:54.047Z",
+        "updatedAt": "2025-06-19T13:59:14.540Z",
+        "associatedListIds": []
+      },
+      "73f47d7f-349e-4796-9ef6-dca97f34e784": {
+        "id": "73f47d7f-349e-4796-9ef6-dca97f34e784",
+        "text": "продуктивний день прожити [icon::🌫️]",
+        "completed": false,
+        "createdAt": "2025-06-19T08:18:56.742Z",
+        "updatedAt": "2025-06-22T07:23:36.096Z",
+        "associatedListIds": []
+      },
+      "1e075cea-51be-49f1-8e7c-59e0405f6603": {
+        "id": "1e075cea-51be-49f1-8e7c-59e0405f6603",
+        "text": "полікувати всіх кого треба #health #unclear",
+        "completed": false,
+        "createdAt": "2025-06-19T08:22:30.246Z",
+        "updatedAt": "2025-06-19T08:22:30.247Z",
+        "associatedListIds": []
+      },
+      "6c1eb491-2a1a-402d-9715-d70c13300fd1": {
+        "id": "6c1eb491-2a1a-402d-9715-d70c13300fd1",
+        "text": "test",
+        "completed": false,
+        "createdAt": "2025-06-19T08:48:13.357Z",
+        "updatedAt": "2025-06-19T08:48:13.358Z",
+        "associatedListIds": []
+      },
+      "906a9f18-914a-4a51-b1a9-56aed378a346": {
+        "id": "906a9f18-914a-4a51-b1a9-56aed378a346",
+        "text": "test",
+        "completed": false,
+        "createdAt": "2025-06-19T09:03:17.485Z",
+        "updatedAt": "2025-06-19T09:03:17.486Z",
+        "associatedListIds": []
+      },
+      "d259dd62-1a45-4181-be3a-8cc4c040871d": {
+        "id": "d259dd62-1a45-4181-be3a-8cc4c040871d",
+        "text": "bla",
+        "completed": false,
+        "createdAt": "2025-06-19T09:03:35.619Z",
+        "updatedAt": "2025-06-19T09:03:35.619Z",
+        "associatedListIds": []
+      },
+      "ff84d0ae-faa3-483c-90d2-d7343235936a": {
+        "id": "ff84d0ae-faa3-483c-90d2-d7343235936a",
+        "text": "bla 1",
+        "completed": false,
+        "createdAt": "2025-06-19T09:03:44.179Z",
+        "updatedAt": "2025-06-19T09:03:44.179Z",
+        "associatedListIds": []
+      },
+      "ab29b2a8-94cd-464c-b49f-2e966e8d7697": {
+        "id": "ab29b2a8-94cd-464c-b49f-2e966e8d7697",
+        "text": "bla 3",
+        "completed": false,
+        "createdAt": "2025-06-19T09:03:48.355Z",
+        "updatedAt": "2025-06-19T09:33:46.183Z",
+        "associatedListIds": []
+      },
+      "a5c42ead-961b-47a5-ad30-a314856bd70a": {
+        "id": "a5c42ead-961b-47a5-ad30-a314856bd70a",
+        "text": "test 2",
+        "completed": false,
+        "createdAt": "2025-06-19T09:04:04.924Z",
+        "updatedAt": "2025-06-19T09:33:45.607Z",
+        "associatedListIds": []
+      },
+      "081bed31-43a3-42ef-b06d-b3e4fff712e9": {
+        "id": "081bed31-43a3-42ef-b06d-b3e4fff712e9",
+        "text": "tyetstst",
+        "completed": false,
+        "createdAt": "2025-06-19T09:04:49.857Z",
+        "updatedAt": "2025-06-19T09:33:45.092Z",
+        "associatedListIds": []
+      },
+      "d1f9627b-c6a5-45a5-b6ad-7de1873b64ec": {
+        "id": "d1f9627b-c6a5-45a5-b6ad-7de1873b64ec",
+        "text": "YTTYT",
+        "completed": false,
+        "createdAt": "2025-06-19T09:19:02.916Z",
+        "updatedAt": "2025-06-19T09:19:02.916Z",
+        "associatedListIds": []
+      },
+      "377b2dcf-41e9-41d1-bd9b-a6a6fefcac2d": {
+        "id": "377b2dcf-41e9-41d1-bd9b-a6a6fefcac2d",
+        "text": "HGHGH",
+        "completed": false,
+        "createdAt": "2025-06-19T09:19:15.710Z",
+        "updatedAt": "2025-06-19T09:19:15.710Z",
+        "associatedListIds": []
+      },
+      "ed9ecd1d-d6ae-40a7-978a-1493e5e08b48": {
+        "id": "ed9ecd1d-d6ae-40a7-978a-1493e5e08b48",
+        "text": "JHGJ",
+        "completed": false,
+        "createdAt": "2025-06-19T09:19:23.838Z",
+        "updatedAt": "2025-06-19T09:19:23.838Z",
+        "associatedListIds": []
+      },
+      "c207e94b-84f7-40a3-9ad7-d76e2bccf804": {
+        "id": "c207e94b-84f7-40a3-9ad7-d76e2bccf804",
+        "text": "FFF",
+        "completed": false,
+        "createdAt": "2025-06-19T09:19:33.262Z",
+        "updatedAt": "2025-06-19T09:19:33.262Z",
+        "associatedListIds": []
+      },
+      "a6a28e6b-9c48-4a19-a396-c2728e5ee89b": {
+        "id": "a6a28e6b-9c48-4a19-a396-c2728e5ee89b",
+        "text": "test",
+        "completed": false,
+        "createdAt": "2025-06-19T09:34:25.006Z",
+        "updatedAt": "2025-06-19T09:34:25.006Z",
+        "associatedListIds": []
+      },
+      "4af70780-512b-44b7-bdbb-4c4513cf91dd": {
+        "id": "4af70780-512b-44b7-bdbb-4c4513cf91dd",
+        "text": "test2",
+        "completed": false,
+        "createdAt": "2025-06-19T09:34:27.957Z",
+        "updatedAt": "2025-06-19T09:34:27.957Z",
+        "associatedListIds": []
+      },
+      "e128245a-530b-40aa-af1d-71e9d66df647": {
+        "id": "e128245a-530b-40aa-af1d-71e9d66df647",
+        "text": "test 3",
+        "completed": false,
+        "createdAt": "2025-06-19T09:34:34.698Z",
+        "updatedAt": "2025-06-19T09:34:34.698Z",
+        "associatedListIds": []
+      },
+      "2f248673-3827-454c-9ac8-d58b2c1a99c6": {
+        "id": "2f248673-3827-454c-9ac8-d58b2c1a99c6",
+        "text": "test 4",
+        "completed": false,
+        "createdAt": "2025-06-19T09:34:43.801Z",
+        "updatedAt": "2025-06-19T09:34:43.801Z",
+        "associatedListIds": []
+      },
+      "4e9fb970-c09a-472d-bae2-32484a0e433b": {
+        "id": "4e9fb970-c09a-472d-bae2-32484a0e433b",
+        "text": "test 5",
+        "completed": false,
+        "createdAt": "2025-06-19T09:34:52.360Z",
+        "updatedAt": "2025-06-19T09:34:52.360Z",
+        "associatedListIds": []
+      },
+      "a0c19adc-15e4-497f-b090-f9cb88c2ef2c": {
+        "id": "a0c19adc-15e4-497f-b090-f9cb88c2ef2c",
+        "text": "бла",
+        "completed": false,
+        "createdAt": "2025-06-19T10:12:35.972Z",
+        "updatedAt": "2025-06-19T10:12:35.972Z",
+        "associatedListIds": []
+      },
+      "8bc5ae48-12e0-4f34-bfd6-d296b052591c": {
+        "id": "8bc5ae48-12e0-4f34-bfd6-d296b052591c",
+        "text": "tttt",
+        "completed": false,
+        "createdAt": "2025-06-19T10:21:33.139Z",
+        "updatedAt": "2025-06-19T10:21:33.140Z",
+        "associatedListIds": []
+      },
+      "898a8d03-a70d-4ea5-8351-90eb2197c1e5": {
+        "id": "898a8d03-a70d-4ea5-8351-90eb2197c1e5",
+        "text": "yyy",
+        "completed": false,
+        "createdAt": "2025-06-19T10:21:42.110Z",
+        "updatedAt": "2025-06-19T10:21:42.110Z",
+        "associatedListIds": []
+      },
+      "b17c9731-c28a-4b18-bf11-b3e2a26b6b47": {
+        "id": "b17c9731-c28a-4b18-bf11-b3e2a26b6b47",
+        "text": "eee",
+        "completed": false,
+        "createdAt": "2025-06-19T10:21:45.145Z",
+        "updatedAt": "2025-06-19T10:21:45.146Z",
+        "associatedListIds": []
+      },
+      "d2070b70-175b-49cd-bcbd-7a06c0f57600": {
+        "id": "d2070b70-175b-49cd-bcbd-7a06c0f57600",
+        "text": "kjjkh",
+        "completed": false,
+        "createdAt": "2025-06-19T10:21:52.298Z",
+        "updatedAt": "2025-06-19T10:21:52.298Z",
+        "associatedListIds": []
+      },
+      "b9d99a6f-1cfa-48a4-a292-170afb6e3b0c": {
+        "id": "b9d99a6f-1cfa-48a4-a292-170afb6e3b0c",
+        "text": "ioii",
+        "completed": false,
+        "createdAt": "2025-06-19T10:21:55.710Z",
+        "updatedAt": "2025-06-19T10:21:55.710Z",
+        "associatedListIds": []
+      },
+      "4eef95a1-50f4-42e6-a781-57fa5316c80a": {
+        "id": "4eef95a1-50f4-42e6-a781-57fa5316c80a",
+        "text": "testjkhjkhhh",
+        "completed": false,
+        "createdAt": "2025-06-19T10:26:55.394Z",
+        "updatedAt": "2025-06-19T10:26:55.395Z",
+        "associatedListIds": []
+      },
+      "38a2f0f9-5589-4b3c-aa64-a2f9521e79e7": {
+        "id": "38a2f0f9-5589-4b3c-aa64-a2f9521e79e7",
+        "text": "tyrty",
+        "completed": false,
+        "createdAt": "2025-06-19T10:27:08.424Z",
+        "updatedAt": "2025-06-19T10:27:08.424Z",
+        "associatedListIds": []
+      },
+      "75a39b44-bf39-4411-bd8b-29010d242d64": {
+        "id": "75a39b44-bf39-4411-bd8b-29010d242d64",
+        "text": "h",
+        "completed": false,
+        "createdAt": "2025-06-19T10:27:12.044Z",
+        "updatedAt": "2025-06-19T10:27:12.044Z",
+        "associatedListIds": []
+      },
+      "893fe6e1-bc09-4ff9-a88c-785caa54da17": {
+        "id": "893fe6e1-bc09-4ff9-a88c-785caa54da17",
+        "text": "jhgjhbkjh",
+        "completed": false,
+        "createdAt": "2025-06-19T10:27:24.721Z",
+        "updatedAt": "2025-06-19T10:27:24.721Z",
+        "associatedListIds": []
+      },
+      "72f7ffef-1960-43f0-b6b1-0f7b53b85572": {
+        "id": "72f7ffef-1960-43f0-b6b1-0f7b53b85572",
+        "text": "jjj",
+        "completed": false,
+        "createdAt": "2025-06-19T10:40:11.790Z",
+        "updatedAt": "2025-06-19T10:40:11.790Z",
+        "associatedListIds": []
+      },
+      "1b2010d1-004d-4024-8a92-ce537711fe3c": {
+        "id": "1b2010d1-004d-4024-8a92-ce537711fe3c",
+        "text": "ddd",
+        "completed": false,
+        "createdAt": "2025-06-19T10:40:24.086Z",
+        "updatedAt": "2025-06-19T10:40:24.086Z",
+        "associatedListIds": []
+      },
+      "ad3a5785-b722-4fba-8faf-623053c8e073": {
+        "id": "ad3a5785-b722-4fba-8faf-623053c8e073",
+        "text": "ppp",
+        "completed": false,
+        "createdAt": "2025-06-19T10:40:33.630Z",
+        "updatedAt": "2025-06-19T10:40:33.630Z",
+        "associatedListIds": []
+      },
+      "7292efcc-c9d1-4a19-93ec-0b274eba62cf": {
+        "id": "7292efcc-c9d1-4a19-93ec-0b274eba62cf",
+        "text": "ffgdgf",
+        "completed": false,
+        "createdAt": "2025-06-19T10:40:40.094Z",
+        "updatedAt": "2025-06-19T10:40:40.094Z",
+        "associatedListIds": []
+      },
+      "e220d0c4-3d08-4424-a180-66eb956ff465": {
+        "id": "e220d0c4-3d08-4424-a180-66eb956ff465",
+        "text": "test",
+        "completed": false,
+        "createdAt": "2025-06-19T10:44:49.355Z",
+        "updatedAt": "2025-06-19T10:44:49.356Z",
+        "associatedListIds": []
+      },
+      "6b723717-0f84-49c7-94c0-4ffdf3583e3f": {
+        "id": "6b723717-0f84-49c7-94c0-4ffdf3583e3f",
+        "text": "ytest 3",
+        "completed": false,
+        "createdAt": "2025-06-19T10:45:00.296Z",
+        "updatedAt": "2025-06-19T10:45:00.296Z",
+        "associatedListIds": []
+      },
+      "bed87737-ea79-48ac-8e41-61e5f15c4701": {
+        "id": "bed87737-ea79-48ac-8e41-61e5f15c4701",
+        "text": "test 2",
+        "completed": false,
+        "createdAt": "2025-06-19T10:45:09.128Z",
+        "updatedAt": "2025-06-19T10:45:09.128Z",
+        "associatedListIds": []
+      },
+      "e34f417a-c0f7-452e-9adc-edaf095413c3": {
+        "id": "e34f417a-c0f7-452e-9adc-edaf095413c3",
+        "text": "test",
+        "completed": false,
+        "createdAt": "2025-06-19T10:45:32.768Z",
+        "updatedAt": "2025-06-19T10:45:32.768Z",
+        "associatedListIds": []
+      },
+      "d71abba1-67df-4947-9739-7d8f9de8ffa6": {
+        "id": "d71abba1-67df-4947-9739-7d8f9de8ffa6",
+        "text": "test",
+        "completed": false,
+        "createdAt": "2025-06-19T10:49:25.288Z",
+        "updatedAt": "2025-06-19T10:49:25.289Z",
+        "associatedListIds": []
+      },
+      "2953ace6-2065-40e6-828b-410c222502e7": {
+        "id": "2953ace6-2065-40e6-828b-410c222502e7",
+        "text": "test 2",
+        "completed": false,
+        "createdAt": "2025-06-19T10:49:34.746Z",
+        "updatedAt": "2025-06-19T10:49:34.746Z",
+        "associatedListIds": []
+      },
+      "cc2bd19f-9c90-4734-8b12-7c63b95f09d8": {
+        "id": "cc2bd19f-9c90-4734-8b12-7c63b95f09d8",
+        "text": "test 3",
+        "completed": false,
+        "createdAt": "2025-06-19T10:49:40.137Z",
+        "updatedAt": "2025-06-19T10:49:40.137Z",
+        "associatedListIds": []
+      },
+      "91c9082a-38d4-4328-b5d0-1af64e44bb69": {
+        "id": "91c9082a-38d4-4328-b5d0-1af64e44bb69",
+        "text": "test 5",
+        "completed": false,
+        "createdAt": "2025-06-19T10:49:48.258Z",
+        "updatedAt": "2025-06-19T10:49:48.258Z",
+        "associatedListIds": []
+      },
+      "42dd4acd-5509-4d10-a70f-c0b96fbce54e": {
+        "id": "42dd4acd-5509-4d10-a70f-c0b96fbce54e",
+        "text": "test",
+        "completed": false,
+        "createdAt": "2025-06-19T11:00:38.175Z",
+        "updatedAt": "2025-06-19T11:00:38.176Z",
+        "associatedListIds": []
+      },
+      "9f67a45e-ef04-4905-8b6f-6140893df9d0": {
+        "id": "9f67a45e-ef04-4905-8b6f-6140893df9d0",
+        "text": "bla",
+        "completed": false,
+        "createdAt": "2025-06-19T11:00:41.559Z",
+        "updatedAt": "2025-06-19T11:00:41.559Z",
+        "associatedListIds": []
+      },
+      "eea38e26-8b5c-4ed5-a482-634610a2a9d0": {
+        "id": "eea38e26-8b5c-4ed5-a482-634610a2a9d0",
+        "text": "bla",
+        "completed": false,
+        "createdAt": "2025-06-19T11:42:18.542Z",
+        "updatedAt": "2025-06-19T11:42:18.543Z",
+        "associatedListIds": []
+      },
+      "13fac257-41c2-4049-9302-8be39c29a7dc": {
+        "id": "13fac257-41c2-4049-9302-8be39c29a7dc",
+        "text": "test",
+        "completed": false,
+        "createdAt": "2025-06-19T11:42:20.880Z",
+        "updatedAt": "2025-06-19T11:42:20.880Z",
+        "associatedListIds": []
+      },
+      "2b95f401-dc56-4114-a60b-f5bb26a34a69": {
+        "id": "2b95f401-dc56-4114-a60b-f5bb26a34a69",
+        "text": "testtst",
+        "completed": false,
+        "createdAt": "2025-06-19T11:42:27.133Z",
+        "updatedAt": "2025-06-19T11:42:27.133Z",
+        "associatedListIds": []
+      },
+      "c2776322-8fdf-439a-b4fb-b2164cc27646": {
+        "id": "c2776322-8fdf-439a-b4fb-b2164cc27646",
+        "text": "kljkl",
+        "completed": false,
+        "createdAt": "2025-06-19T11:42:28.220Z",
+        "updatedAt": "2025-06-19T11:42:28.220Z",
+        "associatedListIds": []
+      },
+      "c48e32f9-dbf5-449a-84b3-77f0044fdaa8": {
+        "id": "c48e32f9-dbf5-449a-84b3-77f0044fdaa8",
+        "text": "tytyty",
+        "completed": false,
+        "createdAt": "2025-06-19T11:42:33.888Z",
+        "updatedAt": "2025-06-19T11:42:33.888Z",
+        "associatedListIds": []
+      },
+      "cedfb6d2-c121-4edf-aaa8-bdbb5c66e4f7": {
+        "id": "cedfb6d2-c121-4edf-aaa8-bdbb5c66e4f7",
+        "text": "uiuiui",
+        "completed": false,
+        "createdAt": "2025-06-19T11:42:54.233Z",
+        "updatedAt": "2025-06-19T11:42:54.233Z",
+        "associatedListIds": []
+      },
+      "6a9e6cfd-9dba-40f6-8bd4-f2e59750516d": {
+        "id": "6a9e6cfd-9dba-40f6-8bd4-f2e59750516d",
+        "text": "hijhkj",
+        "completed": false,
+        "createdAt": "2025-06-19T11:42:56.289Z",
+        "updatedAt": "2025-06-19T11:42:56.289Z",
+        "associatedListIds": []
+      },
+      "4bb70243-0610-4afc-bbea-e5d7e13b5dfc": {
+        "id": "4bb70243-0610-4afc-bbea-e5d7e13b5dfc",
+        "text": "testt",
+        "completed": false,
+        "createdAt": "2025-06-19T13:13:41.239Z",
+        "updatedAt": "2025-06-19T13:13:41.240Z",
+        "associatedListIds": []
+      },
+      "800cf140-9e3c-4c29-9d9b-ec9149016f65": {
+        "id": "800cf140-9e3c-4c29-9d9b-ec9149016f65",
+        "text": "test",
+        "completed": false,
+        "createdAt": "2025-06-19T13:47:16.208Z",
+        "updatedAt": "2025-06-19T13:47:16.208Z",
+        "associatedListIds": []
+      },
+      "91a9ff79-5955-48ad-863e-200d9112c0eb": {
+        "id": "91a9ff79-5955-48ad-863e-200d9112c0eb",
+        "text": "[BUG] не працює second instance detect",
+        "completed": false,
+        "createdAt": "2025-06-19T14:08:06.165Z",
+        "updatedAt": "2025-06-19T14:10:46.945Z",
+        "associatedListIds": []
+      },
+      "d4ee5160-c724-42f7-866f-87f5015316e4": {
+        "id": "d4ee5160-c724-42f7-866f-87f5015316e4",
+        "text": "[BUG] obsdian vault не зберігається в налаштуваннях",
+        "completed": false,
+        "createdAt": "2025-06-19T14:08:44.864Z",
+        "updatedAt": "2025-06-19T14:10:42.152Z",
+        "associatedListIds": []
+      },
+      "f3df239f-df3a-44ab-a3a6-9b0f68364a00": {
+        "id": "f3df239f-df3a-44ab-a3a6-9b0f68364a00",
+        "text": "оформлення цілі хай задається в ні йсамій - можливість",
+        "completed": false,
+        "createdAt": "2025-06-19T14:09:47.245Z",
+        "updatedAt": "2025-06-19T14:09:47.245Z",
+        "associatedListIds": []
+      },
+      "876aa7ae-b456-43b5-a4e5-6a1432b48c9b": {
+        "id": "876aa7ae-b456-43b5-a4e5-6a1432b48c9b",
+        "text": "[BUG] slash в полі вводу не повинен блокувати його значення в поточному лайоті",
+        "completed": false,
+        "createdAt": "2025-06-19T14:10:15.464Z",
+        "updatedAt": "2025-06-19T14:10:35.461Z",
+        "associatedListIds": []
+      },
+      "a7c5f535-1113-48b0-bbed-5e4cc0549070": {
+        "id": "a7c5f535-1113-48b0-bbed-5e4cc0549070",
+        "text": "підпис \"списки цілей\" в сайдбарі зробити краще",
+        "completed": false,
+        "createdAt": "2025-06-19T14:11:55.573Z",
+        "updatedAt": "2025-06-19T14:29:42.825Z",
+        "associatedListIds": []
+      },
+      "dcc4ca48-859a-44d9-981f-fa8a1fd2f75a": {
+        "id": "dcc4ca48-859a-44d9-981f-fa8a1fd2f75a",
+        "text": "[BUG] іконку плюс списку вкладок прибрати",
+        "completed": false,
+        "createdAt": "2025-06-19T14:12:15.950Z",
+        "updatedAt": "2025-06-19T14:12:15.950Z",
+        "associatedListIds": []
+      },
+      "e90b3a44-4142-40fd-8b7c-364bcd375b88": {
+        "id": "e90b3a44-4142-40fd-8b7c-364bcd375b88",
+        "text": "[BUG] --gtk-version-3 що робити?",
+        "completed": false,
+        "createdAt": "2025-06-19T14:14:13.366Z",
+        "updatedAt": "2025-06-19T14:14:13.366Z",
+        "associatedListIds": []
+      },
+      "eb3f5cc5-c74f-4170-9703-ddc7c2f5ac7c": {
+        "id": "eb3f5cc5-c74f-4170-9703-ddc7c2f5ac7c",
+        "text": "зробити щоб при зменшені сайдбару замість слова налаштування була одна іконка",
+        "completed": false,
+        "createdAt": "2025-06-19T14:30:08.034Z",
+        "updatedAt": "2025-06-19T14:30:08.034Z",
+        "associatedListIds": []
+      },
+      "e12a0c6e-d060-4168-a988-bcb74f0cecb9": {
+        "id": "e12a0c6e-d060-4168-a988-bcb74f0cecb9",
+        "text": "ctrl, має викликати налаштування",
+        "completed": false,
+        "createdAt": "2025-06-19T14:30:25.333Z",
+        "updatedAt": "2025-06-19T14:30:25.333Z",
+        "associatedListIds": []
+      },
+      "c0a0d1da-41da-42c5-be31-cc924044e02f": {
+        "id": "c0a0d1da-41da-42c5-be31-cc924044e02f",
+        "text": "[BUG] при пустій вкладці створити списк має його таки сторювати",
+        "completed": false,
+        "createdAt": "2025-06-19T14:31:19.455Z",
+        "updatedAt": "2025-06-19T14:31:19.456Z",
+        "associatedListIds": []
+      },
+      "ef7bd1f6-a58c-456f-b167-0dcc1eecf2ca": {
+        "id": "ef7bd1f6-a58c-456f-b167-0dcc1eecf2ca",
+        "text": "різні типи файлів і даних експорт імпорт",
+        "completed": false,
+        "createdAt": "2025-06-19T14:31:48.306Z",
+        "updatedAt": "2025-06-19T14:31:48.306Z",
+        "associatedListIds": []
+      },
+      "21c151ac-b0fd-4f17-900c-44091facf590": {
+        "id": "21c151ac-b0fd-4f17-900c-44091facf590",
+        "text": "[[goals-systematization]]",
+        "completed": false,
+        "createdAt": "2025-06-19T19:40:57.557Z",
+        "updatedAt": "2025-06-20T23:55:44.468Z",
+        "associatedListIds": []
+      },
+      "9a1d63eb-7f8f-4518-9732-0bcd77524fc5": {
+        "id": "9a1d63eb-7f8f-4518-9732-0bcd77524fc5",
+        "text": "ут п #buy",
+        "completed": false,
+        "createdAt": "2025-06-20T23:08:08.004Z",
+        "updatedAt": "2025-06-20T23:08:08.004Z",
+        "associatedListIds": []
+      },
+      "5JP2SSVQTgfvJ1-QLY_7p": {
+        "id": "5JP2SSVQTgfvJ1-QLY_7p",
+        "text": "протестувати скрипти без інтернета",
+        "completed": false,
+        "createdAt": "2025-06-22T07:19:00.753Z",
+        "updatedAt": "2025-06-22T07:19:00.753Z"
+      },
+      "KKHvHl9Wugid0QumHpkYd": {
+        "id": "KKHvHl9Wugid0QumHpkYd",
+        "text": "протестувати гіт в хмару",
+        "completed": false,
+        "createdAt": "2025-06-22T07:19:16.857Z",
+        "updatedAt": "2025-06-22T07:19:16.857Z"
+      },
+      "BtpoaBfh0Ho-RbRjcFwQ3": {
+        "id": "BtpoaBfh0Ho-RbRjcFwQ3",
+        "text": "протестувати в інші сховища",
+        "completed": false,
+        "createdAt": "2025-06-22T07:19:30.029Z",
+        "updatedAt": "2025-06-22T07:19:30.029Z"
+      },
+      "duNTMQBfqWwiUvb2rEjGI": {
+        "id": "duNTMQBfqWwiUvb2rEjGI",
+        "text": "перегенерувати секрети: age для кожного репозиторію, rclone, gh",
+        "completed": false,
+        "createdAt": "2025-06-22T07:20:22.337Z",
+        "updatedAt": "2025-06-22T07:20:22.337Z"
+      },
+      "FOtWYMRdunwgAg5vGPY0o": {
+        "id": "FOtWYMRdunwgAg5vGPY0o",
+        "text": "info-defence #device🛡️ +",
+        "completed": false,
+        "createdAt": "2025-06-22T07:20:34.071Z",
+        "updatedAt": "2025-06-22T08:11:55.624Z",
+        "associatedListIds": [
+          "BI_ZdmjwS9C1SFGC951aN"
+        ]
+      },
+      "9eOXC9x4a9JLWoz2n-Gfm": {
+        "id": "9eOXC9x4a9JLWoz2n-Gfm",
+        "text": "#mental mnt-work",
+        "completed": false,
+        "createdAt": "2025-06-22T07:30:49.782Z",
+        "updatedAt": "2025-06-22T10:58:09.897Z",
+        "associatedListIds": [
+          "xArKeld0wNM-4cvNCMy9x"
+        ]
+      },
+      "90mSSkOcm3bs6bkME4x-W": {
+        "id": "90mSSkOcm3bs6bkME4x-W",
+        "text": "#feature додавання багатьох іконок",
+        "completed": false,
+        "createdAt": "2025-06-22T07:33:10.815Z",
+        "updatedAt": "2025-06-22T07:33:10.815Z"
+      },
+      "VwaxRMqsjMvpOF1ZJU822": {
+        "id": "VwaxRMqsjMvpOF1ZJU822",
+        "text": "#bug при середній кнопці миші закриванні вкладок в інпутпанел копіюється текст буфера",
+        "completed": false,
+        "createdAt": "2025-06-22T07:34:16.547Z",
+        "updatedAt": "2025-06-22T07:34:16.547Z"
+      },
+      "_2aKotbN9Koay2QLyQJC5": {
+        "id": "_2aKotbN9Koay2QLyQJC5",
+        "text": "beacon-clearence",
+        "completed": false,
+        "createdAt": "2025-06-22T07:37:23.333Z",
+        "updatedAt": "2025-06-22T07:37:28.812Z",
+        "associatedListIds": [
+          "EakTufO8QJJ5ll8N6oa_0"
+        ]
+      },
+      "W3kIVW-_OlzH9W49Z8Aw1": {
+        "id": "W3kIVW-_OlzH9W49Z8Aw1",
+        "text": "#feature іконки для списків",
+        "completed": false,
+        "createdAt": "2025-06-22T07:38:05.156Z",
+        "updatedAt": "2025-06-22T07:38:05.156Z"
+      },
+      "kDEdlX_qUGDW2ZsHpmctQ": {
+        "id": "kDEdlX_qUGDW2ZsHpmctQ",
+        "text": "#impovement при ховері звязані списки доки є місце",
+        "completed": false,
+        "createdAt": "2025-06-22T07:38:42.370Z",
+        "updatedAt": "2025-06-22T07:38:42.370Z"
+      },
+      "L6ipqrmcyXtRcXQ1tC3-g": {
+        "id": "L6ipqrmcyXtRcXQ1tC3-g",
+        "text": "adrian-goals",
+        "completed": false,
+        "createdAt": "2025-06-22T07:40:22.482Z",
+        "updatedAt": "2025-06-22T07:40:31.555Z",
+        "associatedListIds": [
+          "iS9pol_QXCAH2Qh4KgQIr"
+        ]
+      },
+      "vSh7u0uhgsJMFED-9nlAU": {
+        "id": "vSh7u0uhgsJMFED-9nlAU",
+        "text": "adrian-goal #week ❤️‍🩹 #mental +",
+        "completed": false,
+        "createdAt": "2025-06-22T07:40:41.004Z",
+        "updatedAt": "2025-06-22T10:59:51.216Z",
+        "associatedListIds": [
+          "iS9pol_QXCAH2Qh4KgQIr"
+        ]
+      },
+      "mhC445OKJiDI1hcUIERJn": {
+        "id": "mhC445OKJiDI1hcUIERJn",
+        "text": "підготувати піс мінімальну для дома і виходу #manual",
+        "completed": false,
+        "createdAt": "2025-06-22T11:00:28.254Z",
+        "updatedAt": "2025-06-22T11:00:35.018Z"
+      },
+      "aTh02MV74b5xKoh-P6Wes": {
+        "id": "aTh02MV74b5xKoh-P6Wes",
+        "text": "зз !",
+        "completed": false,
+        "createdAt": "2025-06-22T11:01:27.033Z",
+        "updatedAt": "2025-06-22T11:01:27.033Z"
+      }
+    },
+    "goalLists": {
+      "b11fc19d-6098-412c-bb05-3376daa98c70": {
+        "id": "b11fc19d-6098-412c-bb05-3376daa98c70",
+        "name": "forwardapp",
+        "description": "",
+        "createdAt": "2025-06-17T04:59:14.729Z",
+        "updatedAt": "2025-06-22T07:38:42.370Z",
+        "itemInstanceIds": []
+      },
+      "1de6684e-3ebf-4336-9321-a6bc28fee7ac": {
+        "id": "1de6684e-3ebf-4336-9321-a6bc28fee7ac",
+        "name": "today-treatment",
+        "description": "",
+        "createdAt": "2025-06-11T23:39:55.532Z",
+        "updatedAt": "2025-06-21T09:17:22.930Z",
+        "itemInstanceIds": []
+      },
+      "3ae8ad55-2b13-4ad0-9263-e9839c85b0d4": {
+        "id": "3ae8ad55-2b13-4ad0-9263-e9839c85b0d4",
+        "name": "week",
+        "description": "",
+        "createdAt": "2025-06-11T23:39:31.863Z",
+        "updatedAt": "2025-06-22T07:40:22.482Z",
+        "itemInstanceIds": []
+      },
+      "b496cddc-24fb-4ad4-9c9e-5aba3328aacc": {
+        "id": "b496cddc-24fb-4ad4-9c9e-5aba3328aacc",
+        "name": "today",
+        "description": "",
+        "createdAt": "2025-06-11T23:38:51.395Z",
+        "updatedAt": "2025-06-22T07:43:36.933Z",
+        "itemInstanceIds": []
+      },
+      "42404b6a-382a-4352-bb37-ff0b2c333e5f": {
+        "id": "42404b6a-382a-4352-bb37-ff0b2c333e5f",
+        "name": "quick",
+        "description": "",
+        "createdAt": "2025-06-11T23:38:24.849Z",
+        "updatedAt": "2025-06-11T23:38:59.737Z",
+        "itemInstanceIds": []
+      },
+      "2cd8fdda-68e7-47e7-9e4d-b9d02db1a375": {
+        "id": "2cd8fdda-68e7-47e7-9e4d-b9d02db1a375",
+        "name": "middle-term",
+        "description": "",
+        "createdAt": "2025-06-11T23:15:59.994Z",
+        "updatedAt": "2025-06-21T09:17:01.379Z",
+        "itemInstanceIds": []
+      },
+      "BI_ZdmjwS9C1SFGC951aN": {
+        "id": "BI_ZdmjwS9C1SFGC951aN",
+        "name": "info-defence",
+        "description": "",
+        "createdAt": "2025-06-22T07:18:39.167Z",
+        "updatedAt": "2025-06-22T07:20:22.337Z",
+        "itemInstanceIds": []
+      },
+      "xArKeld0wNM-4cvNCMy9x": {
+        "id": "xArKeld0wNM-4cvNCMy9x",
+        "name": "mental",
+        "description": "",
+        "createdAt": "2025-06-22T07:26:03.359Z",
+        "updatedAt": "2025-06-22T07:40:41.004Z",
+        "itemInstanceIds": []
+      },
+      "iS9pol_QXCAH2Qh4KgQIr": {
+        "id": "iS9pol_QXCAH2Qh4KgQIr",
+        "name": "adrian-goals",
+        "description": "",
+        "createdAt": "2025-06-22T07:35:47.261Z",
+        "updatedAt": "2025-06-22T07:43:36.933Z",
+        "itemInstanceIds": []
+      },
+      "EakTufO8QJJ5ll8N6oa_0": {
+        "id": "EakTufO8QJJ5ll8N6oa_0",
+        "name": "beacons-clearence",
+        "description": "",
+        "createdAt": "2025-06-22T07:36:52.356Z",
+        "updatedAt": "2025-06-22T07:37:10.533Z",
+        "itemInstanceIds": []
+      }
+    },
+    "goalInstances": {}
+  }
+}

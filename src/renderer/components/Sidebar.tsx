@@ -14,6 +14,7 @@ import { Droppable } from "@hello-pangea/dnd";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "../store/store";
 import { listAdded, listRemoved, listUpdated } from "../store/listsSlice";
+import { selectAllLists } from "../store/selectors";
 
 export const OPEN_GOAL_LIST_EVENT = "app:open-goal-list";
 export const MAIN_PANEL_REFRESH_CONTENT = "app:main-panel-refresh-content";
@@ -35,9 +36,7 @@ function Sidebar() {
   const dispatch = useDispatch<AppDispatch>();
 
   // --- ЗМІНЕНО: Отримуємо списки напряму з Redux. Вони завжди актуальні. ---
-  const allLists = useSelector((state: RootState) =>
-    Object.values(state.goalLists),
-  );
+  const allLists = useSelector(selectAllLists);
 
   const [filteredLists, setFilteredLists] = useState<GoalList[]>([]);
   const [filterText, setFilterText] = useState("");

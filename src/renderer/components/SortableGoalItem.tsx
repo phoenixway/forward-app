@@ -130,7 +130,43 @@ function SortableGoalItem({
                     : "opacity-0 max-h-0"
                 }`}
               >
-                {/* ... Тут може бути детальна інформація про ціль, що розгортається ... */}
+                {hasExtraInfo && (
+                  <>
+                    {displayableFields.length > 0 && (
+                      <div className="flex flex-wrap gap-x-2 gap-y-1">
+                        {displayableFields.map((field, indexVal) => (
+                          <span
+                            key={indexVal}
+                            className="bg-slate-200 dark:bg-slate-600/70 px-1.5 py-0.5 rounded-sm text-slate-600 dark:text-slate-300"
+                          >
+                            {field.name}: {field.value}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {rating !== undefined && ratingLabel && (
+                      <div>
+                        <span
+                          className={`font-semibold px-1.5 py-0.5 rounded-full border whitespace-nowrap ${
+                            rating > 5
+                              ? "bg-green-100 text-green-700 border-green-300 dark:bg-green-700/30 dark:text-green-300 dark:border-green-600/70"
+                              : rating > 1
+                                ? "bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-700/30 dark:text-yellow-300 dark:border-yellow-600/70"
+                                : rating > -Infinity
+                                  ? "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-700/30 dark:text-orange-300 dark:border-orange-600/70"
+                                  : "bg-red-100 text-red-700 border-red-300 dark:bg-red-700/30 dark:text-red-300 dark:border-red-600/70"
+                          }`}
+                          title={`${ratingLabel}: ${isFinite(rating) ? rating.toFixed(2) : rating.toString()}`}
+                        >
+                          {ratingLabel}:{" "}
+                          {isFinite(rating)
+                            ? rating.toFixed(2)
+                            : rating.toString()}
+                        </span>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           </div>

@@ -64,7 +64,9 @@ function MainPanel({
   obsidianVaultPath,
   onObsidianVaultChange,
 }: MainPanelProps) {
-  const { goals, goalLists } = useSelector((state: RootState) => state);
+  const { goals, goalLists, goalInstances } = useSelector(
+    (state: RootState) => state,
+  );
   const dispatch = useDispatch<AppDispatch>();
 
   const inputPanelGlobalRef = useRef<InputPanelRef>(null);
@@ -748,11 +750,8 @@ function MainPanel({
                   key={`${activeTabData.listId!}-${refreshSignalForAllTabs}`}
                   listId={activeTabData.listId!}
                   filterText={globalFilterText}
-                  refreshSignal={refreshSignalForAllTabs}
                   obsidianVaultName={obsidianVaultPath}
                   onTagClickForFilter={handleTagClickFromGoalRenderer}
-                  onNeedsSidebarRefresh={handleSidebarNeedsRefreshFromPage}
-                  onGoalMovedBetweenLists={handleGoalMovedBetweenLists}
                 />
                 {provided.placeholder}
               </div>
@@ -814,7 +813,9 @@ function MainPanel({
     (listId: string) => {
       const list = goalLists[listId];
       const goalsToExport = list
-        ? (list.itemGoalIds.map((id) => goals[id]).filter(Boolean) as Goal[])
+        ? (list.itemInstanceIds
+            .map((id) => goals[goalInstances[id]?.goalId])
+            .filter(Boolean) as Goal[])
         : [];
       if (goalsToExport.length > 0) {
         setListForImportExport(listId);
@@ -872,31 +873,64 @@ function MainPanel({
 
   // src/renderer/components/MainPanel.tsx
 
+  // src/renderer/components/MainPanel.tsx
+
   const handleSortByRating = useCallback(
     (listId: string) => {
+      // 1. Отримуємо актуальні дані зі стану Redux
       const list = goalLists[listId];
-      const goalsToSort = list
-        ? (list.itemGoalIds.map((id) => goals[id]).filter(Boolean) as Goal[])
-        : [];
+      if (!list) {
+        console.warn(`[handleSortByRating] Список з ID ${listId} не знайдено.`);
+        return;
+      }
 
-      if (!goalsToSort || goalsToSort.length === 0) return;
+      // 2. Збираємо повну інформацію про елементи в списку (екземпляр + оригінал цілі)
+      const itemsInList = list.itemInstanceIds
+        .map((instanceId) => {
+          const instance = goalInstances[instanceId];
+          if (!instance) return null;
 
-      const goalsWithRating: Array<{ goal: Goal; ratingValue: number }> = [];
-      const goalsWithoutRating: Goal[] = [];
-      goalsToSort.forEach((goal) => {
-        if (goal.completed) {
-          goalsWithoutRating.push(goal);
+          const goal = goals[instance.goalId];
+          if (!goal) return null;
+
+          return { instance, goal };
+        })
+        .filter(Boolean) as {
+        instance: { id: string; goalId: string };
+        goal: Goal;
+      }[];
+
+      if (itemsInList.length === 0) return;
+
+      // 3. Розподіляємо елементи на групи для сортування
+      const itemsWithRating: Array<{
+        instance: { id: string; goalId: string };
+        goal: Goal;
+        ratingValue: number;
+      }> = [];
+      const itemsWithoutRating: Array<{
+        instance: { id: string; goalId: string };
+        goal: Goal;
+      }> = [];
+
+      itemsInList.forEach((item) => {
+        // Виконані цілі завжди йдуть в кінець, їх не сортуємо за рейтингом
+        if (item.goal.completed) {
+          itemsWithoutRating.push(item);
           return;
         }
-        const { rating } = parseGoalData(goal.text);
+
+        const { rating } = parseGoalData(item.goal.text);
         if (rating !== undefined) {
-          goalsWithRating.push({ goal, ratingValue: rating });
+          itemsWithRating.push({ ...item, ratingValue: rating });
         } else {
-          goalsWithoutRating.push(goal);
+          itemsWithoutRating.push(item);
         }
       });
 
-      goalsWithRating.sort((a, b) => {
+      // 4. Сортуємо групу з рейтингом (від більшого до меншого)
+      itemsWithRating.sort((a, b) => {
+        // Обробка нескінченних значень для надійного сортування
         if (a.ratingValue === Infinity && b.ratingValue !== Infinity) return -1;
         if (a.ratingValue !== Infinity && b.ratingValue === Infinity) return 1;
         if (a.ratingValue === -Infinity && b.ratingValue !== -Infinity)
@@ -906,19 +940,24 @@ function MainPanel({
         return b.ratingValue - a.ratingValue;
       });
 
-      const sortedGoalIds = [
-        ...goalsWithRating.map((item) => item.goal.id),
-        ...goalsWithoutRating
-          .filter((g) => !g.completed)
-          .map((goal) => goal.id),
-        ...goalsWithoutRating.filter((g) => g.completed).map((goal) => goal.id),
+      // 5. Збираємо фінальний відсортований масив ID ЕКЗЕМПЛЯРІВ
+      const sortedInstanceIds = [
+        ...itemsWithRating.map((item) => item.instance.id),
+        ...itemsWithoutRating
+          .filter((item) => !item.goal.completed)
+          .map((item) => item.instance.id),
+        ...itemsWithoutRating
+          .filter((item) => item.goal.completed)
+          .map((item) => item.instance.id),
       ];
 
-      // --- ВИПРАВЛЕНО: Тепер ми надсилаємо правильну дію ---
-      dispatch(goalOrderUpdated({ listId, orderedGoalIds: sortedGoalIds }));
+      // 6. Надсилаємо дію в Redux з новим порядком
+      dispatch(
+        goalOrderUpdated({ listId, orderedInstanceIds: sortedInstanceIds }),
+      );
     },
-    [dispatch, goals, goalLists],
-  ); // Додано dispatch у залежності
+    [dispatch, goals, goalLists, goalInstances],
+  ); // Важливо вказати всі залежності
 
   useEffect(() => {
     const handleContentRefresh = () => {

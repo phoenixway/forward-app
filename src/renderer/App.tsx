@@ -26,40 +26,33 @@ const App: React.FC = () => {
   const handleDragEnd = useCallback(
     (result: DropResult) => {
       const { source, destination, draggableId, type } = result;
+      if (!destination || type !== "GOAL") return;
 
-      if (!destination || type !== "GOAL") {
-        return;
-      }
-
+      const sourceListId = source.droppableId;
       let destinationListId = destination.droppableId;
       if (destination.droppableId.startsWith("sidebar-")) {
         destinationListId = destination.droppableId.substring(
           "sidebar-".length,
         );
-      } else if (destination.droppableId.startsWith("tab-")) {
-        destinationListId = destination.droppableId.substring("tab-".length);
       }
-      const sourceListId = source.droppableId;
 
       if (sourceListId === destinationListId) {
-        // --- ЗМІНЕНО: Обчислюємо новий масив ID і надсилаємо його ---
         const list = goalLists[sourceListId];
         if (!list) return;
-
-        const reorderedIds = Array.from(list.itemGoalIds);
+        const reorderedIds = Array.from(list.itemInstanceIds);
         const [movedItem] = reorderedIds.splice(source.index, 1);
         reorderedIds.splice(destination.index, 0, movedItem);
-
         dispatch(
           goalOrderUpdated({
             listId: sourceListId,
-            orderedGoalIds: reorderedIds,
+            orderedInstanceIds: reorderedIds,
           }),
         );
       } else {
+        // --- ВИПРАВЛЕНО: draggableId - це і є наш instanceId ---
         dispatch(
           goalMoved({
-            goalId: draggableId,
+            instanceId: draggableId,
             sourceListId: sourceListId,
             destinationListId: destinationListId,
             destinationIndex: destination.index,
@@ -67,7 +60,7 @@ const App: React.FC = () => {
         );
       }
     },
-    [dispatch, goalLists], // <-- Додано goalLists у залежності
+    [dispatch, goalLists],
   );
   // --- Сигнал готовності рендерера ---
   useEffect(() => {

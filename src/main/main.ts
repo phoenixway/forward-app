@@ -86,7 +86,9 @@ const IPC_CHANNELS_FROM_PRELOAD = {
   SHOW_OPEN_DIALOG: "show-open-dialog",
   WRITE_FILE: "write-file",
   READ_FILE: "read-file",
+  RENDERER_ERROR: "renderer-error",
   TEST_IPC_MESSAGE: "test-ipc-message",
+  REPORT_RENDERER_ERROR: "report-renderer-error",
   RENDERER_READY_FOR_URL: "renderer-ready-for-url",
 };
 
@@ -149,6 +151,8 @@ function createWindow() {
         .catch((err) => console.error("[Main] Помилка завантаження URL:", err));
     }
   }
+
+  mainWindowInstance.webContents.openDevTools();
 
   // `did-finish-load` означає, що ресурси завантажено, але React ще може не бути готовим
   // Обробка URL перенесена в RENDERER_READY_FOR_URL
@@ -587,6 +591,13 @@ Type=Fixed
 
     ipcMain.handle(IPC_CHANNELS_FROM_PRELOAD.GET_APP_VERSION, () => {
       return app.getVersion();
+    });
+
+    ipcMain.on(IPC_CHANNELS_FROM_PRELOAD.RENDERER_ERROR, (_event, error) => {
+      console.error("<<<<<!!! КРИТИЧНА ПОМИЛКА В РЕНДЕРЕРІ !!!>>>>>");
+      console.error("Повідомлення:", error.message);
+      console.error("Стек:", error.stack);
+      console.error("<<<<<!!! КІНЕЦЬ ЗВІТУ ПРО ПОМИЛКУ !!!>>>>>");
     });
 
     ipcMain.handle(IPC_CHANNELS_FROM_PRELOAD.GET_APP_SETTINGS, async () => {

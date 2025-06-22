@@ -9,23 +9,25 @@ import {
   ChevronUp,
   Link as LinkIconLucide,
 } from "lucide-react";
-import type { Goal } from "../types"; // Оновлено шлях до типів
+import type { Goal } from "../types";
 import GoalTextRenderer from "./GoalTextRenderer";
 import { parseGoalData } from "../utils/textProcessing";
 import AssociatedListsPopover from "./AssociatedListsPopover";
 
-// Інтерфейс пропсів було спрощено після міграції на Redux
+// Оновлений інтерфейс пропсів
 export interface SortableGoalItemProps {
+  instanceId: string;
   goal: Goal;
   index: number;
   onToggle: (goalId: string) => void;
-  onDelete: (goalId: string) => void;
+  onDelete: (instanceId: string) => void;
   onStartEdit: (goal: Goal) => void;
   obsidianVaultName: string;
   onTagClickForFilter?: (filterTerm: string) => void;
 }
 
 function SortableGoalItem({
+  instanceId,
   goal,
   index,
   onToggle,
@@ -44,6 +46,7 @@ function SortableGoalItem({
 
   const toggleExpand = useCallback(
     (event: React.MouseEvent) => {
+      event.stopPropagation();
       if (hasExtraInfo) {
         setIsExpanded((prev) => !prev);
       }
@@ -61,9 +64,9 @@ function SortableGoalItem({
   }, []);
 
   return (
-    <Draggable draggableId={goal.id} index={index}>
+    // <--- Draggable очікує ОДНУ функцію як нащадка, як показано нижче
+    <Draggable draggableId={instanceId} index={index}>
       {(provided, snapshot) => (
-        // КРОК 1: Переконуємось, що на батьківському елементі <li> є клас "group"
         <li
           ref={provided.innerRef}
           {...provided.draggableProps}
@@ -127,12 +130,11 @@ function SortableGoalItem({
                     : "opacity-0 max-h-0"
                 }`}
               >
-                {/* ... детальна інформація ... */}
+                {/* ... Тут може бути детальна інформація про ціль, що розгортається ... */}
               </div>
             </div>
           </div>
 
-          {/* КРОК 2: Додаємо класи для управління видимістю до цього контейнера <div> */}
           <div className="flex-shrink-0 flex items-center space-x-0.5 mt-0.5 relative opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150">
             {hasExtraInfo && (
               <button
@@ -171,9 +173,9 @@ function SortableGoalItem({
               </button>
             )}
             <button
-              onClick={() => onDelete(goal.id)}
+              onClick={() => onDelete(instanceId)}
               className="p-1 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 focus:outline-none rounded hover:bg-red-100 dark:hover:bg-red-700/50"
-              title="Видалити ціль"
+              title="Видалити цей екземпляр цілі"
             >
               <Trash2 size={16} />
             </button>

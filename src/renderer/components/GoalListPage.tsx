@@ -1,28 +1,31 @@
 // src/renderer/components/GoalListPage.tsx
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "../store/store";
 import {
+  makeSelectListInfo,
+  makeSelectGoalInstancesForList,
+} from "../store/selectors";
+import {
   goalToggled,
-  goalRemovedFromList,
+  instanceRemovedFromList,
   goalUpdated,
 } from "../store/listsSlice";
-import type { Goal, GoalList } from "../types";
+import type { Goal, GoalInstance } from "../types";
 import { SearchX, ListChecks } from "lucide-react";
 import SortableGoalItem from "./SortableGoalItem";
 
 interface GoalListPageProps {
   listId: string;
   filterText: string;
-  refreshSignal: number;
   obsidianVaultName: string;
   onTagClickForFilter?: (filterTerm: string) => void;
-  onNeedsSidebarRefresh?: () => void;
-  onGoalMovedBetweenLists?: (
-    sourceListId: string,
-    destinationListId: string,
-    movedGoalId: string,
-  ) => void;
 }
 
 function GoalListPage({
@@ -30,39 +33,38 @@ function GoalListPage({
   filterText,
   obsidianVaultName,
   onTagClickForFilter,
-  onNeedsSidebarRefresh,
 }: GoalListPageProps) {
   const dispatch = useDispatch<AppDispatch>();
 
-  // --- ЗМІНЕНО: Отримуємо дані напряму з Redux ---
-  const { listInfo, displayedGoals } = useSelector((state: RootState) => {
-    const list = state.goalLists[listId];
-    if (!list) {
-      return { listInfo: null, displayedGoals: [] };
-    }
-    const goals = list.itemGoalIds
-      .map((id) => state.goals[id])
-      .filter(Boolean) as Goal[];
-    const { itemGoalIds, ...restOfListInfo } = list;
-    return { listInfo: restOfListInfo, displayedGoals: goals };
-  });
+  // --- ВИПРАВЛЕНО: Використовуємо два окремі мемоізовані селектори ---
+  const selectListInfo = useMemo(makeSelectListInfo, []);
+  const selectGoalInstancesForList = useMemo(
+    makeSelectGoalInstancesForList,
+    [],
+  );
 
-  const [activeFilteredGoals, setActiveFilteredGoals] = useState<Goal[]>([]);
+  const listInfo = useSelector((state: RootState) =>
+    selectListInfo(state, listId),
+  );
+  const displayedGoalInstances = useSelector((state: RootState) =>
+    selectGoalInstancesForList(state, listId),
+  );
+
+  const [activeFilteredGoals, setActiveFilteredGoals] = useState<
+    { instance: GoalInstance; goal: Goal }[]
+  >([]);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [editingGoalText, setEditingGoalText] = useState("");
   const editGoalInputRef = useRef<HTMLTextAreaElement>(null);
 
-  // --- ВИДАЛЕНО: loadListAndGoals та відповідний useEffect ---
-  // Вони більше не потрібні, бо useSelector робить все автоматично.
-
   useEffect(() => {
     if (listInfo) {
       if (!filterText.trim()) {
-        setActiveFilteredGoals(displayedGoals);
+        setActiveFilteredGoals(displayedGoalInstances);
       } else {
         const lowercasedFilter = filterText.toLowerCase();
         setActiveFilteredGoals(
-          displayedGoals.filter((goal) =>
+          displayedGoalInstances.filter(({ goal }) =>
             goal.text.toLowerCase().includes(lowercasedFilter),
           ),
         );
@@ -70,7 +72,7 @@ function GoalListPage({
     } else {
       setActiveFilteredGoals([]);
     }
-  }, [listInfo, displayedGoals, filterText]);
+  }, [listInfo, displayedGoalInstances, filterText]);
 
   useEffect(() => {
     if (editingGoal && editGoalInputRef.current) {
@@ -78,8 +80,6 @@ function GoalListPage({
       editGoalInputRef.current.select();
     }
   }, [editingGoal]);
-
-  // --- ЗМІНЕНО: Всі обробники тепер використовують dispatch ---
 
   const handleToggleGoal = useCallback(
     (goalId: string) => {
@@ -89,22 +89,24 @@ function GoalListPage({
   );
 
   const handleDeleteGoal = useCallback(
-    (goalId: string) => {
-      const goalToDelete = displayedGoals.find((g) => g.id === goalId);
+    (instanceId: string) => {
+      const goalInstanceToDelete = displayedGoalInstances.find(
+        ({ instance }) => instance.id === instanceId,
+      );
       if (
-        goalToDelete &&
+        goalInstanceToDelete &&
         window.confirm(
-          `Видалити ціль "${goalToDelete.text}" зі списку? (Ціль залишиться глобально, якщо використовується в інших списках)`,
+          `Видалити ціль "${goalInstanceToDelete.goal.text}" зі списку?`,
         )
       ) {
-        dispatch(goalRemovedFromList({ listId, goalId }));
-        if (editingGoal?.id === goalId) {
+        dispatch(instanceRemovedFromList({ listId, instanceId }));
+        if (editingGoal?.id === goalInstanceToDelete.goal.id) {
           setEditingGoal(null);
           setEditingGoalText("");
         }
       }
     },
-    [listId, displayedGoals, editingGoal?.id, dispatch],
+    [listId, displayedGoalInstances, editingGoal, dispatch],
   );
 
   const handleStartEditGoal = useCallback((goal: Goal) => {
@@ -208,9 +210,10 @@ function GoalListPage({
         )}
         {activeFilteredGoals.length > 0 && (
           <ul className="space-y-1.5">
-            {activeFilteredGoals.map((goal, itemIndex) => (
+            {activeFilteredGoals.map(({ instance, goal }, itemIndex) => (
               <SortableGoalItem
-                key={goal.id}
+                key={instance.id}
+                instanceId={instance.id}
                 goal={goal}
                 index={itemIndex}
                 onToggle={handleToggleGoal}

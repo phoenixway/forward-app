@@ -2,8 +2,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "../store/store";
-import { stateReplaced } from "../store/listsSlice";
-import type { GoalList, Goal } from "../types";
+import { ListsState, stateReplaced } from "../store/listsSlice";
+import type { GoalList, Goal, GoalInstance } from "../types";
 
 interface AppBackupDataFormat {
   version: number;
@@ -30,8 +30,11 @@ function SettingsPage({
   onDataImported,
 }: SettingsPageProps) {
   const dispatch = useDispatch<AppDispatch>();
-  const fullState = useSelector((state: RootState) => state); // Отримуємо весь стан для експорту
-
+  const fullState = useSelector((state: RootState) => ({
+    goals: state.goals,
+    goalLists: state.goalLists,
+    goalInstances: state.goalInstances,
+  }));
   const [obsidianVaultPath, setObsidianVaultPath] =
     useState(initialObsidianVault);
 
@@ -161,13 +164,11 @@ function SettingsPage({
     }
   };
 
+  // src/renderer/components/SettingsPage.tsx
+
   const handleImportData = async () => {
-    if (!window.electronAPI?.showOpenDialog) {
-      // Додано перевірку
+    if (!window.electronAPI?.showOpenDialog || !window.electronAPI.readFile) {
       alert("Electron API не доступне для операцій з файлами.");
-      console.error(
-        "Electron API (window.electronAPI.showOpenDialog) not found.",
-      );
       return;
     }
 
@@ -178,7 +179,6 @@ function SettingsPage({
     );
 
     if (!confirmImport) {
-      console.log("Import was canceled by user confirmation.");
       return;
     }
 
@@ -191,69 +191,84 @@ function SettingsPage({
 
       if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
         const filePath = result.filePaths[0];
-        console.log("Attempting to import data from:", filePath);
-        const readResult = await window.electronAPI.readFile(filePath); // Перевірка readFile
+        const readResult = await window.electronAPI.readFile(filePath);
 
         if (readResult.success && typeof readResult.content === "string") {
-          const importedObject = JSON.parse(
-            readResult.content,
-          ) as AppBackupDataFormat;
+          const importedObject = JSON.parse(readResult.content);
 
-          if (
-            importedObject.version !== 1 ||
-            !importedObject.data ||
-            !Array.isArray(importedObject.data.goalLists) ||
-            !Array.isArray(importedObject.data.goals)
-          ) {
-            alert(
-              "Файл має невірний формат, версію або пошкоджений. Будь ласка, перевірте файл.",
-            );
-            console.error(
-              "Invalid import file format or version:",
-              importedObject,
-            );
+          if (!importedObject.version || !importedObject.data) {
+            alert("Файл має невірний формат або пошкоджений.");
             return;
           }
 
-          dispatch(
-            stateReplaced({
-              goals: importedObject.data.goals.reduce(
-                (acc, goal) => {
-                  acc[goal.id] = goal;
-                  return acc;
-                },
-                {} as Record<string, Goal>,
-              ),
-              goalLists: importedObject.data.goalLists.reduce(
-                (acc, list) => {
-                  acc[list.id] = list;
-                  return acc;
-                },
-                {} as Record<string, GoalList>,
-              ),
-            }),
-          );
+          // --- ОСНОВНА ЗМІНА ТУТ ---
+          // Ми створюємо змінну типу ListsState, а не RootState
+          let finalState: ListsState;
+
+          if (importedObject.version === 1) {
+            // ... логіка конвертації старого формату (залишається без змін)
+            const oldData = importedObject.data;
+            const newInstances: Record<string, GoalInstance> = {};
+            const newLists: Record<string, any> = {};
+            Object.values(oldData.goalLists).forEach((list: any) => {
+              const newInstanceIds: string[] = [];
+              if (list.itemGoalIds && Array.isArray(list.itemGoalIds)) {
+                list.itemGoalIds.forEach((goalId: string) => {
+                  if (oldData.goals.find((g: any) => g.id === goalId)) {
+                    const instanceId = `inst_${Math.random().toString(36).substr(2, 9)}`;
+                    newInstanceIds.push(instanceId);
+                    newInstances[instanceId] = {
+                      id: instanceId,
+                      goalId: goalId,
+                    };
+                  }
+                });
+              }
+              newLists[list.id] = { ...list, itemInstanceIds: newInstanceIds };
+              delete newLists[list.id].itemGoalIds;
+            });
+            const goalsAsRecord = oldData.goals.reduce(
+              (acc: Record<string, Goal>, goal: Goal) => {
+                acc[goal.id] = goal;
+                return acc;
+              },
+              {},
+            );
+            finalState = {
+              goals: goalsAsRecord,
+              goalLists: newLists,
+              goalInstances: newInstances,
+            };
+          } else {
+            finalState = importedObject.data;
+          }
+
+          if (
+            !finalState.goals ||
+            !finalState.goalLists ||
+            !finalState.goalInstances
+          ) {
+            alert("Помилка обробки даних імпорту. Відсутні необхідні поля.");
+            return;
+          }
+
+          // Тепер ми передаємо в dispatch об'єкт правильного типу
+          dispatch(stateReplaced(finalState));
 
           alert("Дані успішно імпортовано!");
-          console.log(
-            "Data imported successfully. Triggering onDataImported callback.",
-          );
           if (onDataImported) {
             onDataImported();
           }
         } else {
           alert(
-            `Помилка читання файлу: ${readResult.error || "Невідома помилка або файл порожній."}`,
+            `Помилка читання файлу: ${readResult.error || "Невідома помилка."}`,
           );
-          console.error("File read error or empty content:", readResult.error);
         }
-      } else {
-        console.log("Import dialog was canceled or no file selected.");
       }
     } catch (error) {
       console.error("Помилка під час імпорту даних:", error);
       alert(
-        `Сталася помилка імпорту: ${error instanceof Error ? error.message : String(error)}. Перевірте консоль для деталей.`,
+        `Сталася помилка імпорту: ${error instanceof Error ? error.message : String(error)}.`,
       );
     }
   };

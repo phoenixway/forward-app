@@ -19,7 +19,7 @@ export const IPC_CHANNELS = {
   READ_FILE: "read-file",
   TEST_IPC_MESSAGE: "test-ipc-message", // Тестовий канал
   RENDERER_READY_FOR_URL: "renderer-ready-for-url", // Канал для сигналу готовності рендерера
-
+  RENDERER_ERROR: "renderer-error",
   // Нові канали для інтеграції з робочим столом
   APP_IS_APPIMAGE_ON_LINUX: "app:isAppImageOnLinux",
   APP_HAS_USER_DESKTOP_FILE: "app:hasUserDesktopFile",
@@ -40,7 +40,7 @@ export interface ElectronAPI {
 
   onCustomUrl: (callback: (url: string) => void) => () => void; // Функція відписки
   rendererReadyForUrl: () => void;
-
+  reportRendererError: (error: { message: string; stack?: string }) => void;
   showSaveDialog: (
     options: Electron.SaveDialogOptions,
   ) => Promise<Electron.SaveDialogReturnValue & { filePath?: string }>;
@@ -109,7 +109,8 @@ const exposedAPI: ElectronAPI = {
   setZoomFactor: (factor) => webFrame.setZoomFactor(factor),
   openExternal: (url) =>
     ipcRenderer.invoke(IPC_CHANNELS.OPEN_EXTERNAL_LINK, url),
-
+  reportRendererError: (error) =>
+    ipcRenderer.send(IPC_CHANNELS.RENDERER_ERROR, error),
   onCustomUrl: (callback) => {
     console.log("[Preload] onCustomUrl: Registering callback.");
     activeCustomUrlCallback = callback;

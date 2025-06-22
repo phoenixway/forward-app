@@ -244,19 +244,33 @@ const listsSlice = createSlice({
       const { listId, goalsData } = action.payload;
       const list = state.goalLists[listId];
       if (list) {
-        const newGoalIds: string[] = [];
+        const newInstanceIds: string[] = []; // Тепер цей масив буде для ID екземплярів
+
         goalsData.forEach((goalData) => {
+          // 1. Створюємо нову ціль (оригінал)
+          const newGoalId = nanoid();
           const newGoal: Goal = {
-            id: nanoid(),
+            id: newGoalId,
             text: goalData.text.trim(),
             completed: goalData.completed || false,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           };
-          state.goals[newGoal.id] = newGoal;
-          newGoalIds.push(newGoal.id);
+          state.goals[newGoalId] = newGoal;
+
+          // 2. Створюємо для неї екземпляр
+          const newInstanceId = nanoid();
+          state.goalInstances[newInstanceId] = {
+            id: newInstanceId,
+            goalId: newGoalId,
+          };
+
+          // 3. Збираємо ID саме екземплярів
+          newInstanceIds.push(newInstanceId);
         });
-        list.itemInstanceIds.push(...newGoalIds);
+
+        // 4. Додаємо масив ID екземплярів до списку
+        list.itemInstanceIds.push(...newInstanceIds);
         list.updatedAt = new Date().toISOString();
       }
     },

@@ -1260,8 +1260,14 @@
   .text-green-900 {
     color: var(--color-green-900);
   }
+  .text-indigo-500 {
+    color: var(--color-indigo-500);
+  }
   .text-indigo-600 {
     color: var(--color-indigo-600);
+  }
+  .text-orange-500 {
+    color: var(--color-orange-500);
   }
   .text-pink-700 {
     color: var(--color-pink-700);
@@ -1274,6 +1280,9 @@
   }
   .text-red-500 {
     color: var(--color-red-500);
+  }
+  .text-sky-500 {
+    color: var(--color-sky-500);
   }
   .text-slate-400 {
     color: var(--color-slate-400);
@@ -1292,6 +1301,9 @@
   }
   .text-slate-900 {
     color: var(--color-slate-900);
+  }
+  .text-teal-500 {
+    color: var(--color-teal-500);
   }
   .text-white {
     color: var(--color-white);

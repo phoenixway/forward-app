@@ -1,5 +1,5 @@
 // src/renderer/App.tsx
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import "./styles.css"; // Глобальні стилі або стилі для App
 import Layout from "./components/Layout";
 import MainPanel from "./components/MainPanel";
@@ -9,7 +9,11 @@ import { SIDEBAR_REFRESH_LISTS_EVENT } from "./events";
 
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "./store/store";
-import { goalOrderUpdated, goalMoved } from "./store/listsSlice";
+import {
+  goalOrderUpdated,
+  goalMoved,
+  goalReferenceAdded,
+} from "./store/listsSlice";
 
 const ZOOM_STEP = 0.1;
 const MIN_ZOOM = 0.5;
@@ -20,13 +24,41 @@ const App: React.FC = () => {
   console.log("[App.tsx] Рендеринг компонента App");
   const dispatch = useDispatch<AppDispatch>();
 
-  // --- ДОДАНО: Отримуємо доступ до списків для обчислення нового порядку ---
-  const goalLists = useSelector((state: RootState) => state.goalLists);
+  const goals = useSelector((state: RootState) => state.goals);
+  const isCtrlPressedRef = useRef(false);
+  const { goalLists, goalInstances } = useSelector((state: RootState) => ({
+    goalLists: state.goalLists,
+    goalInstances: state.goalInstances,
+  }));
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Control") {
+        isCtrlPressedRef.current = true;
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === "Control") {
+        isCtrlPressedRef.current = false;
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, []);
 
   const handleDragEnd = useCallback(
     (result: DropResult) => {
       const { source, destination, draggableId, type } = result;
-      if (!destination || type !== "GOAL") return;
+
+      if (!destination || type !== "GOAL") {
+        isCtrlPressedRef.current = false; // Скидаємо на випадок скасування
+        return;
+      }
 
       const sourceListId = source.droppableId;
       let destinationListId = destination.droppableId;
@@ -36,32 +68,57 @@ const App: React.FC = () => {
         );
       }
 
-      if (sourceListId === destinationListId) {
+      const instanceId = draggableId; // В DND draggableId - це наш instanceId
+
+      // Перевіряємо, чи натиснута клавіша Ctrl і чи це перетягування між різними списками
+      if (isCtrlPressedRef.current && sourceListId !== destinationListId) {
+        // --- Логіка створення посилання ---
+        const instance = goalInstances[instanceId];
+        if (instance && instance.goalId) {
+          dispatch(
+            goalReferenceAdded({
+              listId: destinationListId,
+              goalId: instance.goalId,
+            }),
+          );
+        } else {
+          console.warn(
+            `Не вдалося знайти оригінал цілі для екземпляра ${instanceId}`,
+          );
+        }
+      } else if (sourceListId === destinationListId) {
+        // --- Логіка сортування в межах одного списку ---
         const list = goalLists[sourceListId];
         if (!list) return;
-        const reorderedIds = Array.from(list.itemInstanceIds);
-        const [movedItem] = reorderedIds.splice(source.index, 1);
-        reorderedIds.splice(destination.index, 0, movedItem);
+
+        const reorderedInstanceIds = Array.from(list.itemInstanceIds);
+        const [movedItem] = reorderedInstanceIds.splice(source.index, 1);
+        reorderedInstanceIds.splice(destination.index, 0, movedItem);
+
         dispatch(
           goalOrderUpdated({
             listId: sourceListId,
-            orderedInstanceIds: reorderedIds,
+            orderedInstanceIds: reorderedInstanceIds,
           }),
         );
       } else {
-        // --- ВИПРАВЛЕНО: draggableId - це і є наш instanceId ---
+        // --- Логіка переміщення (стандартна поведінка) ---
         dispatch(
           goalMoved({
-            instanceId: draggableId,
+            instanceId: instanceId,
             sourceListId: sourceListId,
             destinationListId: destinationListId,
             destinationIndex: destination.index,
           }),
         );
       }
+
+      // Завжди скидаємо стан клавіші після завершення операції
+      isCtrlPressedRef.current = false;
     },
-    [dispatch, goalLists],
+    [dispatch, goalLists, goalInstances],
   );
+
   // --- Сигнал готовності рендерера ---
   useEffect(() => {
     console.log(

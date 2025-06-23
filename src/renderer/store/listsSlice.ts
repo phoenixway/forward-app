@@ -89,9 +89,6 @@ const listsSlice = createSlice({
       }
     },
 
-    // src/renderer/store/listsSlice.ts
-
-    // ...
     instanceRemovedFromList(
       state,
       action: PayloadAction<{ listId: string; instanceId: string }>,
@@ -125,7 +122,6 @@ const listsSlice = createSlice({
         delete state.goals[goalId];
       }
     },
-    // ...
 
     // +++ НОВИЙ ACTION: Повне видалення оригіналу цілі та всіх її посилань +++
     goalPermanentlyDeleted(state, action: PayloadAction<string>) {
@@ -261,7 +257,6 @@ const listsSlice = createSlice({
       }
     },
 
-    // +++ ВІДСУТНІ РЕДЮСЕРИ, ЯКІ МИ ЗАРАЗ ДОДАЄМО +++
     goalAssociated(
       state,
       action: PayloadAction<{ goalId: string; listId: string }>,
@@ -335,11 +330,8 @@ const listsSlice = createSlice({
       }
     },
     stateReplaced(state, action: PayloadAction<ListsState>) {
-      // Новий підхід: створюємо новий об'єкт стану
       return {
-        ...state, // <-- Спочатку копіюємо ВСІ поля з поточного стану (включаючи _persist)
-
-        // Потім перезаписуємо тільки ті поля, що прийшли з імпортованого файлу
+        ...state,
         goals: action.payload.goals || {},
         goalLists: action.payload.goalLists || {},
         goalInstances: action.payload.goalInstances || {},
@@ -359,9 +351,9 @@ export const {
   goalMoved,
   goalOrderUpdated,
   goalsImported,
-  goalAssociated, // <-- Тепер експортується
-  goalDisassociated, // <-- Тепер експортується
-  stateReplaced, // <-- Додаємо новий експорт
+  goalAssociated,
+  goalDisassociated,
+  stateReplaced,
   goalReferenceAdded,
   instanceRemovedFromList,
   goalPermanentlyDeleted,

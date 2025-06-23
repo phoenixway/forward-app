@@ -11,6 +11,8 @@ import { RootState, AppDispatch } from "../store/store";
 import {
   makeSelectListInfo,
   makeSelectGoalInstancesForList,
+  selectAllUniqueTags,
+  selectAllUniqueContexts,
 } from "../store/selectors";
 import {
   goalToggled,
@@ -36,7 +38,6 @@ function GoalListPage({
 }: GoalListPageProps) {
   const dispatch = useDispatch<AppDispatch>();
 
-  // --- ВИПРАВЛЕНО: Використовуємо два окремі мемоізовані селектори ---
   const selectListInfo = useMemo(makeSelectListInfo, []);
   const selectGoalInstancesForList = useMemo(
     makeSelectGoalInstancesForList,
@@ -50,12 +51,25 @@ function GoalListPage({
     selectGoalInstancesForList(state, listId),
   );
 
+  const allTags = useSelector(selectAllUniqueTags);
+  const allContexts = useSelector(selectAllUniqueContexts);
+
   const [activeFilteredGoals, setActiveFilteredGoals] = useState<
     { instance: GoalInstance; goal: Goal }[]
   >([]);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [editingGoalText, setEditingGoalText] = useState("");
   const editGoalInputRef = useRef<HTMLTextAreaElement>(null);
+
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false); // Основний тригер для показу
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
+  const [suggestionType, setSuggestionType] = useState<"#" | "@" | null>(null);
+  const suggestionsRef = useRef<HTMLUListElement>(null);
+
+  // Додатковий стан для контролю фактичної видимості в DOM для анімації виходу
+  // Цей стан буде оновлюватися з невеликою затримкою при приховуванні
+  const [isSuggestionsUiVisible, setIsSuggestionsUiVisible] = useState(false);
 
   useEffect(() => {
     if (listInfo) {
@@ -77,9 +91,32 @@ function GoalListPage({
   useEffect(() => {
     if (editingGoal && editGoalInputRef.current) {
       editGoalInputRef.current.focus();
-      editGoalInputRef.current.select();
+      const textLength = editGoalInputRef.current.value.length;
+      editGoalInputRef.current.setSelectionRange(textLength, textLength);
     }
   }, [editingGoal]);
+
+  // Керування станом isSuggestionsUiVisible для анімації
+  useEffect(() => {
+    let timerId: NodeJS.Timeout;
+    if (showSuggestions && suggestions.length > 0) {
+      setIsSuggestionsUiVisible(true); // Показуємо одразу для анімації появи
+    } else {
+      // Якщо ховаємо, то isSuggestionsUiVisible ще деякий час true,
+      // щоб анімація зникнення встигла програтися.
+      // Фактичне "прибирання" (якщо воно потрібне) або очищення suggestions
+      // можна зробити після тайм-ауту, якщо потрібно.
+      // Поки що CSS класи самі впораються з "невидимістю".
+      // Якщо ми хочемо очистити suggestions після анімації:
+      timerId = setTimeout(() => {
+        if (!showSuggestions) {
+          // Перевірка, чи стан все ще "ховати"
+          setSuggestions([]); // Очищаємо підказки після зникнення, якщо вони більше не потрібні
+        }
+      }, 200); // Час має відповідати тривалості transition (duration-200)
+    }
+    return () => clearTimeout(timerId);
+  }, [showSuggestions, suggestions.length]);
 
   const handleToggleGoal = useCallback(
     (goalId: string) => {
@@ -103,6 +140,7 @@ function GoalListPage({
         if (editingGoal?.id === goalInstanceToDelete.goal.id) {
           setEditingGoal(null);
           setEditingGoalText("");
+          setShowSuggestions(false);
         }
       }
     },
@@ -113,11 +151,13 @@ function GoalListPage({
     if (goal.completed) return;
     setEditingGoal(goal);
     setEditingGoalText(goal.text);
+    setShowSuggestions(false);
   }, []);
 
   const handleCancelEditGoal = useCallback(() => {
     setEditingGoal(null);
     setEditingGoalText("");
+    setShowSuggestions(false);
   }, []);
 
   const handleSubmitEditGoal = useCallback(() => {
@@ -130,7 +170,172 @@ function GoalListPage({
     dispatch(goalUpdated({ id: editingGoal.id, text: editingGoalText.trim() }));
     setEditingGoal(null);
     setEditingGoalText("");
+    setShowSuggestions(false);
   }, [dispatch, editingGoal, editingGoalText]);
+
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newText = e.target.value;
+    setEditingGoalText(newText);
+
+    const cursorPos = e.target.selectionStart;
+    const textBeforeCursor = newText.substring(0, cursorPos);
+
+    const lastTagIndex = textBeforeCursor.lastIndexOf("#");
+    const lastContextIndex = textBeforeCursor.lastIndexOf("@");
+
+    let activePrefixIndex = -1;
+    let currentPrefix: "#" | "@" | null = null;
+
+    if (lastTagIndex > lastContextIndex) {
+      activePrefixIndex = lastTagIndex;
+      currentPrefix = "#";
+    } else if (lastContextIndex > lastTagIndex) {
+      activePrefixIndex = lastContextIndex;
+      currentPrefix = "@";
+    }
+
+    if (
+      currentPrefix &&
+      activePrefixIndex !== -1 &&
+      (activePrefixIndex === 0 || /\s/.test(newText[activePrefixIndex - 1]))
+    ) {
+      const query = textBeforeCursor.substring(activePrefixIndex + 1);
+      if (!/\s/.test(query)) {
+        setSuggestionType(currentPrefix);
+        const source = currentPrefix === "#" ? allTags : allContexts;
+        const filteredSuggestions = source.filter((item) =>
+          item.toLowerCase().startsWith((currentPrefix + query).toLowerCase()),
+        );
+
+        if (filteredSuggestions.length > 0) {
+          setSuggestions(filteredSuggestions); // Встановлюємо підказки
+          setShowSuggestions(true); // Сигналізуємо, що їх треба показати
+          setActiveSuggestionIndex(0);
+        } else {
+          setShowSuggestions(false); // Ховаємо, якщо немає підказок
+        }
+        return;
+      }
+    }
+    setShowSuggestions(false); // Ховаємо, якщо умови не виконані
+  };
+
+  const handleTextareaKeyDown = (
+    e: React.KeyboardEvent<HTMLTextAreaElement>,
+  ) => {
+    // Використовуємо showSuggestions та suggestions.length для логіки,
+    // а isSuggestionsUiVisible + класи CSS для анімації
+    if (showSuggestions && suggestions.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActiveSuggestionIndex((prevIndex) =>
+          prevIndex === suggestions.length - 1 ? 0 : prevIndex + 1,
+        );
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActiveSuggestionIndex((prevIndex) =>
+          prevIndex === 0 ? suggestions.length - 1 : prevIndex - 1,
+        );
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const selectedSuggestion = suggestions[activeSuggestionIndex];
+        if (selectedSuggestion) {
+          const cursorPos = editGoalInputRef.current?.selectionStart ?? 0;
+          const textBeforeCursor = editingGoalText.substring(0, cursorPos);
+
+          let startIndex = -1;
+          if (suggestionType === "#") {
+            startIndex = textBeforeCursor.lastIndexOf("#");
+          } else if (suggestionType === "@") {
+            startIndex = textBeforeCursor.lastIndexOf("@");
+          }
+
+          if (startIndex !== -1) {
+            const newText =
+              editingGoalText.substring(0, startIndex) +
+              selectedSuggestion +
+              " " +
+              editingGoalText.substring(cursorPos);
+            setEditingGoalText(newText);
+
+            setTimeout(() => {
+              const newCursorPos = startIndex + selectedSuggestion.length + 1;
+              editGoalInputRef.current?.setSelectionRange(
+                newCursorPos,
+                newCursorPos,
+              );
+            }, 0);
+          }
+        }
+        setShowSuggestions(false);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setShowSuggestions(false);
+      }
+    } else {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleSubmitEditGoal();
+      }
+      if (e.key === "Escape") {
+        if (!showSuggestions) {
+          // Якщо підказки вже були приховані логічно
+          handleCancelEditGoal();
+        } else {
+          // Якщо Escape натиснуто, коли вони мали б бути, але ще не приховані логічно
+          setShowSuggestions(false);
+        }
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        suggestionsRef.current &&
+        !suggestionsRef.current.contains(event.target as Node) &&
+        editGoalInputRef.current &&
+        !editGoalInputRef.current.contains(event.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+    // Додаємо слухач, тільки якщо очікуємо, що підказки можуть бути видимі
+    if (showSuggestions) {
+      document.addEventListener("mousedown", handleClickOutside);
+    } else {
+      document.removeEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showSuggestions]); // Залежність від showSuggestions
+
+  useEffect(() => {
+    if (showSuggestions && suggestions.length > 0 && suggestionsRef.current) {
+      const activeItem = suggestionsRef.current.children[
+        activeSuggestionIndex
+      ] as HTMLLIElement;
+      if (activeItem) {
+        activeItem.scrollIntoView({ block: "nearest", inline: "nearest" });
+      }
+    }
+  }, [activeSuggestionIndex, showSuggestions, suggestions.length]);
+
+  const suggestionsListDynamicStyles = useMemo((): React.CSSProperties => {
+    if (editGoalInputRef.current) {
+      const { offsetTop, offsetHeight, offsetLeft, offsetWidth } =
+        editGoalInputRef.current;
+      return {
+        top: `${offsetTop + offsetHeight + 2}px`,
+        left: `${offsetLeft}px`,
+        width: `${offsetWidth}px`,
+      };
+    }
+    return { display: "none" }; // Якщо ref не існує, ховаємо (хоча це малоймовірно на цьому етапі)
+  }, [isSuggestionsUiVisible]); // Перераховуємо, коли змінюється видимість UI, щоб отримати актуальні розміри,
+  // якщо поле вводу могло змінити розмір (хоча це рідко)
+  // Можна залишити порожнім [], якщо розмір textarea стабільний після появи.
 
   if (!listInfo) {
     return (
@@ -153,24 +358,87 @@ function GoalListPage({
   return (
     <div className="pt-3 pl-1.5 pr-4 pb-4 min-h-full flex flex-col">
       {editingGoal && (
-        <div className="mb-3 p-3 border border-blue-400 dark:border-blue-600 rounded-lg bg-white dark:bg-slate-700 shadow-md flex-shrink-0">
+        <div className="mb-3 p-3 border border-blue-400 dark:border-blue-600 rounded-lg bg-white dark:bg-slate-700 shadow-md flex-shrink-0 relative">
           <h3 className="text-sm font-medium text-blue-700 dark:text-blue-400 mb-1.5">
             Редагувати ціль
           </h3>
           <textarea
             ref={editGoalInputRef}
             value={editingGoalText}
-            onChange={(e) => setEditingGoalText(e.target.value)}
+            onChange={handleTextareaChange}
+            onKeyDown={handleTextareaKeyDown}
             className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-slate-500 rounded-md bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 placeholder-slate-400 dark:placeholder-slate-500 sm:text-sm mb-2 min-h-[50px]"
-            rows={2}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSubmitEditGoal();
-              }
-              if (e.key === "Escape") handleCancelEditGoal();
-            }}
+            rows={3}
           />
+          {/*
+            Список підказок тепер завжди рендериться, якщо editingGoal існує.
+            Його видимість контролюється CSS класами.
+            suggestions.length > 0 всередині isSuggestionsUiVisible вже враховано.
+          */}
+          {
+            <ul
+              ref={suggestionsRef}
+              className={`
+                absolute z-10 max-h-40 overflow-y-auto
+                bg-white dark:bg-slate-800
+                border border-slate-300 dark:border-slate-600
+                rounded-md shadow-lg list-none p-0
+                transition-all duration-200 ease-out
+                transform origin-top
+                ${
+                  isSuggestionsUiVisible && suggestions.length > 0
+                    ? "opacity-100 scale-y-100 pointer-events-auto"
+                    : "opacity-0 scale-y-95 pointer-events-none"
+                }
+              `}
+              style={suggestionsListDynamicStyles}
+            >
+              {/* Рендеримо елементи списку тільки якщо вони є, щоб уникнути порожнього <ul> з padding/margin */}
+              {isSuggestionsUiVisible &&
+                suggestions.map((suggestion, index) => (
+                  <li
+                    key={suggestion}
+                    className={`px-3 py-1.5 text-sm cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-700
+                              ${index === activeSuggestionIndex ? "bg-indigo-100 dark:bg-indigo-700 text-indigo-700 dark:text-indigo-200" : "text-slate-700 dark:text-slate-200"}`}
+                    onClick={() => {
+                      const cursorPos =
+                        editGoalInputRef.current?.selectionStart ?? 0;
+                      const textBeforeCursor = editingGoalText.substring(
+                        0,
+                        cursorPos,
+                      );
+                      let startIndex = -1;
+                      if (suggestionType === "#") {
+                        startIndex = textBeforeCursor.lastIndexOf("#");
+                      } else if (suggestionType === "@") {
+                        startIndex = textBeforeCursor.lastIndexOf("@");
+                      }
+
+                      if (startIndex !== -1) {
+                        const newText =
+                          editingGoalText.substring(0, startIndex) +
+                          suggestion +
+                          " " +
+                          editingGoalText.substring(cursorPos);
+                        setEditingGoalText(newText);
+                        setTimeout(() => {
+                          const newCursorPos =
+                            startIndex + suggestion.length + 1;
+                          editGoalInputRef.current?.focus();
+                          editGoalInputRef.current?.setSelectionRange(
+                            newCursorPos,
+                            newCursorPos,
+                          );
+                        }, 0);
+                      }
+                      setShowSuggestions(false);
+                    }}
+                  >
+                    {suggestion}
+                  </li>
+                ))}
+            </ul>
+          }
           <div className="flex justify-end space-x-1.5">
             <button
               onClick={handleCancelEditGoal}

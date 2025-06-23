@@ -152,7 +152,7 @@ function createWindow() {
     }
   }
 
-  // mainWindowInstance.webContents.openDevTools();
+  mainWindowInstance.webContents.openDevTools();
 
   // `did-finish-load` означає, що ресурси завантажено, але React ще може не бути готовим
   // Обробка URL перенесена в RENDERER_READY_FOR_URL

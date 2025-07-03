@@ -1,31 +1,42 @@
 // src/renderer/store/uiSlice.ts
-import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { DropResult } from "@hello-pangea/dnd";
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import type { OnDragEndResponder } from '@hello-pangea/dnd';
 
-interface DropActionMenuState {
+export interface UIState {
   isOpen: boolean;
-  result: DropResult | null;
+  result: ReturnType<OnDragEndResponder> | null;
+  globalFilterTerm: string; // <-- НАШЕ НОВЕ ПОЛЕ
 }
 
-const initialState: DropActionMenuState = {
+const initialState: UIState = {
   isOpen: false,
-  result: null, // Тут ми будемо зберігати дані про перетягування
+  result: null,
+  globalFilterTerm: '', // <-- ПОЧАТКОВЕ ЗНАЧЕННЯ
 };
 
 const uiSlice = createSlice({
-  name: "ui",
+  name: 'ui',
   initialState,
   reducers: {
-    openDropActionMenu(state, action: PayloadAction<DropResult>) {
+    openDropActionMenu: (state, action: PayloadAction<ReturnType<OnDragEndResponder>>) => {
       state.isOpen = true;
       state.result = action.payload;
     },
-    closeDropActionMenu(state) {
+    closeDropActionMenu: (state) => {
       state.isOpen = false;
       state.result = null;
+    },
+    // --- НОВИЙ ACTION ---
+    setGlobalFilterTerm: (state, action: PayloadAction<string>) => {
+      state.globalFilterTerm = action.payload;
     },
   },
 });
 
-export const { openDropActionMenu, closeDropActionMenu } = uiSlice.actions;
+export const {
+  openDropActionMenu,
+  closeDropActionMenu,
+  setGlobalFilterTerm, // <-- ЕКСПОРТУЄМО НОВИЙ ACTION
+} = uiSlice.actions;
+
 export default uiSlice.reducer;

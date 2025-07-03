@@ -7,13 +7,10 @@ import {
   ChevronDown,
   ChevronUp,
   Link as LinkIconLucide,
-  ArrowRight,
 } from "lucide-react";
 import type { Goal, GoalList } from "../types";
 import GoalTextRenderer from "./GoalTextRenderer";
-import { parseGoalData } from "../utils/textProcessing";
 import AssociatedListsPopover from "./AssociatedListsPopover";
-// --- ДОДАНО: Імпортуємо типи та константу для події ---
 import { OPEN_GOAL_LIST_EVENT, OpenGoalListDetail } from "./Sidebar";
 
 export interface SortableGoalItemProps {
@@ -43,18 +40,16 @@ function SortableGoalItem({
   const [isAssocPopoverOpen, setIsAssocPopoverOpen] = useState(false);
   const popoverAnchorRef = useRef<HTMLButtonElement>(null);
 
-  const { displayableFields, rating, ratingLabel } = parseGoalData(goal.text);
-  const hasExtraInfo =
-    !goal.completed && (displayableFields.length > 0 || rating !== undefined);
+  const hasAssociatedLists = associatedLists.length > 0;
 
   const toggleExpand = useCallback(
     (event: React.MouseEvent) => {
       event.stopPropagation();
-      if (hasExtraInfo) {
+      if (hasAssociatedLists) {
         setIsExpanded((prev) => !prev);
       }
     },
-    [hasExtraInfo],
+    [hasAssociatedLists],
   );
 
   const toggleAssocPopover = useCallback((event: React.MouseEvent) => {
@@ -66,11 +61,9 @@ function SortableGoalItem({
     setIsAssocPopoverOpen(false);
   }, []);
 
-  // --- ЗМІНЕНО: Тепер ця функція відправляє подію ---
   const handleGoToList = useCallback(
     (event: React.MouseEvent, list: GoalList) => {
       event.stopPropagation();
-      console.log(`Відправка події для відкриття списку: ${list.name} (${list.id})`);
       const detail: OpenGoalListDetail = { listId: list.id, listName: list.name };
       const customEvent = new CustomEvent<OpenGoalListDetail>(OPEN_GOAL_LIST_EVENT, { detail });
       window.dispatchEvent(customEvent);
@@ -84,7 +77,7 @@ function SortableGoalItem({
         <li
           ref={provided.innerRef}
           {...provided.draggableProps}
-          className={`group relative p-2.5 rounded-md flex items-start justify-between transition-shadow duration-150 border ${
+          className={`group relative p-2.5 rounded-md flex items-start justify-between transition-all duration-150 border ${
             snapshot.isDragging
               ? "ring-2 ring-indigo-500 dark:ring-indigo-400 shadow-xl bg-indigo-50 dark:bg-indigo-900/60"
               : goal.completed
@@ -93,120 +86,101 @@ function SortableGoalItem({
           } ${!snapshot.isDragging && "hover:shadow-md dark:hover:shadow-black/10"}`}
           style={provided.draggableProps.style}
         >
-          <button
-            {...provided.dragHandleProps}
-            type="button"
-            className="p-1 mr-2 cursor-grab focus:outline-none text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 flex-shrink-0 rounded hover:bg-slate-200 dark:hover:bg-slate-600 mt-0.5"
-            aria-label="Перетягнути ціль"
-            title="Перетягнути для сортування"
-          >
-            <GripVertical size={18} />
-          </button>
+          {/* Ручка для перетягування */}
+          <div className="flex-shrink-0 pt-0.5">
+            <button
+              {...provided.dragHandleProps}
+              type="button"
+              className="p-1 mr-2 cursor-grab focus:outline-none text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-600"
+              aria-label="Перетягнути ціль"
+              title="Перетягнути для сортування"
+            >
+              <GripVertical size={18} />
+            </button>
+          </div>
 
+          {/* Основний контент цілі */}
           <div className="flex items-start flex-grow mr-2 min-w-0">
             <input
               type="checkbox"
               checked={goal.completed}
               onChange={() => onToggle(goal.id)}
-              className="h-4 w-4 text-indigo-600 dark:text-indigo-400 border-slate-300 dark:border-slate-500 rounded focus:ring-1 focus:ring-offset-1 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:focus:ring-offset-slate-700 mr-2.5 cursor-pointer flex-shrink-0 bg-white dark:bg-slate-600 checked:bg-indigo-600 dark:checked:bg-indigo-400 mt-0.5"
+              className="h-4 w-4 text-indigo-600 dark:text-indigo-400 border-slate-300 dark:border-slate-500 rounded focus:ring-1 focus:ring-offset-1 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:focus:ring-offset-slate-700 mr-2.5 cursor-pointer flex-shrink-0 mt-1"
               aria-label={`Позначити ціль ${goal.text}`}
             />
             <div className="flex-grow min-w-0">
-              <div
-                onClick={(e) => {
-                  const targetElement = e.target as HTMLElement;
-                  const isChildInteractive =
-                    targetElement.closest("a") ||
-                    targetElement.closest("button") ||
-                    targetElement.closest("span[data-tag-name]");
-                  if (!isChildInteractive && !goal.completed) {
-                    onStartEdit(goal);
-                  }
-                }}
-                className={`text-sm ${
-                  goal.completed
-                    ? "line-through opacity-70 dark:opacity-60"
-                    : "text-slate-800 dark:text-slate-100 cursor-pointer"
-                }`}
-                title={goal.text}
-              >
-                <GoalTextRenderer
-                  text={goal.text}
-                  stripFields={true}
-                  obsidianVaultName={obsidianVaultName}
-                  onTagClick={onTagClickForFilter}
-                />
-              </div>
-
-              {associatedLists.length > 0 && !goal.completed && (
+              {/* --- 1. ВЕРХНІЙ РЯДОК: ТЕКСТ + СПИСКИ ПРИ НАВЕДЕННІ --- */}
+              <div className="flex items-center min-w-0">
+                {/* Контейнер для тексту, що дозволяє перенос */}
                 <div
-                  className="max-h-0 opacity-0 group-hover:max-h-12 group-hover:opacity-100 transition-all duration-300 ease-in-out overflow-hidden"
+                  onClick={(e) => {
+                    const targetElement = e.target as HTMLElement;
+                    const isChildInteractive = targetElement.closest("a") || targetElement.closest("button") || targetElement.closest("span[data-tag-name]");
+                    if (!isChildInteractive && !goal.completed) { onStartEdit(goal); }
+                  }}
+                  className={`text-sm ${goal.completed ? "line-through opacity-70 dark:opacity-60" : "text-slate-800 dark:text-slate-100 cursor-pointer"}`}
+                  title={goal.text}
+                >
+                  <GoalTextRenderer
+                    text={goal.text}
+                    stripFields={true}
+                    obsidianVaultName={obsidianVaultName}
+                    onTagClick={onTagClickForFilter}
+                  />
+                </div>
+
+                {/* Попередній перегляд списків при наведенні (з'являється справа) */}
+                <div
+                  className={`flex-1 flex items-center min-w-0 overflow-hidden ml-2 transition-opacity duration-200 opacity-0 group-hover:opacity-100`}
                   aria-hidden="true"
                 >
-                  <div className="mt-1.5 flex items-center flex-nowrap overflow-hidden">
-                    <LinkIconLucide
-                      size={12}
-                      className="mr-1.5 text-slate-400 dark:text-slate-500 flex-shrink-0"
-                    />
+                  <div className="flex items-center flex-nowrap">
                     {associatedLists.map((list) => (
                       <button
                         key={list.id}
-                        // --- ЗМІНЕНО: Передаємо весь об'єкт списку ---
+                        tabIndex={-1} // Робимо нефокусованим, бо це лише прев'ю
                         onClick={(e) => handleGoToList(e, list)}
                         title={`Перейти до списку: ${list.name}`}
-                        className="inline-flex items-center text-xs bg-indigo-100 dark:bg-indigo-800/80 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded mr-1 flex-shrink-0 whitespace-nowrap overflow-hidden text-ellipsis hover:bg-indigo-200 dark:hover:bg-indigo-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:focus:ring-indigo-400"
+                        className="inline-flex items-center text-xs bg-slate-200 dark:bg-slate-600/80 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded mr-1 flex-shrink-0 whitespace-nowrap overflow-hidden text-ellipsis hover:bg-slate-300 dark:hover:bg-slate-500"
                       >
                         {list.name}
-                        <ArrowRight size={12} className="ml-1 opacity-70" />
                       </button>
                     ))}
                   </div>
                 </div>
-              )}
+              </div>
 
+              {/* --- 2. НИЖНІЙ БЛОК: З'ЯВЛЯЄТЬСЯ ПРИ КЛІКУ НА EXPAND --- */}
               <div
-                className={`mt-1.5 text-xs text-slate-500 dark:text-slate-400 space-y-1 transition-all duration-300 ease-in-out overflow-hidden ${
-                  isExpanded && hasExtraInfo
-                    ? "opacity-100 max-h-40"
-                    : "opacity-0 max-h-0"
+                className={`transition-all duration-300 ease-in-out overflow-hidden max-h-0 opacity-0 ${
+                  isExpanded ? "max-h-96 opacity-100 mt-2" : "" // <-- ЛІНІЮ ТА ВІДСТУП ЗВЕРХУ ВИДАЛЕНО
                 }`}
               >
-                {displayableFields.length > 0 && (
-                  <div className="flex flex-wrap gap-x-2 gap-y-1">
-                    {displayableFields.map((field, indexVal) => (
-                      <span
-                        key={indexVal}
-                        className="bg-slate-200 dark:bg-slate-600/70 px-1.5 py-0.5 rounded-sm text-slate-600 dark:text-slate-300"
+                {hasAssociatedLists && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {associatedLists.map((list) => (
+                      <button
+                        key={list.id}
+                        onClick={(e) => handleGoToList(e, list)}
+                        title={`Перейти до списку: ${list.name}`}
+                        className="inline-flex items-center text-xs bg-indigo-100 dark:bg-indigo-800/80 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded-md hover:bg-indigo-200 dark:hover:bg-indigo-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       >
-                        {field.name}: {field.value}
-                      </span>
+                        {list.name}
+                      </button>
                     ))}
-                  </div>
-                )}
-                {rating !== undefined && ratingLabel && (
-                  <div>
-                    <span
-                      className={`font-semibold px-1.5 py-0.5 rounded-full border whitespace-nowrap ${
-                        rating > 5
-                          ? "bg-green-100 text-green-700 border-green-300 dark:bg-green-700/30 dark:text-green-300 dark:border-green-600/70"
-                          : "bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-700/30 dark:text-yellow-300 dark:border-yellow-600/70"
-                      }`}
-                      title={`${ratingLabel}: ${isFinite(rating) ? rating.toFixed(2) : rating.toString()}`}
-                    >
-                      {ratingLabel}: {isFinite(rating) ? rating.toFixed(2) : rating.toString()}
-                    </span>
                   </div>
                 )}
               </div>
             </div>
           </div>
 
-          <div className="flex-shrink-0 flex items-center space-x-0.5 mt-0.5 relative opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150">
-            {hasExtraInfo && (
+          {/* Кнопки дій */}
+          <div className="flex-shrink-0 flex items-center space-x-0.5 relative opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150 pt-0.5">
+            {hasAssociatedLists && !goal.completed && (
               <button
                 onClick={toggleExpand}
                 className="p-1 text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 focus:outline-none rounded hover:bg-sky-100 dark:hover:bg-sky-700/50"
-                title={isExpanded ? "Згорнути деталі" : "Розгорнути деталі"}
+                title={isExpanded ? "Сховати списки" : "Показати списки"}
               >
                 {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>
@@ -215,12 +189,8 @@ function SortableGoalItem({
               <button
                 ref={popoverAnchorRef}
                 onClick={toggleAssocPopover}
-                className={`p-1 text-slate-500 dark:text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 focus:outline-none rounded hover:bg-purple-100 dark:hover:bg-purple-700/50 ${
-                  isAssocPopoverOpen
-                    ? "bg-purple-100 dark:bg-purple-700/50 text-purple-600 dark:text-purple-400"
-                    : ""
-                }`}
-                title="Асоційовані списки"
+                className={`p-1 text-slate-500 dark:text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 focus:outline-none rounded hover:bg-purple-100 dark:hover:bg-purple-700/50 ${isAssocPopoverOpen ? "bg-purple-100 dark:bg-purple-700/50 text-purple-600 dark:text-purple-400" : ""}`}
+                title="Редагувати асоційовані списки"
               >
                 <LinkIconLucide size={16} />
               </button>

@@ -31,7 +31,7 @@ export const makeSelectListInfo = () => {
       const list = goalLists[listId];
       if (!list) return null;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { itemInstanceIds, ...listInfo } = list; // Виключаємо itemInstanceIds з інформації про список
+      const { itemInstanceIds, ...listInfo } = list;
       return listInfo;
     },
   );
@@ -55,38 +55,42 @@ export const makeSelectGoalInstancesForList = () => {
   );
 };
 
-// --- НОВІ СЕЛЕКТОРИ для автодоповнення тегів та контекстів ---
 
-// Допоміжна функція для вилучення збігів за регулярним виразом
-const extractMatchesFromText = (text: string, regex: RegExp): string[] => {
-  const matches = new Set<string>();
-  let match;
-  while ((match = regex.exec(text)) !== null) {
-    matches.add(match[0]); // Додаємо повний збіг (наприклад, "#tag" або "@context")
-  }
-  return Array.from(matches);
-};
+// +++ НОВИЙ МЕМОІЗОВАНИЙ СЕЛЕКТОР ДЛЯ ЗБАГАЧЕННЯ ДАНИХ +++
+export const makeSelectEnrichedGoalInstances = () =>
+  createSelector(
+    // Вхідні селектори: отримуємо базові дані для списку та всі списки
+    [makeSelectGoalInstancesForList(), selectGoalLists],
+    // Функція-трансформатор, яка виконається, тільки якщо вхідні дані змінилися
+    (goalInstancesForList, allGoalLists) => {
+      return goalInstancesForList.map(({ instance, goal }) => ({
+        instance,
+        goal,
+        // Додаємо поле з повними даними асоційованих списків
+        associatedLists: (goal.associatedListIds || [])
+          .map(id => allGoalLists[id])
+          .filter(Boolean) as GoalList[],
+      }));
+    }
+  );
 
-// Селектор для отримання всіх цілей у вигляді масиву
+
+// --- Селектори для автодоповнення тегів та контекстів ---
+// ... (решта файлу залишається без змін) ...
 export const selectAllGoalsArray = createSelector(
-  [selectGoals], // Використовуємо selectGoals, який вказує на state.lists.goals
+  [selectGoals],
   (goalsRecord): Goal[] => {
-    // Перетворюємо Record<string, Goal> на Goal[]
     return Object.values(goalsRecord).filter((goal) => !!goal) as Goal[];
   },
 );
 
-// Селектор для отримання всіх унікальних тегів (#tag)
 export const selectAllUniqueTags = createSelector(
   [selectAllGoalsArray],
   (allGoals) => {
     const allTags = new Set<string>();
-    // Регулярний вираз для тегів, що відповідає GoalTextRenderer: (?:\B|^)#([a-zA-Z0-9_а-яА-ЯіІїЇєЄ'-]+)\b
-    // Вилучаємо повний тег, включаючи #
     const tagRegex = /(?:\B|^)#[a-zA-Z0-9_а-яА-ЯіІїЇєЄ'-]+\b/g;
     allGoals.forEach((goal) => {
       if (goal && typeof goal.text === "string") {
-        // Додаткова перевірка
         extractMatchesFromText(goal.text, tagRegex).forEach((tag) =>
           allTags.add(tag),
         );
@@ -96,17 +100,13 @@ export const selectAllUniqueTags = createSelector(
   },
 );
 
-// Селектор для отримання всіх унікальних контекстів (@context)
 export const selectAllUniqueContexts = createSelector(
   [selectAllGoalsArray],
   (allGoals) => {
     const allContexts = new Set<string>();
-    // Регулярний вираз для контекстів, що відповідає GoalTextRenderer: @([a-zA-Z0-9_а-яА-ЯіІїЇєЄ'-]+)
-    // Вилучаємо повний контекст, включаючи @
     const contextRegex = /@[a-zA-Z0-9_а-яА-ЯіІїЇєЄ'-]+/g;
     allGoals.forEach((goal) => {
       if (goal && typeof goal.text === "string") {
-        // Додаткова перевірка
         extractMatchesFromText(goal.text, contextRegex).forEach((context) =>
           allContexts.add(context),
         );
@@ -115,3 +115,13 @@ export const selectAllUniqueContexts = createSelector(
     return Array.from(allContexts).sort();
   },
 );
+
+// Допоміжна функція (має бути визначена перед використанням)
+const extractMatchesFromText = (text: string, regex: RegExp): string[] => {
+  const matches = new Set<string>();
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    matches.add(match[0]);
+  }
+  return Array.from(matches);
+};

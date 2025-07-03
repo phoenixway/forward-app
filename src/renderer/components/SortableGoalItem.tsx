@@ -1,4 +1,3 @@
-// src/renderer/components/SortableGoalItem.tsx
 import React, { useState, useCallback, useRef } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import {
@@ -8,17 +7,20 @@ import {
   ChevronDown,
   ChevronUp,
   Link as LinkIconLucide,
+  ArrowRight,
 } from "lucide-react";
-import type { Goal } from "../types";
+import type { Goal, GoalList } from "../types";
 import GoalTextRenderer from "./GoalTextRenderer";
 import { parseGoalData } from "../utils/textProcessing";
 import AssociatedListsPopover from "./AssociatedListsPopover";
+// --- ДОДАНО: Імпортуємо типи та константу для події ---
+import { OPEN_GOAL_LIST_EVENT, OpenGoalListDetail } from "./Sidebar";
 
-// Оновлений інтерфейс пропсів
 export interface SortableGoalItemProps {
   instanceId: string;
   goal: Goal;
   index: number;
+  associatedLists: GoalList[];
   onToggle: (goalId: string) => void;
   onDelete: (instanceId: string) => void;
   onStartEdit: (goal: Goal) => void;
@@ -30,6 +32,7 @@ function SortableGoalItem({
   instanceId,
   goal,
   index,
+  associatedLists,
   onToggle,
   onDelete,
   onStartEdit,
@@ -63,8 +66,19 @@ function SortableGoalItem({
     setIsAssocPopoverOpen(false);
   }, []);
 
+  // --- ЗМІНЕНО: Тепер ця функція відправляє подію ---
+  const handleGoToList = useCallback(
+    (event: React.MouseEvent, list: GoalList) => {
+      event.stopPropagation();
+      console.log(`Відправка події для відкриття списку: ${list.name} (${list.id})`);
+      const detail: OpenGoalListDetail = { listId: list.id, listName: list.name };
+      const customEvent = new CustomEvent<OpenGoalListDetail>(OPEN_GOAL_LIST_EVENT, { detail });
+      window.dispatchEvent(customEvent);
+    },
+    [],
+  );
+
   return (
-    // <--- Draggable очікує ОДНУ функцію як нащадка, як показано нижче
     <Draggable draggableId={instanceId} index={index}>
       {(provided, snapshot) => (
         <li
@@ -123,6 +137,33 @@ function SortableGoalItem({
                   onTagClick={onTagClickForFilter}
                 />
               </div>
+
+              {associatedLists.length > 0 && !goal.completed && (
+                <div
+                  className="max-h-0 opacity-0 group-hover:max-h-12 group-hover:opacity-100 transition-all duration-300 ease-in-out overflow-hidden"
+                  aria-hidden="true"
+                >
+                  <div className="mt-1.5 flex items-center flex-nowrap overflow-hidden">
+                    <LinkIconLucide
+                      size={12}
+                      className="mr-1.5 text-slate-400 dark:text-slate-500 flex-shrink-0"
+                    />
+                    {associatedLists.map((list) => (
+                      <button
+                        key={list.id}
+                        // --- ЗМІНЕНО: Передаємо весь об'єкт списку ---
+                        onClick={(e) => handleGoToList(e, list)}
+                        title={`Перейти до списку: ${list.name}`}
+                        className="inline-flex items-center text-xs bg-indigo-100 dark:bg-indigo-800/80 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded mr-1 flex-shrink-0 whitespace-nowrap overflow-hidden text-ellipsis hover:bg-indigo-200 dark:hover:bg-indigo-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:focus:ring-indigo-400"
+                      >
+                        {list.name}
+                        <ArrowRight size={12} className="ml-1 opacity-70" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div
                 className={`mt-1.5 text-xs text-slate-500 dark:text-slate-400 space-y-1 transition-all duration-300 ease-in-out overflow-hidden ${
                   isExpanded && hasExtraInfo
@@ -130,42 +171,31 @@ function SortableGoalItem({
                     : "opacity-0 max-h-0"
                 }`}
               >
-                {hasExtraInfo && (
-                  <>
-                    {displayableFields.length > 0 && (
-                      <div className="flex flex-wrap gap-x-2 gap-y-1">
-                        {displayableFields.map((field, indexVal) => (
-                          <span
-                            key={indexVal}
-                            className="bg-slate-200 dark:bg-slate-600/70 px-1.5 py-0.5 rounded-sm text-slate-600 dark:text-slate-300"
-                          >
-                            {field.name}: {field.value}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {rating !== undefined && ratingLabel && (
-                      <div>
-                        <span
-                          className={`font-semibold px-1.5 py-0.5 rounded-full border whitespace-nowrap ${
-                            rating > 5
-                              ? "bg-green-100 text-green-700 border-green-300 dark:bg-green-700/30 dark:text-green-300 dark:border-green-600/70"
-                              : rating > 1
-                                ? "bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-700/30 dark:text-yellow-300 dark:border-yellow-600/70"
-                                : rating > -Infinity
-                                  ? "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-700/30 dark:text-orange-300 dark:border-orange-600/70"
-                                  : "bg-red-100 text-red-700 border-red-300 dark:bg-red-700/30 dark:text-red-300 dark:border-red-600/70"
-                          }`}
-                          title={`${ratingLabel}: ${isFinite(rating) ? rating.toFixed(2) : rating.toString()}`}
-                        >
-                          {ratingLabel}:{" "}
-                          {isFinite(rating)
-                            ? rating.toFixed(2)
-                            : rating.toString()}
-                        </span>
-                      </div>
-                    )}
-                  </>
+                {displayableFields.length > 0 && (
+                  <div className="flex flex-wrap gap-x-2 gap-y-1">
+                    {displayableFields.map((field, indexVal) => (
+                      <span
+                        key={indexVal}
+                        className="bg-slate-200 dark:bg-slate-600/70 px-1.5 py-0.5 rounded-sm text-slate-600 dark:text-slate-300"
+                      >
+                        {field.name}: {field.value}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {rating !== undefined && ratingLabel && (
+                  <div>
+                    <span
+                      className={`font-semibold px-1.5 py-0.5 rounded-full border whitespace-nowrap ${
+                        rating > 5
+                          ? "bg-green-100 text-green-700 border-green-300 dark:bg-green-700/30 dark:text-green-300 dark:border-green-600/70"
+                          : "bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-700/30 dark:text-yellow-300 dark:border-yellow-600/70"
+                      }`}
+                      title={`${ratingLabel}: ${isFinite(rating) ? rating.toFixed(2) : rating.toString()}`}
+                    >
+                      {ratingLabel}: {isFinite(rating) ? rating.toFixed(2) : rating.toString()}
+                    </span>
+                  </div>
                 )}
               </div>
             </div>
@@ -178,11 +208,7 @@ function SortableGoalItem({
                 className="p-1 text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 focus:outline-none rounded hover:bg-sky-100 dark:hover:bg-sky-700/50"
                 title={isExpanded ? "Згорнути деталі" : "Розгорнути деталі"}
               >
-                {isExpanded ? (
-                  <ChevronUp size={16} />
-                ) : (
-                  <ChevronDown size={16} />
-                )}
+                {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>
             )}
             {!goal.completed && (
@@ -219,6 +245,7 @@ function SortableGoalItem({
               <AssociatedListsPopover
                 targetGoal={goal}
                 onClose={closeAssocPopover}
+                anchorEl={popoverAnchorRef.current}
               />
             )}
           </div>

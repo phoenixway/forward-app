@@ -11,18 +11,20 @@ import type { Goal, GoalList } from "../types";
 import { dispatchOpenGoalListEvent } from "./Sidebar";
 import { X, Plus, Link2 as LinkIcon, Link2Off, Eye } from "lucide-react";
 
+// --- ЗМІНА ТУТ ---
 interface AssociatedListsPopoverProps {
   targetGoal: Goal;
   onClose: () => void;
+  anchorEl: HTMLButtonElement | null; // <-- ДОДАНО ЦЕЙ РЯДОК
 }
 
 const AssociatedListsPopover: React.FC<AssociatedListsPopoverProps> = ({
   targetGoal,
   onClose,
+  anchorEl, // <-- ДОДАНО ДО ПРОПСІВ
 }) => {
   const dispatch = useDispatch<AppDispatch>();
 
-  // --- ВИПРАВЛЕНО: Вказуємо правильні шляхи до даних у state.lists ---
   const { associatedListDetails, availableListsToSelect } = useSelector(
     (state: RootState) => {
       const currentTargetGoal = state.lists.goals[targetGoal.id] || targetGoal;
@@ -44,11 +46,6 @@ const AssociatedListsPopover: React.FC<AssociatedListsPopoverProps> = ({
     },
   );
 
-  // ... (решта коду компонента залишається такою ж, як я надавав раніше)
-  // Я прибрав її тут для стислості, але ви маєте використати повну версію з моєї попередньої відповіді.
-  // Головне - це виправлені імпорти та useSelector вище.
-
-  // Якщо ви не маєте повної версії, ось вона знову:
   const [showCreateNewListForm, setShowCreateNewListForm] = useState(false);
   const [newListName, setNewListName] = useState("");
   const [listIdToAssociateSelection, setListIdToAssociateSelection] =

@@ -8,27 +8,28 @@ import { goalMoved, goalReferenceAdded, goalCopied } from "../store/listsSlice";
 const DropActionMenu: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
 
+  // Тепер `result` буде мати правильний тип `DropResult | null`
   const { isOpen, result } = useSelector((state: RootState) => state.ui);
   const goalInstances = useSelector(
     (state: RootState) => state.lists.goalInstances,
   );
 
+  // Ця перевірка тепер коректно працює з правильними типами
   if (!isOpen || !result || !result.destination) {
     return null;
   }
 
+  // Після перевірки вище, TypeScript знає, що `result` та `result.destination` не є null
   const { source, destination, draggableId: instanceId } = result;
 
   const sourceListId = source.droppableId;
   let destinationListId = destination.droppableId;
 
-  // --- ВИПРАВЛЕННЯ: Додаємо обробку префікса "tab-" ---
   if (destination.droppableId.startsWith("sidebar-")) {
     destinationListId = destination.droppableId.substring("sidebar-".length);
   } else if (destination.droppableId.startsWith("tab-")) {
     destinationListId = destination.droppableId.substring("tab-".length);
   }
-  // ----------------------------------------------------
 
   const handleAction = (action: "move" | "reference" | "copy") => {
     const originalGoalId = goalInstances[instanceId]?.goalId;
@@ -40,7 +41,7 @@ const DropActionMenu: React.FC = () => {
             instanceId,
             sourceListId,
             destinationListId,
-            destinationIndex: destination.index,
+            destinationIndex: destination.index, // Помилок тут більше не буде
           }),
         );
         break;
@@ -60,7 +61,7 @@ const DropActionMenu: React.FC = () => {
             goalCopied({
               sourceGoalId: originalGoalId,
               destinationListId,
-              destinationIndex: destination.index,
+              destinationIndex: destination.index, // Помилок тут більше не буде
             }),
           );
         }

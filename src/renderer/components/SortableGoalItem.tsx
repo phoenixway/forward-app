@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import {
   GripVertical,
@@ -12,6 +12,10 @@ import type { Goal, GoalList } from "../types";
 import GoalTextRenderer from "./GoalTextRenderer";
 import AssociatedListsPopover from "./AssociatedListsPopover";
 import { OPEN_GOAL_LIST_EVENT, OpenGoalListDetail } from "./Sidebar";
+import { useDispatch, useSelector } from "react-redux";
+import { AppDispatch, RootState } from "../store/store";
+// --- 1. Імпортуємо екшен для зняття виділення ---
+import { setGoalToHighlight } from "../store/uiSlice";
 
 export interface SortableGoalItemProps {
   instanceId: string;
@@ -36,11 +40,13 @@ function SortableGoalItem({
   obsidianVaultName,
   onTagClickForFilter,
 }: SortableGoalItemProps) {
+  const dispatch = useDispatch<AppDispatch>();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isAssocPopoverOpen, setIsAssocPopoverOpen] = useState(false);
   const popoverAnchorRef = useRef<HTMLButtonElement>(null);
 
   const hasAssociatedLists = associatedLists.length > 0;
+  const goalToHighlight = useSelector((state: RootState) => state.ui.goalToHighlight);
 
   const toggleExpand = useCallback(
     (event: React.MouseEvent) => {
@@ -71,19 +77,41 @@ function SortableGoalItem({
     [],
   );
 
+  const isHighlighted = goalToHighlight === goal.id;
+
+  // Цей хук тепер буде працювати коректно
+  useEffect(() => {
+    if (isHighlighted) {
+      const element = document.getElementById(`goal-${goal.id}`);
+      element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+      const timer = setTimeout(() => {
+        dispatch(setGoalToHighlight(null));
+      }, 2500); // Збільшено час для кращого візуального ефекту
+
+      return () => clearTimeout(timer);
+    }
+  }, [isHighlighted, dispatch, goal.id]);
+
+
   return (
     <Draggable draggableId={instanceId} index={index}>
       {(provided, snapshot) => (
         <li
+          // --- 2. Додаємо ID для прокрутки ---
+          id={`goal-${goal.id}`}
           ref={provided.innerRef}
           {...provided.draggableProps}
+          // --- 3. Додаємо умовні класи для підсвічування ---
           className={`group relative p-2.5 rounded-md flex items-start justify-between transition-all duration-150 border ${
             snapshot.isDragging
               ? "ring-2 ring-indigo-500 dark:ring-indigo-400 shadow-xl bg-indigo-50 dark:bg-indigo-900/60"
-              : goal.completed
-                ? "text-slate-500 dark:text-slate-500 bg-slate-100 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/50"
-                : "text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600"
-          } ${!snapshot.isDragging && "hover:shadow-md dark:hover:shadow-black/10"}`}
+              : isHighlighted
+                ? "ring-2 ring-blue-500 dark:ring-blue-400 bg-blue-50 dark:bg-blue-900/40 shadow-lg"
+                : goal.completed
+                  ? "text-slate-500 dark:text-slate-500 bg-slate-100 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/50"
+                  : "text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600"
+          } ${!snapshot.isDragging && !isHighlighted && "hover:shadow-md dark:hover:shadow-black/10"}`}
           style={provided.draggableProps.style}
         >
           {/* Ручка для перетягування */}
@@ -109,9 +137,7 @@ function SortableGoalItem({
               aria-label={`Позначити ціль ${goal.text}`}
             />
             <div className="flex-grow min-w-0">
-              {/* --- 1. ВЕРХНІЙ РЯДОК: ТЕКСТ + СПИСКИ ПРИ НАВЕДЕННІ --- */}
               <div className="flex items-center min-w-0">
-                {/* Контейнер для тексту, що дозволяє перенос */}
                 <div
                   onClick={(e) => {
                     const targetElement = e.target as HTMLElement;
@@ -129,10 +155,9 @@ function SortableGoalItem({
                   />
                 </div>
 
-                {/* Попередній перегляд списків при наведенні (з'являється справа) */}
                 <div
                   className={`flex-1 flex items-center min-w-0 overflow-hidden ml-2 transition-opacity duration-200 opacity-0 ${
-                    !isExpanded ? 'group-hover:opacity-100' : '' // <-- ЗМІНА ТУТ: ефект hover працює, тільки якщо ціль НЕ розгорнута
+                    !isExpanded ? 'group-hover:opacity-100' : ''
                   }`}
                   aria-hidden="true"
                 >
@@ -140,7 +165,7 @@ function SortableGoalItem({
                     {associatedLists.map((list) => (
                       <button
                         key={list.id}
-                        tabIndex={-1} // Робимо нефокусованим, бо це лише прев'ю
+                        tabIndex={-1}
                         onClick={(e) => handleGoToList(e, list)}
                         title={`Перейти до списку: ${list.name}`}
                         className="inline-flex items-center text-xs bg-slate-200 dark:bg-slate-600/80 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded mr-1 flex-shrink-0 whitespace-nowrap overflow-hidden text-ellipsis hover:bg-slate-300 dark:hover:bg-slate-500"
@@ -152,7 +177,6 @@ function SortableGoalItem({
                 </div>
               </div>
 
-              {/* --- 2. НИЖНІЙ БЛОК: З'ЯВЛЯЄТЬСЯ ПРИ КЛІКУ НА EXPAND --- */}
               <div
                 className={`transition-all duration-300 ease-in-out overflow-hidden max-h-0 opacity-0 ${
                   isExpanded ? "max-h-96 opacity-100 mt-2" : ""

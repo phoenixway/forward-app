@@ -1,24 +1,26 @@
 // src/renderer/store/uiSlice.ts
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import type { OnDragEndResponder } from '@hello-pangea/dnd';
+import { DropResult } from '@hello-pangea/dnd';
 
 export interface UIState {
   isOpen: boolean;
-  result: ReturnType<OnDragEndResponder> | null;
-  globalFilterTerm: string; // <-- НАШЕ НОВЕ ПОЛЕ
+  result: DropResult | null;
+  globalFilterTerm: string;
+  goalToHighlight: string | null; // <-- НОВЕ ПОЛЕ
 }
 
 const initialState: UIState = {
   isOpen: false,
   result: null,
-  globalFilterTerm: '', // <-- ПОЧАТКОВЕ ЗНАЧЕННЯ
+  globalFilterTerm: '',
+  goalToHighlight: null, // <-- ПОЧАТКОВЕ ЗНАЧЕННЯ
 };
 
 const uiSlice = createSlice({
   name: 'ui',
   initialState,
   reducers: {
-    openDropActionMenu: (state, action: PayloadAction<ReturnType<OnDragEndResponder>>) => {
+    openDropActionMenu: (state, action: PayloadAction<DropResult>) => {
       state.isOpen = true;
       state.result = action.payload;
     },
@@ -26,9 +28,12 @@ const uiSlice = createSlice({
       state.isOpen = false;
       state.result = null;
     },
-    // --- НОВИЙ ACTION ---
     setGlobalFilterTerm: (state, action: PayloadAction<string>) => {
       state.globalFilterTerm = action.payload;
+    },
+    // --- НОВИЙ ACTION ---
+    setGoalToHighlight: (state, action: PayloadAction<string | null>) => {
+      state.goalToHighlight = action.payload;
     },
   },
 });
@@ -36,7 +41,8 @@ const uiSlice = createSlice({
 export const {
   openDropActionMenu,
   closeDropActionMenu,
-  setGlobalFilterTerm, // <-- ЕКСПОРТУЄМО НОВИЙ ACTION
+  setGlobalFilterTerm,
+  setGoalToHighlight, // <-- ЕКСПОРТУЄМО
 } = uiSlice.actions;
 
 export default uiSlice.reducer;

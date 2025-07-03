@@ -131,7 +131,9 @@ function SortableGoalItem({
 
                 {/* Попередній перегляд списків при наведенні (з'являється справа) */}
                 <div
-                  className={`flex-1 flex items-center min-w-0 overflow-hidden ml-2 transition-opacity duration-200 opacity-0 group-hover:opacity-100`}
+                  className={`flex-1 flex items-center min-w-0 overflow-hidden ml-2 transition-opacity duration-200 opacity-0 ${
+                    !isExpanded ? 'group-hover:opacity-100' : '' // <-- ЗМІНА ТУТ: ефект hover працює, тільки якщо ціль НЕ розгорнута
+                  }`}
                   aria-hidden="true"
                 >
                   <div className="flex items-center flex-nowrap">
@@ -153,7 +155,7 @@ function SortableGoalItem({
               {/* --- 2. НИЖНІЙ БЛОК: З'ЯВЛЯЄТЬСЯ ПРИ КЛІКУ НА EXPAND --- */}
               <div
                 className={`transition-all duration-300 ease-in-out overflow-hidden max-h-0 opacity-0 ${
-                  isExpanded ? "max-h-96 opacity-100 mt-2" : "" // <-- ЛІНІЮ ТА ВІДСТУП ЗВЕРХУ ВИДАЛЕНО
+                  isExpanded ? "max-h-96 opacity-100 mt-2" : ""
                 }`}
               >
                 {hasAssociatedLists && (

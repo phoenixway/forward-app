@@ -1,4 +1,4 @@
-import { app, ipcMain, dialog, BrowserWindow, Menu, shell } from "electron"; // <-- Додайте Menu
+import { app, ipcMain, dialog, BrowserWindow, Menu, shell } from "electron";
 import path from "path";
 import fs from "fs-extra";
 import os from "os";
@@ -6,8 +6,14 @@ import { exec, execSync } from "child_process";
 import installExtension, {
   REACT_DEVELOPER_TOOLS,
 } from "electron-devtools-installer";
-import Store from "electron-store"; // +++ ДОДАЙТЕ ЦЕЙ ІМПОРТ +++
-const store = new Store();
+import Store from "electron-store";
+
+// Типізація для Store, щоб уникнути помилок компіляції.
+type StoreSchema = {
+	[key: string]: unknown;
+};
+const store = new Store<StoreSchema>();
+
 
 // app.disableHardwareAcceleration(); // Розкоментуйте, якщо є проблеми з рендерингом
 // app.commandLine.appendSwitch("disable-gpu-compositing"); // Розкоментуйте, якщо є проблеми з рендерингом
@@ -152,10 +158,8 @@ function createWindow() {
     }
   }
 
-  // mainWindowInstance.webContents.openDevTools();
+  mainWindowInstance.webContents.openDevTools();
 
-  // `did-finish-load` означає, що ресурси завантажено, але React ще може не бути готовим
-  // Обробка URL перенесена в RENDERER_READY_FOR_URL
   mainWindowInstance.webContents.once("did-finish-load", () => {
     console.log(
       "[Main] Подія 'did-finish-load': Контент вікна завантажено. Очікування сигналу готовності від рендерера.",
@@ -181,14 +185,12 @@ function createWindow() {
 
   mainWindowInstance.on("closed", () => {
     mainWindowInstance = null;
-    isRendererReadyForUrl = false; // Скидаємо прапорець
+    isRendererReadyForUrl = false;
   });
 
   return mainWindowInstance;
 }
 
-// Обробка URL з командного рядка при першому запуску (актуально для Windows/Linux)
-// На macOS це обробляється подією 'open-url'
 if (process.platform !== "darwin") {
   const initialUrlFromArgs = process.argv.find((arg) =>
     arg.startsWith(`${APP_URL_SCHEME}://`),
@@ -201,7 +203,6 @@ if (process.platform !== "darwin") {
   }
 }
 
-// Функція для централізованої обробки URL
 function handleAppUrl(urlToProcess: string) {
   console.log(`[Main] handleAppUrl: Обробка URL: ${urlToProcess}`);
   if (!urlToProcess || !urlToProcess.startsWith(`${APP_URL_SCHEME}://`)) {
@@ -218,8 +219,8 @@ function handleAppUrl(urlToProcess: string) {
     if (
       mainWindowInstance.webContents &&
       !mainWindowInstance.webContents.isDestroyed() &&
-      !mainWindowInstance.webContents.isLoading() && // Перевірка, що завантаження завершено
-      isRendererReadyForUrl // І рендерер сигналізував про готовність
+      !mainWindowInstance.webContents.isLoading() &&
+      isRendererReadyForUrl
     ) {
       console.log(
         `[Main] handleAppUrl: Вікно та рендерер готові. Надсилання URL через IPC: ${urlToProcess}`,
@@ -228,7 +229,7 @@ function handleAppUrl(urlToProcess: string) {
         IPC_CHANNELS_FROM_PRELOAD.HANDLE_CUSTOM_URL,
         urlToProcess,
       );
-      queuedUrlFromAppOpen = null; // Очищуємо чергу, якщо URL було успішно надіслано
+      queuedUrlFromAppOpen = null;
     } else {
       console.log(
         `[Main] handleAppUrl: Вікно/webContents не повністю готові або рендерер не сигналізував. URL поставлено в чергу: ${urlToProcess}`,
@@ -240,13 +241,11 @@ function handleAppUrl(urlToProcess: string) {
       `[Main] handleAppUrl: Головне вікно недоступне. URL поставлено в чергу: ${urlToProcess}`,
     );
     queuedUrlFromAppOpen = urlToProcess;
-    // Якщо додаток готовий, але вікна немає (наприклад, було закрито на не-macOS),
-    // і ми отримали URL (наприклад, через second-instance), потрібно створити вікно.
     if (app.isReady() && BrowserWindow.getAllWindows().length === 0) {
       console.log(
         "[Main] handleAppUrl: Додаток готовий, вікон немає. Створення вікна.",
       );
-      createWindow(); // createWindow має потім обробити queuedUrlFromAppOpen через сигнал від рендерера
+      createWindow();
     }
   }
 }
@@ -259,10 +258,8 @@ if (!gotTheLock) {
   );
   app.quit();
 } else {
-  // Цей код виконується тільки для першого (головного) екземпляру
   app.on("second-instance", (event, commandLine, workingDirectory) => {
     console.log("[Main] Подія 'second-instance' спрацювала.");
-    // Хтось намагався запустити другий екземпляр.
     if (mainWindowInstance) {
       if (mainWindowInstance.isMinimized()) {
         console.log("[Main] Відновлення згорнутого вікна.");
@@ -272,7 +269,6 @@ if (!gotTheLock) {
       mainWindowInstance.focus();
     }
 
-    // Обробка URL, переданого через командний рядок другого екземпляру
     const urlFromCommandLine = commandLine.find((arg) =>
       arg.startsWith(`${APP_URL_SCHEME}://`),
     );
@@ -288,9 +284,8 @@ if (!gotTheLock) {
     }
   });
 
-  // Обробник події 'open-url' для macOS
   app.on("open-url", (event, url) => {
-    event.preventDefault(); // Запобігаємо стандартній обробці
+    event.preventDefault();
     console.log(`[Main] Подія 'open-url' (macOS) з URL: ${url}`);
     if (app.isReady()) {
       handleAppUrl(url);
@@ -302,7 +297,6 @@ if (!gotTheLock) {
     }
   });
 
-  // --- Функції для інтеграції з робочим столом (без змін) ---
   function isAppImageOnLinuxInternal(): boolean {
     const result =
       process.platform === "linux" &&
@@ -488,13 +482,11 @@ Type=Fixed
     }
   }
 
-  // --- Реєстрація IPC обробників ---
   app.whenReady().then(() => {
     installExtension(REACT_DEVELOPER_TOOLS)
       .then((name) => console.log(`Added Extension:  ${name}`))
       .catch((err) => console.log("An error occurred: ", err));
 
-    // 1. Створюємо шаблон меню
     const menuTemplate: (
       | Electron.MenuItemConstructorOptions
       | Electron.MenuItem
@@ -504,7 +496,7 @@ Type=Fixed
         submenu: [
           {
             label: "Вихід",
-            role: "quit", // 'role' автоматично обробляє вихід з програми
+            role: "quit",
           },
         ],
       },
@@ -514,7 +506,6 @@ Type=Fixed
           {
             label: `Про програму ${app.getName()}`,
             click: () => {
-              // --- ДОДАНО ПЕРЕВІРКУ ---
               if (mainWindowInstance) {
                 dialog.showMessageBox(mainWindowInstance, {
                   type: "info",
@@ -535,38 +526,25 @@ Type=Fixed
             click: async () => {
               await shell.openExternal(
                 "https://github.com/phoenixway/forward-app",
-              ); // Замініть на ваше посилання
+              );
             },
           },
         ],
       },
     ];
 
-    // 3. Створюємо та встановлюємо меню з нашого шаблону
     const menu = Menu.buildFromTemplate(menuTemplate);
     Menu.setApplicationMenu(menu);
 
-    // Реєстрація обробника протоколу
-    // Це має бути зроблено після того, як програма готова
     if (process.platform !== "darwin") {
-      // На Windows/Linux, app.isDefaultProtocolClient може повернути false, якщо це dev build.
-      // app.setAsDefaultProtocolClient краще викликати в упакованому додатку.
-      // Для розробки, передача аргументів командного рядка є більш надійним способом.
-      // У упакованому додатку, це зареєструє додаток для схеми.
       if (!app.isDefaultProtocolClient(APP_URL_SCHEME)) {
         console.log(`[Main] Спроба зареєструвати протокол: ${APP_URL_SCHEME}`);
-        // process.execPath - шлях до поточного виконуваного файлу Electron
-        // process.argv для розробки може містити electron .
-        // Для упакованого додатку це буде шлях до вашого .exe/.AppImage/etc.
         const execPath = process.execPath;
         const argsForProtocol =
           process.defaultApp && process.argv.length >= 2
-            ? [path.resolve(process.argv[1])] // Для dev ('electron .')
-            : []; // Для упакованого додатку (шлях до виконуваного файлу вже в execPath)
+            ? [path.resolve(process.argv[1])]
+            : [];
 
-        // Для Linux AppImage, реєстрація через .desktop файл є кращим методом,
-        // але setAsDefaultProtocolClient може бути корисним для інших сценаріїв.
-        // Зауважте, що він може не працювати надійно з AppImage без додаткових налаштувань.
         const success = app.setAsDefaultProtocolClient(
           APP_URL_SCHEME,
           execPath,
@@ -587,7 +565,6 @@ Type=Fixed
         );
       }
     }
-    // На macOS реєстрація протоколу відбувається через Info.plist (CFBundleURLTypes)
 
     ipcMain.handle(IPC_CHANNELS_FROM_PRELOAD.GET_APP_VERSION, () => {
       return app.getVersion();
@@ -604,11 +581,10 @@ Type=Fixed
       console.log(
         "[Main] GET_APP_SETTINGS called, returning data from electron-store.",
       );
-      // Повертаємо весь вміст сховища. '.store' повертає об'єкт з усіма даними.
-      return store.store;
+      // ВИПРАВЛЕННЯ: Використовуємо (store as any), щоб обійти помилку типізації.
+      return (store as any).store;
     });
 
-    // Обробник для збереження налаштувань
     ipcMain.handle(
       IPC_CHANNELS_FROM_PRELOAD.SET_APP_SETTING,
       async (_event, key: string, value: any) => {
@@ -616,8 +592,8 @@ Type=Fixed
           console.log(
             `[Main] SET_APP_SETTING called with key: ${key}, value: ${value}. Saving to electron-store.`,
           );
-          // Зберігаємо налаштування за ключем
-          store.set(key, value);
+          // ВИПРАВЛЕННЯ: Використовуємо (store as any), щоб обійти помилку типізації.
+          (store as any).set(key, value);
           return { success: true, message: `Налаштування '${key}' збережено.` };
         } catch (error) {
           console.error(`[Main] Failed to save setting '${key}':`, error);
@@ -698,7 +674,7 @@ Type=Fixed
         console.log(
           `[Main] Є URL в черзі (${queuedUrlFromAppOpen}), обробка після готовності рендерера.`,
         );
-        handleAppUrl(queuedUrlFromAppOpen); // Тепер handleAppUrl має очистити queuedUrlFromAppOpen
+        handleAppUrl(queuedUrlFromAppOpen);
       } else {
         console.log(
           "[Main] URL в черзі відсутній на момент готовності рендерера.",
@@ -714,12 +690,9 @@ Type=Fixed
       createUserDesktopFileHandlerInternal(),
     );
 
-    // Створюємо вікно після того, як додаток готовий і IPC обробники зареєстровані
     createWindow();
 
     app.on("activate", () => {
-      // На macOS зазвичай повторно створюють вікно, якщо воно було закрито
-      // і користувач клікнув на іконку в доці.
       if (BrowserWindow.getAllWindows().length === 0) {
         createWindow();
       } else if (mainWindowInstance && mainWindowInstance.isDestroyed()) {
@@ -731,14 +704,10 @@ Type=Fixed
     });
   });
 
-  // --- Життєвий цикл додатка ---
   app.on("window-all-closed", () => {
-    // На macOS додатки зазвичай залишаються активними, доки користувач явно не вийде
     if (process.platform !== "darwin") {
       app.quit();
     }
   });
 
-  // Логіка для обробки URL вже перенесена в `second-instance` та `open-url`
-  // і використовує `handleAppUrl` та `queuedUrlFromAppOpen`.
-} // Кінець блоку if (gotTheLock)
+}

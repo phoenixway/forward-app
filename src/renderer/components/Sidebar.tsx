@@ -1,11 +1,12 @@
 // src/renderer/components/Sidebar.tsx
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { dispatchOpenSettingsEvent } from "../events";
 import type { GoalList } from "../types";
-import { Plus, Edit3, Trash2, Settings, ChevronDown, ChevronRight, Scissors, ClipboardPaste } from "lucide-react";
+import { Plus, Edit3, Trash2, Settings, ChevronDown, ChevronRight, GripVertical, Scissors, ClipboardPaste } from "lucide-react";
+import { Droppable, Draggable } from "@hello-pangea/dnd";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "../store/store";
-import { listAdded, listRemoved, listUpdated, listMoved } from "../store/listsSlice"; // Припускаємо, що listMoved обробляє переміщення
+import { listAdded, listRemoved, listUpdated, listMoved } from "../store/listsSlice";
 import { selectTopLevelLists } from "../store/selectors";
 import GlobalSearch from "./GlobalSearch";
 
@@ -20,108 +21,197 @@ export function dispatchOpenGoalListEvent(listId: string, listName: string) {
   window.dispatchEvent(new CustomEvent<OpenGoalListDetail>(OPEN_GOAL_LIST_EVENT, { detail: { listId, listName } }));
 }
 
-// --- НОВІ ПРОПИ ДЛЯ CUT/PASTE ---
 interface SidebarListItemProps {
   listId: string;
+  index: number;
   level: number;
   onStartEdit: (list: GoalList) => void;
   onDelete: (id: string, name: string) => void;
   cutListId: string | null;
   onCut: (id: string) => void;
   onPaste: (targetListId: string, asChild: boolean) => void;
+  filterTerm: string;
 }
 
-const SidebarListItem: React.FC<SidebarListItemProps> = ({ listId, level, onStartEdit, onDelete, cutListId, onCut, onPaste }) => {
+// Рекурсивна функція для перевірки чи список або його діти відповідають фільтру
+const listMatchesFilter = (list: GoalList, allLists: Record<string, GoalList>, filterTerm: string): boolean => {
+  if (!filterTerm.trim()) return true;
+  
+  const lowercaseFilter = filterTerm.toLowerCase();
+  
+  // Перевіряємо чи сам список відповідає фільтру
+  if (list.name.toLowerCase().includes(lowercaseFilter)) {
+    return true;
+  }
+  
+  // Перевіряємо чи якась з дочірніх списків відповідає фільтру
+  if (list.childListIds && list.childListIds.length > 0) {
+    return list.childListIds.some(childId => {
+      const childList = allLists[childId];
+      return childList && listMatchesFilter(childList, allLists, filterTerm);
+    });
+  }
+  
+  return false;
+};
+
+const SidebarListItem: React.FC<SidebarListItemProps> = ({ 
+  listId, 
+  index, 
+  level, 
+  onStartEdit, 
+  onDelete, 
+  cutListId, 
+  onCut, 
+  onPaste, 
+  filterTerm 
+}) => {
   const list = useSelector((state: RootState) => state.lists.goalLists[listId]);
+  const allLists = useSelector((state: RootState) => state.lists.goalLists);
   const [isExpanded, setIsExpanded] = useState(true);
+
+  // Фільтруємо дочірні списки
+  const filteredChildIds = useMemo(() => {
+    if (!list?.childListIds || !filterTerm.trim()) {
+      return list?.childListIds || [];
+    }
+    
+    // Показуємо дочірні списки, які відповідають фільтру (включно з їх дочірніми)
+    return list.childListIds.filter(childId => {
+      const childList = allLists[childId];
+      return childList && listMatchesFilter(childList, allLists, filterTerm);
+    });
+  }, [list?.childListIds, filterTerm, allLists]);
 
   if (!list) return null;
 
   const handleOpenGoalList = () => dispatchOpenGoalListEvent(list.id, list.name);
   const hasChildren = list.childListIds && list.childListIds.length > 0;
+  const hasFilteredChildren = filteredChildIds.length > 0;
   const isCut = cutListId === list.id;
 
   return (
-    // Вся логіка Draggable та Droppable видалена
-    <div className={`rounded-md my-px ${isCut ? 'opacity-50 bg-yellow-100 dark:bg-yellow-900/30' : ''}`}>
-      <div
-        className="group flex items-center justify-between p-1 rounded-md cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700/60"
-        style={{ paddingLeft: `${level * 12 + 4}px` }} // ЗМЕНШЕНО ВІДСТУП
-        onClick={handleOpenGoalList}
-      >
-        <div className="flex items-center flex-grow truncate mr-2">
-          {hasChildren ? (
-            <button
-              onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
-              className="p-0.5 mr-1 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 flex-shrink-0"
-            >
-              {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            </button>
-          ) : (
-            <span className="w-[18px] mr-1 flex-shrink-0"></span> // Зменшено розмір
-          )}
-          <span className="text-slate-700 dark:text-slate-300 text-sm truncate" title={list.name}>
-            {list.name}
-          </span>
-        </div>
-        <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150 space-x-0.5">
-          {/* --- НОВЕ МЕНЮ CUT/PASTE --- */}
-          {cutListId && cutListId !== list.id && (
-            <>
-              <button onClick={(e) => { e.stopPropagation(); onPaste(list.id, false); }} className="p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-400 rounded" title="Вставити як сусіда">
-                <ClipboardPaste size={14} />
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); onPaste(list.id, true); }} className="p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-400 rounded" title="Вставити як дочірній">
-                <ClipboardPaste size={14} className="ml-[-4px]" style={{ clipPath: 'inset(50% 0 0 0)' }}/>
-              </button>
-            </>
-          )}
-          <button onClick={(e) => { e.stopPropagation(); onCut(list.id); }} className="p-1 text-slate-500 dark:text-slate-400 hover:text-yellow-600 dark:hover:text-yellow-500 rounded" title="Вирізати">
-            <Scissors size={14} />
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); onStartEdit(list); }} className="p-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded" title="Редагувати">
-            <Edit3 size={14} />
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); onDelete(list.id, list.name); }} className="p-1 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-500 rounded" title="Видалити">
-            <Trash2 size={14} />
-          </button>
-        </div>
-      </div>
-
-      {/* Вкладені елементи без Droppable */}
-      {isExpanded && hasChildren && (
+    <Draggable draggableId={list.id} index={index}>
+      {(provided, snapshot) => (
         <div
-          className="transition-all duration-150 rounded-b-md"
+          ref={provided.innerRef}
+          {...provided.draggableProps}
+          className={`rounded-md my-px transition-opacity ${snapshot.isDragging ? 'bg-blue-100 dark:bg-blue-900/50 shadow-lg' : ''} ${isCut ? 'opacity-50' : 'opacity-100'}`}
         >
-          {list.childListIds.map((childId) => (
-            <SidebarListItem
-              key={childId}
-              listId={childId}
-              level={level + 1}
-              onStartEdit={onStartEdit}
-              onDelete={onDelete}
-              cutListId={cutListId}
-              onCut={onCut}
-              onPaste={onPaste}
-            />
-          ))}
+          <Droppable droppableId={`sidebar-${list.id}`} type="GOAL">
+            {(dropProvided, dropSnapshot) => (
+              <div
+                ref={dropProvided.innerRef}
+                {...dropProvided.droppableProps}
+                className={`p-1 rounded-md transition-colors ${dropSnapshot.isDraggingOver ? 'bg-green-100 dark:bg-green-900/30 ring-2 ring-green-400' : ''}`}
+              >
+                <div
+                  className="group flex items-center justify-between"
+                  style={{ paddingLeft: `${level * 12}px` }}
+                >
+                  <div {...provided.dragHandleProps} className="p-1 opacity-50 group-hover:opacity-100 cursor-grab">
+                    <GripVertical size={14} />
+                  </div>
+
+                  <div className="flex items-center flex-grow truncate mr-2" onClick={handleOpenGoalList}>
+                    {hasChildren ? (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
+                        className="p-0.5 mr-1 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 flex-shrink-0"
+                      >
+                        {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                      </button>
+                    ) : (
+                      <span className="w-[18px] mr-1 flex-shrink-0"></span>
+                    )}
+                    <span className="text-slate-700 dark:text-slate-300 text-sm cursor-pointer" title={list.name}>
+                      {list.name}
+                    </span>
+                  </div>
+                  <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150 space-x-0.5">
+                    {cutListId && cutListId !== list.id && (
+                      <>
+                        <button onClick={(e) => { e.stopPropagation(); onPaste(list.id, false); }} className="p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-400 rounded" title="Вставити як сусіда">
+                          <ClipboardPaste size={14} />
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); onPaste(list.id, true); }} className="p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-400 rounded" title="Вставити як дочірній">
+                          <ClipboardPaste size={14} className="ml-[-4px]" style={{ clipPath: 'inset(50% 0 0 0)' }}/>
+                        </button>
+                      </>
+                    )}
+                    <button onClick={(e) => { e.stopPropagation(); onCut(list.id); }} className="p-1 text-slate-500 dark:text-slate-400 hover:text-yellow-600 dark:hover:text-yellow-500 rounded" title="Вирізати">
+                      <Scissors size={14} />
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); onStartEdit(list); }} className="p-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded" title="Редагувати">
+                      <Edit3 size={14} />
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); onDelete(list.id, list.name); }} className="p-1 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-500 rounded" title="Видалити">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </Droppable>
+
+          {isExpanded && hasFilteredChildren && (
+            <Droppable droppableId={list.id} type="LIST">
+              {(provided, snapshot) => (
+                <div
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  className={`transition-all duration-150 rounded-b-md ${snapshot.isDraggingOver ? 'bg-purple-100 dark:bg-purple-700/20' : ''}`}
+                  style={{ minHeight: '8px' }}
+                >
+                  {filteredChildIds.map((childId, childIndex) => (
+                    <SidebarListItem
+                      key={childId}
+                      listId={childId}
+                      index={childIndex}
+                      level={level + 1}
+                      onStartEdit={onStartEdit}
+                      onDelete={onDelete}
+                      cutListId={cutListId}
+                      onCut={onCut}
+                      onPaste={onPaste}
+                      filterTerm={filterTerm}
+                    />
+                  ))}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          )}
         </div>
       )}
-    </div>
+    </Draggable>
   );
 };
 
 function Sidebar() {
   const dispatch = useDispatch<AppDispatch>();
-  const topLevelLists = useSelector(selectTopLevelLists);
+  const allTopLevelLists = useSelector(selectTopLevelLists);
   const allLists = useSelector((state: RootState) => state.lists.goalLists);
 
+  const [filterTerm, setFilterTerm] = useState("");
   const [editingList, setEditingList] = useState<GoalList | null>(null);
   const [editingListName, setEditingListName] = useState("");
   const [editingListDescription, setEditingListDescription] = useState("");
   const [isCreatingNewList, setIsCreatingNewList] = useState(false);
   const [newListName, setNewListName] = useState("");
-  const [cutListId, setCutListId] = useState<string | null>(null); // Стан для вирізаного списку
+  const [cutListId, setCutListId] = useState<string | null>(null);
+
+  // Покращена фільтрація верхнього рівня з урахуванням дочірніх списків
+  const filteredLists = useMemo(() => {
+    if (!filterTerm.trim()) {
+      return allTopLevelLists;
+    }
+    
+    // Показуємо списки верхнього рівня, які відповідають фільтру або мають дочірні списки, що відповідають
+    return allTopLevelLists.filter(list => 
+      listMatchesFilter(list, allLists, filterTerm)
+    );
+  }, [allTopLevelLists, filterTerm, allLists]);
 
   const handleStartEdit = (list: GoalList) => {
     setEditingList(list);
@@ -129,7 +219,11 @@ function Sidebar() {
     setEditingListDescription(list.description || "");
   };
 
-  const handleCancelEdit = () => setEditingList(null);
+  const handleCancelEdit = () => {
+    setEditingList(null);
+    setEditingListName("");
+    setEditingListDescription("");
+  };
 
   const submitRenameList = () => {
     if (editingList && editingListName.trim()) {
@@ -141,6 +235,9 @@ function Sidebar() {
   const handleDeleteList = (listId: string, listName: string) => {
     if (window.confirm(`Видалити список "${listName}" та всі вкладені списки?`)) {
       dispatch(listRemoved(listId));
+      if (cutListId === listId) {
+        setCutListId(null);
+      }
     }
   };
 
@@ -158,13 +255,13 @@ function Sidebar() {
 
   const handlePaste = (targetListId: string, asChild: boolean) => {
     if (!cutListId) return;
+    if (targetListId === cutListId) return;
 
     const cutList = allLists[cutListId];
     const targetList = allLists[targetListId];
     if (!cutList || !targetList) return;
 
-    // Запобігання вставці батька в свого нащадка
-    let currentParentId = targetList.parentId;
+    let currentParentId = asChild ? targetListId : targetList.parentId;
     while (currentParentId) {
       if (currentParentId === cutListId) {
         alert("Неможливо вставити батьківський список у дочірній.");
@@ -172,17 +269,15 @@ function Sidebar() {
       }
       currentParentId = allLists[currentParentId]?.parentId;
     }
-    if (targetListId === cutListId) return;
-
 
     const destinationParentId = asChild ? targetListId : targetList.parentId;
-    const destinationList = asChild ? targetList.childListIds : (targetList.parentId ? allLists[targetList.parentId].childListIds : topLevelLists.map(l => l.id));
-    const destinationIndex = asChild ? targetList.childListIds.length : destinationList.indexOf(targetListId) + 1;
+    const parentOfTarget = targetList.parentId ? allLists[targetList.parentId] : null;
+    const siblingIds = parentOfTarget ? parentOfTarget.childListIds : allTopLevelLists.map(l => l.id);
+    const destinationIndex = asChild ? targetList.childListIds.length : siblingIds.indexOf(targetListId) + 1;
 
     dispatch(listMoved({
       listId: cutListId,
       sourceParentId: cutList.parentId,
-      // Ми не маємо індексів, тому передаємо null і розраховуємо на логіку в slice
       sourceIndex: -1,
       destinationParentId: destinationParentId,
       destinationIndex: destinationIndex,
@@ -208,7 +303,7 @@ function Sidebar() {
   return (
     <div className="h-full flex flex-col bg-slate-100 dark:bg-slate-900">
       <div className="p-2 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
-        <GlobalSearch />
+        <GlobalSearch value={filterTerm} onFilterChange={setFilterTerm} />
       </div>
 
       <div className="p-4 flex-shrink-0">
@@ -228,31 +323,36 @@ function Sidebar() {
         {editingList && renderEditForm()}
       </div>
 
-      {/* Контейнер списків без Droppable, але з прокруткою */}
-      <div className="flex-grow min-h-0 px-2 overflow-y-auto custom-scrollbar">
-          <div className="p-1">
-            {topLevelLists.map((list) =>
-                <SidebarListItem
-                  key={list.id}
-                  listId={list.id}
-                  level={0}
-                  onStartEdit={handleStartEdit}
-                  onDelete={handleDeleteList}
-                  cutListId={cutListId}
-                  onCut={handleCut}
-                  onPaste={handlePaste}
-                />
-            )}
-            {/* Кнопка для вставки в корінь */}
-            {cutListId && (
-              <button
-                onClick={() => handlePaste(topLevelLists[topLevelLists.length - 1]?.id, false)}
-                className="w-full text-left mt-2 p-2 text-sm text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-md"
+      <div className="flex-grow px-2 min-h-0 overflow-y-auto custom-scrollbar">
+          <Droppable
+            key={filterTerm ? 'filtered-lists' : 'all-lists'}
+            droppableId="root"
+            type="LIST"
+          >
+            {(provided, snapshot) => (
+              <div
+                ref={provided.innerRef}
+                {...provided.droppableProps}
+                className={`transition-colors min-h-full p-1 rounded-md ${snapshot.isDraggingOver ? 'bg-purple-100 dark:bg-purple-900/30' : ''}`}
               >
-                Вставити в корінь...
-              </button>
+                {filteredLists.map((list, index) =>
+                    <SidebarListItem
+                      key={list.id}
+                      listId={list.id}
+                      index={index}
+                      level={0}
+                      onStartEdit={handleStartEdit}
+                      onDelete={handleDeleteList}
+                      cutListId={cutListId}
+                      onCut={handleCut}
+                      onPaste={handlePaste}
+                      filterTerm={filterTerm}
+                    />
+                )}
+                {provided.placeholder}
+              </div>
             )}
-          </div>
+          </Droppable>
       </div>
 
       <div className="p-4 mt-auto border-t border-slate-300 dark:border-slate-700 flex-shrink-0">

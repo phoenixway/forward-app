@@ -22,13 +22,14 @@ export enum CommandMode {
   ADD = "add",
   LIST_NAV = "list_nav",
   COMMAND = "command",
+  SEARCH = "search", // Додано
 }
 
 export interface InputPanelProps {
   currentListId?: string;
   defaultMode?: CommandMode;
   onAddGoal: (listId: string, text: string) => void;
-  onSearch: (query: string) => void;
+  onSearch: (query: string) => void; // Цей prop буде використовуватися
   onNavigateToList: (listQuery: string) => void;
   onExecuteCommand: (command: string) => void;
 }
@@ -68,6 +69,7 @@ const InputPanel = forwardRef<InputPanelRef, InputPanelProps>(
       currentListId,
       defaultMode = CommandMode.ADD,
       onAddGoal,
+      onSearch, // Додано
       onNavigateToList,
       onExecuteCommand,
     },
@@ -95,6 +97,7 @@ const InputPanel = forwardRef<InputPanelRef, InputPanelProps>(
     const modeTriggers = useRef([
       { prefix: "@", mode: CommandMode.LIST_NAV, icon: "📜", name: "Список" },
       { prefix: ">", mode: CommandMode.COMMAND, icon: "⚙️", name: "Команда" },
+      { prefix: "s", mode: CommandMode.SEARCH, icon: "🔍", name: "Пошук" }, // Додано
     ]).current;
 
     useEffect(() => {
@@ -127,6 +130,10 @@ const InputPanel = forwardRef<InputPanelRef, InputPanelProps>(
         case CommandMode.COMMAND:
           icon = "⚙️";
           newPlaceholderText = "Введіть команду (> new-list Назва)...";
+          break;
+        case CommandMode.SEARCH: // Додано
+          icon = "🔍";
+          newPlaceholderText = "Глобальний пошук по цілях...";
           break;
         default:
           newPlaceholderText = "Введіть текст...";
@@ -205,9 +212,15 @@ const InputPanel = forwardRef<InputPanelRef, InputPanelProps>(
       let source: string[] = [];
       let prefixForFilter = "";
 
-      if (currentMode === CommandMode.LIST_NAV) {
+      if (
+        currentMode === CommandMode.LIST_NAV ||
+        currentMode === CommandMode.SEARCH
+      ) { // Додано SEARCH
         query = rawValue;
-        source = allGoalListsArray.map((list) => list.name);
+        source =
+          currentMode === CommandMode.LIST_NAV
+            ? allGoalListsArray.map((list) => list.name)
+            : []; // Для пошуку підказки не потрібні
       } else if (currentMode === CommandMode.COMMAND) {
         query = rawValue;
         source = AVAILABLE_COMMANDS;
@@ -357,7 +370,8 @@ const InputPanel = forwardRef<InputPanelRef, InputPanelProps>(
       if (
         !trimmedValue &&
         (currentMode === CommandMode.LIST_NAV ||
-          currentMode === CommandMode.COMMAND)
+          currentMode === CommandMode.COMMAND ||
+          currentMode === CommandMode.SEARCH)
       ) {
         internalSwitchToMode(CommandMode.ADD, "");
         return;
@@ -386,6 +400,12 @@ const InputPanel = forwardRef<InputPanelRef, InputPanelProps>(
           }
           internalSwitchToMode(CommandMode.ADD, "");
           break;
+        case CommandMode.SEARCH: // Додано
+          if (trimmedValue) {
+            onSearch(trimmedValue);
+          }
+          internalSwitchToMode(CommandMode.ADD, "");
+          break;
         default:
           console.warn("InputPanel handleSubmit: Unknown mode:", currentMode);
       }
@@ -394,6 +414,7 @@ const InputPanel = forwardRef<InputPanelRef, InputPanelProps>(
       currentMode,
       currentListId,
       onAddGoal,
+      onSearch, // Додано
       onNavigateToList,
       onExecuteCommand,
       internalSwitchToMode,
@@ -494,8 +515,6 @@ const InputPanel = forwardRef<InputPanelRef, InputPanelProps>(
       };
     }, [inputRect]);
 
-    // Виносимо JSX для списку підказок в окрему змінну (або функцію, якщо потрібно передавати пропси)
-    // Це робить основний return більш читабельним
     const SuggestionsListComponent = () => (
       <ul
         ref={suggestionsUListRef}
@@ -515,12 +534,12 @@ const InputPanel = forwardRef<InputPanelRef, InputPanelProps>(
                 : "opacity-0 scale-y-95 pointer-events-none"
             }
           `}
-        style={suggestionsPortalStyles} // style тепер передається сюди
+        style={suggestionsPortalStyles}
       >
         {suggestions.map(
           (
             suggestionItem,
-            index, // Змінено ім'я змінної, щоб уникнути конфлікту
+            index,
           ) => (
             <li
               key={`${suggestionItem}-${index}`}

@@ -143,7 +143,7 @@ function createWindow() {
     );
     const indexPath = app.isPackaged
       ? path.join(__dirname, "../renderer/index.html")
-      : "http://localhost:5173"; // Або ваш порт для розробки
+      : "http://localhost:3000"; // Або ваш порт для розробки
 
     if (app.isPackaged) {
       mainWindowInstance
@@ -158,7 +158,7 @@ function createWindow() {
     }
   }
 
-  mainWindowInstance.webContents.openDevTools();
+  // mainWindowInstance.webContents.openDevTools();
 
   mainWindowInstance.webContents.once("did-finish-load", () => {
     console.log(
@@ -483,9 +483,9 @@ Type=Fixed
   }
 
   app.whenReady().then(() => {
-    installExtension(REACT_DEVELOPER_TOOLS)
-      .then((name) => console.log(`Added Extension:  ${name}`))
-      .catch((err) => console.log("An error occurred: ", err));
+    // installExtension(REACT_DEVELOPER_TOOLS)
+    //   .then((name) => console.log(`Added Extension:  ${name}`))
+    //   .catch((err) => console.log("An error occurred: ", err));
 
     const menuTemplate: (
       | Electron.MenuItemConstructorOptions

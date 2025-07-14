@@ -1,15 +1,16 @@
-// src/renderer/App.tsx
 import React, { useCallback, useEffect, useState } from "react";
 import "./styles.css";
 import Layout from "./components/Layout";
 import MainPanel from "./components/MainPanel";
 import { DragDropContext, DropResult } from "@hello-pangea/dnd";
 import Sidebar from "./components/Sidebar";
-import { openDropActionMenu } from "./store/uiSlice";
 import DropActionMenu from "./components/DropActionMenu";
+import WifiSyncModal from "./components/WifiSyncModal";
 
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "./store/store";
+import { openDropActionMenu } from "./store/uiSlice";
+import { openSyncModal } from "./store/syncSlice";
 import {
   goalOrderUpdated,
   listMoved,
@@ -18,6 +19,21 @@ import {
 const App: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { goalLists } = useSelector((state: RootState) => state.lists);
+
+  useEffect(() => {
+    const removeImportListener = window.electronAPI.onShowWifiImportDialog(() => {
+        dispatch(openSyncModal('import'));
+    });
+    const removeServerListener = window.electronAPI.onShowWifiServerStatus(() => {
+        dispatch(openSyncModal('server'));
+    });
+
+    return () => {
+        removeImportListener();
+        removeServerListener();
+    };
+  }, [dispatch]);
+
 
   const handleDragEnd = useCallback(
     (result: DropResult) => {
@@ -30,7 +46,7 @@ const App: React.FC = () => {
           return;
         }
         if (destination.droppableId === draggableId) {
-            return; // Prevent dropping a list onto itself
+            return;
         }
 
         dispatch(
@@ -68,16 +84,13 @@ const App: React.FC = () => {
     },
     [dispatch, goalLists],
   );
-
-  // Keep the rest of your App component's logic (theme, settings, etc.)
-  // This part is simplified for brevity
+  
   const [userPreference, setUserPreference] = useState<string>('system');
   const handleThemePreferenceChange = (pref: string) => setUserPreference(pref);
   const [obsidianVaultPath, setObsidianVaultPath] = useState('');
   const handleObsidianVaultChange = (path: string) => setObsidianVaultPath(path);
   
   useEffect(() => {
-     // Your existing logic for theme, settings, etc.
   }, []);
 
   return (
@@ -96,6 +109,7 @@ const App: React.FC = () => {
         />
       </DragDropContext>
       <DropActionMenu />
+      <WifiSyncModal />
     </>
   );
 };

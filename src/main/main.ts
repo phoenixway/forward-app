@@ -3,20 +3,18 @@ import path from "path";
 import fs from "fs-extra";
 import os from "os";
 import { exec, execSync } from "child_process";
-import installExtension, {
-  REACT_DEVELOPER_TOOLS,
-} from "electron-devtools-installer";
 import Store from "electron-store";
+import express, { Express, Request, Response } from 'express';
+import cors from 'cors';
+import axios from 'axios';
+import ip from 'ip';
+import * as http from 'http';
 
-// Типізація для Store, щоб уникнути помилок компіляції.
 type StoreSchema = {
 	[key: string]: unknown;
 };
+// Цей store використовується для інших налаштувань, але не для стану Redux
 const store = new Store<StoreSchema>();
-
-
-// app.disableHardwareAcceleration(); // Розкоментуйте, якщо є проблеми з рендерингом
-// app.commandLine.appendSwitch("disable-gpu-compositing"); // Розкоментуйте, якщо є проблеми з рендерингом
 app.commandLine.appendSwitch("gtk-version", "3");
 
 console.log("[Main] Налаштування командного рядка для GTK завершено.");
@@ -66,7 +64,7 @@ try {
 const APP_PRODUCT_NAME = packageJson.productName || "ForwardApp";
 const APP_EXECUTABLE_NAME =
   packageJson.build?.linux?.executableName || packageJson.name || "forward-app";
-const APP_URL_SCHEME = "forwardapp"; // Ваша URL-схема
+const APP_URL_SCHEME = "forwardapp"; 
 
 const userHomeDir = os.homedir();
 const userApplicationsDir = path.join(
@@ -80,7 +78,7 @@ const desktopFileName = `${APP_EXECUTABLE_NAME}.desktop`;
 
 let mainWindowInstance: BrowserWindow | null = null;
 let queuedUrlFromAppOpen: string | null = null;
-let isRendererReadyForUrl = false; // Прапорець готовності рендерера
+let isRendererReadyForUrl = false;
 
 const IPC_CHANNELS_FROM_PRELOAD = {
   GET_APP_VERSION: "get-app-version",
@@ -96,14 +94,23 @@ const IPC_CHANNELS_FROM_PRELOAD = {
   TEST_IPC_MESSAGE: "test-ipc-message",
   REPORT_RENDERER_ERROR: "report-renderer-error",
   RENDERER_READY_FOR_URL: "renderer-ready-for-url",
+  WIFI_SYNC_START_SERVER: "wifi-sync:start-server",
+  WIFI_SYNC_STOP_SERVER: "wifi-sync:stop-server",
+  WIFI_SYNC_FETCH_FROM_DEVICE: "wifi-sync:fetch-from-device",
+  WIFI_SYNC_APPLY_TO_DEVICE: "wifi-sync:apply-to-device",
+  SHOW_WIFI_IMPORT_DIALOG: "show-wifi-import-dialog",
+  SHOW_WIFI_SERVER_STATUS: "show-wifi-server-status",
 };
+
+let syncServer: Express | null = null;
+let serverInstance: http.Server | null = null;
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
 
 function createWindow() {
   console.log("[Main] createWindow: Створення головного вікна.");
-  isRendererReadyForUrl = false; // Скидаємо прапорець при створенні/перестворенні вікна
+  isRendererReadyForUrl = false;
 
   mainWindowInstance = new BrowserWindow({
     width: 1200,
@@ -143,7 +150,7 @@ function createWindow() {
     );
     const indexPath = app.isPackaged
       ? path.join(__dirname, "../renderer/index.html")
-      : "http://localhost:3000"; // Або ваш порт для розробки
+      : "http://localhost:3000"; 
 
     if (app.isPackaged) {
       mainWindowInstance
@@ -158,7 +165,9 @@ function createWindow() {
     }
   }
 
-  // mainWindowInstance.webContents.openDevTools();
+  if (!app.isPackaged) {
+    mainWindowInstance.webContents.openDevTools();
+  }
 
   mainWindowInstance.webContents.once("did-finish-load", () => {
     console.log(
@@ -483,9 +492,6 @@ Type=Fixed
   }
 
   app.whenReady().then(() => {
-    // installExtension(REACT_DEVELOPER_TOOLS)
-    //   .then((name) => console.log(`Added Extension:  ${name}`))
-    //   .catch((err) => console.log("An error occurred: ", err));
 
     const menuTemplate: (
       | Electron.MenuItemConstructorOptions
@@ -494,12 +500,35 @@ Type=Fixed
       {
         label: "Файл",
         submenu: [
+          { label: "Вихід", role: "quit" },
+        ],
+      },
+      {
+        label: "Синхронізація",
+        submenu: [
           {
-            label: "Вихід",
-            role: "quit",
+            label: "Імпорт з Wi-Fi (Android)...",
+            click: () => {
+              mainWindowInstance?.webContents.send(IPC_CHANNELS_FROM_PRELOAD.SHOW_WIFI_IMPORT_DIALOG);
+            },
+          },
+          {
+            label: "Запустити Wi-Fi сервер",
+            click: () => {
+              mainWindowInstance?.webContents.send(IPC_CHANNELS_FROM_PRELOAD.SHOW_WIFI_SERVER_STATUS);
+            },
           },
         ],
       },
+      ...(!app.isPackaged ? [{
+          label: 'Розробка',
+          submenu: [
+              { role: 'reload' },
+              { role: 'forceReload' },
+              { type: 'separator' },
+              { role: 'toggleDevTools' }
+          ]
+      } as Electron.MenuItemConstructorOptions] : []),
       {
         label: "Допомога",
         submenu: [
@@ -566,9 +595,7 @@ Type=Fixed
       }
     }
 
-    ipcMain.handle(IPC_CHANNELS_FROM_PRELOAD.GET_APP_VERSION, () => {
-      return app.getVersion();
-    });
+    ipcMain.handle(IPC_CHANNELS_FROM_PRELOAD.GET_APP_VERSION, () => app.getVersion());
 
     ipcMain.on(IPC_CHANNELS_FROM_PRELOAD.RENDERER_ERROR, (_event, error) => {
       console.error("<<<<<!!! КРИТИЧНА ПОМИЛКА В РЕНДЕРЕРІ !!!>>>>>");
@@ -577,60 +604,37 @@ Type=Fixed
       console.error("<<<<<!!! КІНЕЦЬ ЗВІТУ ПРО ПОМИЛКУ !!!>>>>>");
     });
 
-    ipcMain.handle(IPC_CHANNELS_FROM_PRELOAD.GET_APP_SETTINGS, async () => {
-      console.log(
-        "[Main] GET_APP_SETTINGS called, returning data from electron-store.",
-      );
-      // ВИПРАВЛЕННЯ: Використовуємо (store as any), щоб обійти помилку типізації.
-      return (store as any).store;
-    });
+    ipcMain.handle(IPC_CHANNELS_FROM_PRELOAD.GET_APP_SETTINGS, async () => (store as any).store);
 
-    ipcMain.handle(
-      IPC_CHANNELS_FROM_PRELOAD.SET_APP_SETTING,
-      async (_event, key: string, value: any) => {
+    ipcMain.handle(IPC_CHANNELS_FROM_PRELOAD.SET_APP_SETTING, async (_event, key: string, value: any) => {
         try {
-          console.log(
-            `[Main] SET_APP_SETTING called with key: ${key}, value: ${value}. Saving to electron-store.`,
-          );
-          // ВИПРАВЛЕННЯ: Використовуємо (store as any), щоб обійти помилку типізації.
           (store as any).set(key, value);
           return { success: true, message: `Налаштування '${key}' збережено.` };
         } catch (error) {
-          console.error(`[Main] Failed to save setting '${key}':`, error);
           return { success: false, error: (error as Error).message };
         }
       },
     );
 
-    ipcMain.handle(
-      IPC_CHANNELS_FROM_PRELOAD.OPEN_EXTERNAL_LINK,
-      async (_event, url: string) => {
+    ipcMain.handle(IPC_CHANNELS_FROM_PRELOAD.OPEN_EXTERNAL_LINK, async (_event, url: string) => {
         try {
           await shell.openExternal(url);
           return { success: true };
         } catch (error: any) {
-          console.error(`[Main] Failed to open external link ${url}:`, error);
           return { success: false, error: error.message };
         }
       },
     );
 
-    ipcMain.handle(
-      IPC_CHANNELS_FROM_PRELOAD.SHOW_SAVE_DIALOG,
-      async (_event, options: Electron.SaveDialogOptions) => {
+    ipcMain.handle(IPC_CHANNELS_FROM_PRELOAD.SHOW_SAVE_DIALOG, async (_event, options: Electron.SaveDialogOptions) => {
         if (!mainWindowInstance || mainWindowInstance.isDestroyed()) {
-          console.warn(
-            "[Main] showSaveDialog: mainWindowInstance is not available.",
-          );
           return { canceled: true, filePath: undefined };
         }
         return dialog.showSaveDialog(mainWindowInstance, options);
       },
     );
 
-    ipcMain.handle(
-      IPC_CHANNELS_FROM_PRELOAD.WRITE_FILE,
-      async (_event, filePath: string, content: string) => {
+    ipcMain.handle(IPC_CHANNELS_FROM_PRELOAD.WRITE_FILE, async (_event, filePath: string, content: string) => {
         try {
           await fs.writeFile(filePath, content);
           return { success: true };
@@ -640,22 +644,15 @@ Type=Fixed
       },
     );
 
-    ipcMain.handle(
-      IPC_CHANNELS_FROM_PRELOAD.SHOW_OPEN_DIALOG,
-      async (_event, options: Electron.OpenDialogOptions) => {
+    ipcMain.handle(IPC_CHANNELS_FROM_PRELOAD.SHOW_OPEN_DIALOG, async (_event, options: Electron.OpenDialogOptions) => {
         if (!mainWindowInstance || mainWindowInstance.isDestroyed()) {
-          console.warn(
-            "[Main] showOpenDialog: mainWindowInstance is not available.",
-          );
           return { canceled: true, filePaths: [] };
         }
         return dialog.showOpenDialog(mainWindowInstance, options);
       },
     );
 
-    ipcMain.handle(
-      IPC_CHANNELS_FROM_PRELOAD.READ_FILE,
-      async (_event, filePath: string) => {
+    ipcMain.handle(IPC_CHANNELS_FROM_PRELOAD.READ_FILE, async (_event, filePath: string) => {
         try {
           const content = await fs.readFile(filePath, "utf-8");
           return { success: true, content };
@@ -666,29 +663,104 @@ Type=Fixed
     );
 
     ipcMain.on(IPC_CHANNELS_FROM_PRELOAD.RENDERER_READY_FOR_URL, () => {
-      console.log(
-        `[Main] Отримано сигнал ${IPC_CHANNELS_FROM_PRELOAD.RENDERER_READY_FOR_URL} від рендерера.`,
-      );
+      console.log(`[Main] Отримано сигнал ${IPC_CHANNELS_FROM_PRELOAD.RENDERER_READY_FOR_URL} від рендерера.`);
       isRendererReadyForUrl = true;
       if (queuedUrlFromAppOpen) {
-        console.log(
-          `[Main] Є URL в черзі (${queuedUrlFromAppOpen}), обробка після готовності рендерера.`,
-        );
         handleAppUrl(queuedUrlFromAppOpen);
-      } else {
-        console.log(
-          "[Main] URL в черзі відсутній на момент готовності рендерера.",
-        );
       }
     });
 
     ipcMain.handle("app:isAppImageOnLinux", () => isAppImageOnLinuxInternal());
-    ipcMain.handle("app:hasUserDesktopFile", async () =>
-      hasUserDesktopFileInternal(),
-    );
-    ipcMain.handle("app:createUserDesktopFile", async () =>
-      createUserDesktopFileHandlerInternal(),
-    );
+    ipcMain.handle("app:hasUserDesktopFile", async () => hasUserDesktopFileInternal());
+    ipcMain.handle("app:createUserDesktopFile", async () => createUserDesktopFileHandlerInternal());
+
+    // ... в app.whenReady()
+
+    // --- ПОВЕРТАЄМО АРГУМЕНТ ---
+    ipcMain.handle(IPC_CHANNELS_FROM_PRELOAD.WIFI_SYNC_START_SERVER, async (_event, dataForExport: any) => {
+        if (serverInstance) {
+            return { success: false, error: "Сервер вже запущено." };
+        }
+        // Перевіряємо, чи рендерер передав нам валідні дані
+        if (!dataForExport || !dataForExport.data || Object.keys(dataForExport.data.goalLists || {}).length === 0) {
+            return { success: false, error: "Не вдалося отримати дані для експорту з рендерера або дані порожні." };
+        }
+      
+        try {
+            const port = 8080;
+            syncServer = express();
+            syncServer.use(cors());
+    
+            syncServer.get('/status', (req: Request, res: Response) => res.send('ForwardApp Desktop Server is running!'));
+    
+            syncServer.get('/export', (req: Request, res: Response) => {
+                console.log("[Main-SyncServer] Отримано запит на /export. Надсилання даних...");
+                res.json(dataForExport); // Використовуємо передані дані
+            });
+            
+            return new Promise((resolve) => {
+                serverInstance = syncServer!.listen(port, () => {
+                    const address = ip.address();
+                    console.log(`[Main-SyncServer] Сервер запущено на http://${address}:${port}`);
+                    resolve({ success: true, address });
+                }).on('error', (err) => {
+                    console.error('[Main-SyncServer] Помилка запуску сервера:', err);
+                    resolve({ success: false, error: err.message });
+                });
+            });
+    
+        } catch (error: any) {
+            console.error('[Main-SyncServer] Критична помилка запуску сервера:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+// ... (решта коду) ...
+
+    ipcMain.handle(IPC_CHANNELS_FROM_PRELOAD.WIFI_SYNC_STOP_SERVER, async () => {
+      if (serverInstance) {
+        return new Promise((resolve) => {
+            serverInstance!.close((err) => {
+                if(err) {
+                    console.error('[Main-SyncServer] Помилка зупинки сервера:', err);
+                    resolve({ success: false, error: err.message });
+                    return;
+                }
+                serverInstance = null;
+                syncServer = null;
+                console.log('[Main-SyncServer] Сервер зупинено.');
+                resolve({ success: true });
+            });
+        });
+      }
+      return { success: false, error: 'Сервер не було запущено.' };
+    });
+
+    ipcMain.handle(IPC_CHANNELS_FROM_PRELOAD.WIFI_SYNC_FETCH_FROM_DEVICE, async (_event, deviceAddress: string) => {
+        if (!deviceAddress.trim()) return { success: false, error: "Адреса пристрою не вказана." };
+        try {
+            const fullUrl = `http://${deviceAddress.trim()}/export`;
+            console.log(`[Main-SyncClient] Запит на отримання даних з: ${fullUrl}`);
+            const response = await axios.get(fullUrl, { timeout: 10000 }); 
+            return { success: true, data: response.data };
+        } catch (error: any) {
+            console.error('[Main-SyncClient] Помилка отримання даних:', error.message);
+            return { success: false, error: `Не вдалося отримати дані. Перевірте адресу та з'єднання. Помилка: ${error.message}` };
+        }
+    });
+
+    ipcMain.handle(IPC_CHANNELS_FROM_PRELOAD.WIFI_SYNC_APPLY_TO_DEVICE, async (_event, { deviceAddress, payload }) => {
+        if (!deviceAddress.trim()) return { success: false, error: "Адреса пристрою не вказана." };
+        try {
+            const fullUrl = `http://${deviceAddress.trim()}/sync/apply`;
+            console.log(`[Main-SyncClient] Надсилання змін на: ${fullUrl}`);
+            const response = await axios.post(fullUrl, payload, { timeout: 15000 });
+            return { success: true, data: response.data };
+        } catch (error: any) {
+            console.error('[Main-SyncClient] Помилка надсилання змін:', error.message);
+            return { success: false, error: `Не вдалося надіслати зміни. Помилка: ${error.message}` };
+        }
+    });
 
     createWindow();
 

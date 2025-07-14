@@ -9,20 +9,22 @@ import {
   PURGE,
   REGISTER,
 } from "redux-persist";
-import storage from "redux-persist/lib/storage"; // за замовчуванням localStorage для вебу
-import listsReducer from "./listsSlice"; // Імпортуємо наш новий редюсер
-import uiReducer from "./uiSlice"; // <-- ДОДАЙТЕ ІМПОРТ
+import storage from "redux-persist/lib/storage";
+import listsReducer from "./listsSlice";
+import uiReducer from "./uiSlice";
+import syncReducer from "./syncSlice"; // Імпорт тепер має працювати
 
 const rootReducer = combineReducers({
   lists: listsReducer,
   ui: uiReducer,
+  sync: syncReducer, // Додаємо новий редюсер
 });
 
 const persistConfig = {
-  key: "root", // Ключ для збереження в localStorage
+  key: "root",
   storage,
-  // Можна вказати, які частини стану зберігати,
-  // але за замовчуванням зберігається все
+  // Не зберігаємо стан синхронізації між сесіями
+  blacklist: ['sync'],
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
@@ -32,7 +34,6 @@ export const store = configureStore({
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
-        // Ігнорувати ці типи дій для redux-persist
         ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
       },
     }),
@@ -40,6 +41,5 @@ export const store = configureStore({
 
 export const persistor = persistStore(store);
 
-// Типи для зручної роботи з TypeScript
-export type RootState = ReturnType<typeof store.getState>;
+export type RootState = ReturnType<typeof rootReducer>; // ЗМІНЕНО: Використовуємо rootReducer для більш стабільного визначення типу
 export type AppDispatch = typeof store.dispatch;

@@ -135,22 +135,18 @@ const listsSlice = createSlice({
       const listToMove = state.goalLists[listId];
       if (!listToMove) return;
 
-      // Ensure rootListIds is an array before any operations
       if (!Array.isArray(state.rootListIds)) {
           state.rootListIds = [];
       }
 
-      // 1. Find and remove from old location (ROBUST METHOD)
       const oldParentId = listToMove.parentId;
 
       if (oldParentId === null) {
-        // It was a root list. Remove from rootListIds.
         const idx = state.rootListIds.indexOf(listId);
         if (idx > -1) {
           state.rootListIds.splice(idx, 1);
         }
       } else {
-        // It was a child list. Remove from its old parent.
         const oldParent = state.goalLists[oldParentId];
         if (oldParent && Array.isArray(oldParent.childListIds)) {
           const idx = oldParent.childListIds.indexOf(listId);
@@ -160,7 +156,6 @@ const listsSlice = createSlice({
         }
       }
 
-      // 2. Add to the new location
       if (destinationParentId === null) {
         state.rootListIds.splice(destinationIndex, 0, listId);
         listToMove.parentId = null;
@@ -178,14 +173,23 @@ const listsSlice = createSlice({
     },
 
     // --- GOAL & INSTANCE ACTIONS ---
-    goalAdded: (state, action: PayloadAction<{ listId: string; text: string }>) => { 
+    goalAdded: (state, action: PayloadAction<{ listId: string; text: string }>) => {
         const { listId, text } = action.payload;
         const list = state.goalLists[listId];
         if (!list) return;
         const goalId = nanoid();
         const instanceId = nanoid();
         const now = new Date().toISOString();
-        state.goals[goalId] = { id: goalId, text, completed: false, createdAt: now, updatedAt: now };
+        // --- ОНОВЛЕНО: Створення цілі тепер відповідає типу Goal ---
+        state.goals[goalId] = {
+            id: goalId,
+            text,
+            description: "",
+            completed: false,
+            createdAt: now,
+            updatedAt: now,
+            associatedListIds: []
+        };
         state.goalInstances[instanceId] = { id: instanceId, goalId };
         list.itemInstanceIds.unshift(instanceId);
     },
@@ -197,11 +201,18 @@ const listsSlice = createSlice({
         goal.updatedAt = new Date().toISOString();
       }
     },
-    goalUpdated(state, action: PayloadAction<{ id: string; text: string }>) {
-      const { id, text } = action.payload;
+    // --- ОНОВЛЕНО: Payload тепер може містити description та associatedListIds ---
+    goalUpdated(state, action: PayloadAction<{ id: string; text: string; description?: string, associatedListIds?: string[] }>) {
+      const { id, text, description, associatedListIds } = action.payload;
       const goal = state.goals[id];
       if (goal) {
         goal.text = text;
+        if (description !== undefined) {
+          goal.description = description;
+        }
+        if (associatedListIds !== undefined) {
+            goal.associatedListIds = associatedListIds;
+        }
         goal.updatedAt = new Date().toISOString();
       }
     },
@@ -224,7 +235,7 @@ const listsSlice = createSlice({
         delete state.goals[goalId];
       }
     },
-    goalMoved: (state, action: PayloadAction<{ instanceId: string; sourceListId: string; destinationListId: string; destinationIndex: number; }>) => { 
+    goalMoved: (state, action: PayloadAction<{ instanceId: string; sourceListId: string; destinationListId: string; destinationIndex: number; }>) => {
         const { instanceId, sourceListId, destinationListId, destinationIndex } = action.payload;
         const sourceList = state.goalLists[sourceListId];
         if (sourceList) {
@@ -235,7 +246,7 @@ const listsSlice = createSlice({
             destinationList.itemInstanceIds.splice(destinationIndex, 0, instanceId);
         }
     },
-    goalOrderUpdated: (state, action: PayloadAction<{ listId: string; orderedInstanceIds: string[] }>) => { 
+    goalOrderUpdated: (state, action: PayloadAction<{ listId: string; orderedInstanceIds: string[] }>) => {
         const list = state.goalLists[action.payload.listId];
         if (list) {
             list.itemInstanceIds = action.payload.orderedInstanceIds;
@@ -258,7 +269,14 @@ const listsSlice = createSlice({
             const newGoalId = nanoid();
             const newInstanceId = nanoid();
             const now = new Date().toISOString();
-            const newGoal: Goal = { ...originalGoal, id: newGoalId, createdAt: now, updatedAt: now, associatedListIds: [] };
+            // --- ОНОВЛЕНО: Копіювання тепер включає всі поля згідно типу ---
+            const newGoal: Goal = {
+                ...originalGoal,
+                id: newGoalId,
+                createdAt: now,
+                updatedAt: now,
+                associatedListIds: [...(originalGoal.associatedListIds || [])]
+            };
             state.goals[newGoalId] = newGoal;
             state.goalInstances[newInstanceId] = { id: newInstanceId, goalId: newGoalId };
             destinationList.itemInstanceIds.splice(destinationIndex, 0, newInstanceId);
@@ -285,28 +303,33 @@ const listsSlice = createSlice({
         goal.updatedAt = new Date().toISOString();
       }
     },
+
     goalsImported(state, action: PayloadAction<{ listId: string; goalsData: { text: string; completed?: boolean }[] }>) {
       const { listId, goalsData } = action.payload;
       const list = state.goalLists[listId];
       if (list) {
         const newInstanceIds: string[] = [];
+        const now = new Date().toISOString(); // --- ВИПРАВЛЕНО: Змінну `now` визначено тут
         goalsData.forEach((goalData) => {
           const newGoalId = nanoid();
           state.goals[newGoalId] = {
             id: newGoalId,
             text: goalData.text.trim(),
+            description: "",
             completed: goalData.completed || false,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            createdAt: now,
+            updatedAt: now,
+            associatedListIds: [],
           };
           const newInstanceId = nanoid();
           state.goalInstances[newInstanceId] = { id: newInstanceId, goalId: newGoalId };
           newInstanceIds.push(newInstanceId);
         });
         list.itemInstanceIds.push(...newInstanceIds);
-        list.updatedAt = new Date().toISOString();
+        list.updatedAt = now;
       }
     },
+
     stateReplaced(state, action: PayloadAction<ListsState>) {
       const { goals, goalLists, goalInstances, rootListIds } = action.payload;
       return {

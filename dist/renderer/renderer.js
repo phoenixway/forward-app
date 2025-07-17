@@ -140876,21 +140876,17 @@ const listsSlice = (0, toolkit_1.createSlice)({
             const listToMove = state.goalLists[listId];
             if (!listToMove)
                 return;
-            // Ensure rootListIds is an array before any operations
             if (!Array.isArray(state.rootListIds)) {
                 state.rootListIds = [];
             }
-            // 1. Find and remove from old location (ROBUST METHOD)
             const oldParentId = listToMove.parentId;
             if (oldParentId === null) {
-                // It was a root list. Remove from rootListIds.
                 const idx = state.rootListIds.indexOf(listId);
                 if (idx > -1) {
                     state.rootListIds.splice(idx, 1);
                 }
             }
             else {
-                // It was a child list. Remove from its old parent.
                 const oldParent = state.goalLists[oldParentId];
                 if (oldParent && Array.isArray(oldParent.childListIds)) {
                     const idx = oldParent.childListIds.indexOf(listId);
@@ -140899,7 +140895,6 @@ const listsSlice = (0, toolkit_1.createSlice)({
                     }
                 }
             }
-            // 2. Add to the new location
             if (destinationParentId === null) {
                 state.rootListIds.splice(destinationIndex, 0, listId);
                 listToMove.parentId = null;
@@ -140925,7 +140920,16 @@ const listsSlice = (0, toolkit_1.createSlice)({
             const goalId = (0, toolkit_1.nanoid)();
             const instanceId = (0, toolkit_1.nanoid)();
             const now = new Date().toISOString();
-            state.goals[goalId] = { id: goalId, text, completed: false, createdAt: now, updatedAt: now };
+            // --- ОНОВЛЕНО: Створення цілі тепер відповідає типу Goal ---
+            state.goals[goalId] = {
+                id: goalId,
+                text,
+                description: "",
+                completed: false,
+                createdAt: now,
+                updatedAt: now,
+                associatedListIds: []
+            };
             state.goalInstances[instanceId] = { id: instanceId, goalId };
             list.itemInstanceIds.unshift(instanceId);
         },
@@ -140937,11 +140941,18 @@ const listsSlice = (0, toolkit_1.createSlice)({
                 goal.updatedAt = new Date().toISOString();
             }
         },
+        // --- ОНОВЛЕНО: Payload тепер може містити description та associatedListIds ---
         goalUpdated(state, action) {
-            const { id, text } = action.payload;
+            const { id, text, description, associatedListIds } = action.payload;
             const goal = state.goals[id];
             if (goal) {
                 goal.text = text;
+                if (description !== undefined) {
+                    goal.description = description;
+                }
+                if (associatedListIds !== undefined) {
+                    goal.associatedListIds = associatedListIds;
+                }
                 goal.updatedAt = new Date().toISOString();
             }
         },
@@ -140995,7 +141006,14 @@ const listsSlice = (0, toolkit_1.createSlice)({
                 const newGoalId = (0, toolkit_1.nanoid)();
                 const newInstanceId = (0, toolkit_1.nanoid)();
                 const now = new Date().toISOString();
-                const newGoal = { ...originalGoal, id: newGoalId, createdAt: now, updatedAt: now, associatedListIds: [] };
+                // --- ОНОВЛЕНО: Копіювання тепер включає всі поля згідно типу ---
+                const newGoal = {
+                    ...originalGoal,
+                    id: newGoalId,
+                    createdAt: now,
+                    updatedAt: now,
+                    associatedListIds: [...(originalGoal.associatedListIds || [])]
+                };
                 state.goals[newGoalId] = newGoal;
                 state.goalInstances[newInstanceId] = { id: newInstanceId, goalId: newGoalId };
                 destinationList.itemInstanceIds.splice(destinationIndex, 0, newInstanceId);
@@ -141027,21 +141045,24 @@ const listsSlice = (0, toolkit_1.createSlice)({
             const list = state.goalLists[listId];
             if (list) {
                 const newInstanceIds = [];
+                const now = new Date().toISOString(); // --- ВИПРАВЛЕНО: Змінну `now` визначено тут
                 goalsData.forEach((goalData) => {
                     const newGoalId = (0, toolkit_1.nanoid)();
                     state.goals[newGoalId] = {
                         id: newGoalId,
                         text: goalData.text.trim(),
+                        description: "",
                         completed: goalData.completed || false,
-                        createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString(),
+                        createdAt: now,
+                        updatedAt: now,
+                        associatedListIds: [],
                     };
                     const newInstanceId = (0, toolkit_1.nanoid)();
                     state.goalInstances[newInstanceId] = { id: newInstanceId, goalId: newGoalId };
                     newInstanceIds.push(newInstanceId);
                 });
                 list.itemInstanceIds.push(...newInstanceIds);
-                list.updatedAt = new Date().toISOString();
+                list.updatedAt = now;
             }
         },
         stateReplaced(state, action) {

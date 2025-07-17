@@ -12,6 +12,7 @@ export interface Goal {
   createdAt: string;
   updatedAt?: string;
   associatedListIds?: string[];
+  
 }
 
 /**

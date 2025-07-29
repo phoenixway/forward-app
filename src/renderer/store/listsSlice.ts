@@ -32,13 +32,13 @@ const recursivelyDeleteList = (state: ListsState, listId: string) => {
   instanceIds.forEach(instanceId => {
     const instance = state.goalInstances[instanceId];
     if (instance) {
-        // Check if the goal is orphaned before deleting
-        const isOrphaned = !Object.values(state.goalInstances).some(
-            i => i.id !== instanceId && i.goalId === instance.goalId
-        );
-        if (isOrphaned) {
-            delete state.goals[instance.goalId];
-        }
+      // Check if the goal is orphaned before deleting
+      const isOrphaned = !Object.values(state.goalInstances).some(
+        i => i.id !== instanceId && i.goalId === instance.goalId
+      );
+      if (isOrphaned) {
+        delete state.goals[instance.goalId];
+      }
     }
     delete state.goalInstances[instanceId];
   });
@@ -60,19 +60,19 @@ const listsSlice = createSlice({
           const parent = state.goalLists[newList.parentId];
           if (parent) {
             if (!Array.isArray(parent.childListIds)) {
-                parent.childListIds = [];
+              parent.childListIds = [];
             }
             if (!parent.childListIds.includes(newList.id)) {
-                parent.childListIds.push(newList.id);
+              parent.childListIds.push(newList.id);
             }
           }
         } else {
-           if (!Array.isArray(state.rootListIds)) {
-               state.rootListIds = [];
-           }
-           if (!state.rootListIds.includes(newList.id)) {
-             state.rootListIds.push(newList.id);
-           }
+          if (!Array.isArray(state.rootListIds)) {
+            state.rootListIds = [];
+          }
+          if (!state.rootListIds.includes(newList.id)) {
+            state.rootListIds.push(newList.id);
+          }
         }
       },
       prepare: (payload: { name: string; description?: string, parentId?: string | null }) => {
@@ -88,6 +88,7 @@ const listsSlice = createSlice({
             updatedAt: createdAt,
             parentId: payload.parentId || null,
             childListIds: [],
+            isExpanded: true, 
           },
         };
       },
@@ -117,8 +118,8 @@ const listsSlice = createSlice({
           parent.childListIds = parent.childListIds.filter(id => id !== listIdToRemove);
         }
       } else {
-        if(Array.isArray(state.rootListIds)) {
-            state.rootListIds = state.rootListIds.filter(id => id !== listIdToRemove);
+        if (Array.isArray(state.rootListIds)) {
+          state.rootListIds = state.rootListIds.filter(id => id !== listIdToRemove);
         }
       }
 
@@ -136,7 +137,7 @@ const listsSlice = createSlice({
       if (!listToMove) return;
 
       if (!Array.isArray(state.rootListIds)) {
-          state.rootListIds = [];
+        state.rootListIds = [];
       }
 
       const oldParentId = listToMove.parentId;
@@ -174,24 +175,24 @@ const listsSlice = createSlice({
 
     // --- GOAL & INSTANCE ACTIONS ---
     goalAdded: (state, action: PayloadAction<{ listId: string; text: string }>) => {
-        const { listId, text } = action.payload;
-        const list = state.goalLists[listId];
-        if (!list) return;
-        const goalId = nanoid();
-        const instanceId = nanoid();
-        const now = new Date().toISOString();
-        // --- ОНОВЛЕНО: Створення цілі тепер відповідає типу Goal ---
-        state.goals[goalId] = {
-            id: goalId,
-            text,
-            description: "",
-            completed: false,
-            createdAt: now,
-            updatedAt: now,
-            associatedListIds: []
-        };
-        state.goalInstances[instanceId] = { id: instanceId, goalId };
-        list.itemInstanceIds.unshift(instanceId);
+      const { listId, text } = action.payload;
+      const list = state.goalLists[listId];
+      if (!list) return;
+      const goalId = nanoid();
+      const instanceId = nanoid();
+      const now = new Date().toISOString();
+      // --- ОНОВЛЕНО: Створення цілі тепер відповідає типу Goal ---
+      state.goals[goalId] = {
+        id: goalId,
+        text,
+        description: "",
+        completed: false,
+        createdAt: now,
+        updatedAt: now,
+        associatedListIds: []
+      };
+      state.goalInstances[instanceId] = { id: instanceId, goalId };
+      list.itemInstanceIds.unshift(instanceId);
     },
     goalToggled(state, action: PayloadAction<string>) {
       const goalId = action.payload;
@@ -211,7 +212,7 @@ const listsSlice = createSlice({
           goal.description = description;
         }
         if (associatedListIds !== undefined) {
-            goal.associatedListIds = associatedListIds;
+          goal.associatedListIds = associatedListIds;
         }
         goal.updatedAt = new Date().toISOString();
       }
@@ -227,7 +228,7 @@ const listsSlice = createSlice({
       if (list) {
         list.itemInstanceIds = list.itemInstanceIds.filter(id => id !== instanceId);
       }
-      
+
       delete state.goalInstances[instanceId];
 
       const isOrphaned = !Object.values(state.goalInstances).some(instance => instance.goalId === goalId);
@@ -236,51 +237,51 @@ const listsSlice = createSlice({
       }
     },
     goalMoved: (state, action: PayloadAction<{ instanceId: string; sourceListId: string; destinationListId: string; destinationIndex: number; }>) => {
-        const { instanceId, sourceListId, destinationListId, destinationIndex } = action.payload;
-        const sourceList = state.goalLists[sourceListId];
-        if (sourceList) {
-            sourceList.itemInstanceIds = sourceList.itemInstanceIds.filter(id => id !== instanceId);
-        }
-        const destinationList = state.goalLists[destinationListId];
-        if (destinationList && !destinationList.itemInstanceIds.includes(instanceId)) {
-            destinationList.itemInstanceIds.splice(destinationIndex, 0, instanceId);
-        }
+      const { instanceId, sourceListId, destinationListId, destinationIndex } = action.payload;
+      const sourceList = state.goalLists[sourceListId];
+      if (sourceList) {
+        sourceList.itemInstanceIds = sourceList.itemInstanceIds.filter(id => id !== instanceId);
+      }
+      const destinationList = state.goalLists[destinationListId];
+      if (destinationList && !destinationList.itemInstanceIds.includes(instanceId)) {
+        destinationList.itemInstanceIds.splice(destinationIndex, 0, instanceId);
+      }
     },
     goalOrderUpdated: (state, action: PayloadAction<{ listId: string; orderedInstanceIds: string[] }>) => {
-        const list = state.goalLists[action.payload.listId];
-        if (list) {
-            list.itemInstanceIds = action.payload.orderedInstanceIds;
-        }
+      const list = state.goalLists[action.payload.listId];
+      if (list) {
+        list.itemInstanceIds = action.payload.orderedInstanceIds;
+      }
     },
     goalReferenceAdded: (state, action: PayloadAction<{ listId: string; goalId: string }>) => {
-        const { listId, goalId } = action.payload;
-        const list = state.goalLists[listId];
-        if (list && state.goals[goalId]) {
-            const instanceId = nanoid();
-            state.goalInstances[instanceId] = { id: instanceId, goalId: goalId };
-            list.itemInstanceIds.push(instanceId);
-        }
+      const { listId, goalId } = action.payload;
+      const list = state.goalLists[listId];
+      if (list && state.goals[goalId]) {
+        const instanceId = nanoid();
+        state.goalInstances[instanceId] = { id: instanceId, goalId: goalId };
+        list.itemInstanceIds.push(instanceId);
+      }
     },
     goalCopied: (state, action: PayloadAction<{ sourceGoalId: string; destinationListId: string; destinationIndex: number; }>) => {
-        const { sourceGoalId, destinationListId, destinationIndex } = action.payload;
-        const originalGoal = state.goals[sourceGoalId];
-        const destinationList = state.goalLists[destinationListId];
-        if (originalGoal && destinationList) {
-            const newGoalId = nanoid();
-            const newInstanceId = nanoid();
-            const now = new Date().toISOString();
-            // --- ОНОВЛЕНО: Копіювання тепер включає всі поля згідно типу ---
-            const newGoal: Goal = {
-                ...originalGoal,
-                id: newGoalId,
-                createdAt: now,
-                updatedAt: now,
-                associatedListIds: [...(originalGoal.associatedListIds || [])]
-            };
-            state.goals[newGoalId] = newGoal;
-            state.goalInstances[newInstanceId] = { id: newInstanceId, goalId: newGoalId };
-            destinationList.itemInstanceIds.splice(destinationIndex, 0, newInstanceId);
-        }
+      const { sourceGoalId, destinationListId, destinationIndex } = action.payload;
+      const originalGoal = state.goals[sourceGoalId];
+      const destinationList = state.goalLists[destinationListId];
+      if (originalGoal && destinationList) {
+        const newGoalId = nanoid();
+        const newInstanceId = nanoid();
+        const now = new Date().toISOString();
+        // --- ОНОВЛЕНО: Копіювання тепер включає всі поля згідно типу ---
+        const newGoal: Goal = {
+          ...originalGoal,
+          id: newGoalId,
+          createdAt: now,
+          updatedAt: now,
+          associatedListIds: [...(originalGoal.associatedListIds || [])]
+        };
+        state.goals[newGoalId] = newGoal;
+        state.goalInstances[newInstanceId] = { id: newInstanceId, goalId: newGoalId };
+        destinationList.itemInstanceIds.splice(destinationIndex, 0, newInstanceId);
+      }
     },
     goalAssociated(state, action: PayloadAction<{ goalId: string; listId: string }>) {
       const { goalId, listId } = action.payload;
@@ -330,14 +331,24 @@ const listsSlice = createSlice({
       }
     },
 
+
+    listExpansionToggled(state, action: PayloadAction<{ listId: string }>) {
+      const { listId } = action.payload;
+      const list = state.goalLists[listId];
+      if (list) {
+        // Якщо поле не існувало, вважаємо, що воно було true, і тепер стане false
+        list.isExpanded = !(list.isExpanded ?? true);
+      }
+    },
+
     stateReplaced(state, action: PayloadAction<ListsState>) {
       const { goals, goalLists, goalInstances, rootListIds } = action.payload;
       return {
-          ...state,
-          goals: goals || {},
-          goalLists: goalLists || {},
-          goalInstances: goalInstances || {},
-          rootListIds: rootListIds || [],
+        ...state,
+        goals: goals || {},
+        goalLists: goalLists || {},
+        goalInstances: goalInstances || {},
+        rootListIds: rootListIds || [],
       };
     },
   },
@@ -360,6 +371,7 @@ export const {
   goalDisassociated,
   goalsImported,
   stateReplaced,
+  listExpansionToggled,
 } = listsSlice.actions;
 
 export default listsSlice.reducer;

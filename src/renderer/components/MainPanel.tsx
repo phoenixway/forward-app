@@ -26,6 +26,7 @@ import {
   parseGoalData,
 } from "../utils/textProcessing";
 import { Droppable } from "@hello-pangea/dnd";
+
 import {
   listRemoved,
   listUpdated,
@@ -33,7 +34,9 @@ import {
   listAdded,
   goalOrderUpdated,
   goalsImported,
+  goalUpdated, // <-- ПЕРЕВІРТЕ, ЧИ ЦЕЙ ІМПОРТ ВЖЕ Є, ЯКЩО НІ - ДОДАЙТЕ
 } from "../store/listsSlice";
+import { calculateScores } from '../logic/goalScoring'; // <-- ДОДАЙТЕ ЦЕЙ ІМПОРТ
 
 export interface MainPanelProps {
   currentThemePreference: string;
@@ -65,7 +68,63 @@ function MainPanel({
   const { goals, goalLists, goalInstances } = useSelector((state: RootState) => state.lists);
   const globalFilterTerm = useSelector((state: RootState) => state.ui.globalFilterTerm);
   const dispatch = useDispatch<AppDispatch>();
+
+
+
+
   const inputPanelGlobalRef = useRef<InputPanelRef>(null);
+
+
+    useEffect(() => {
+    // Унікальний ключ для цієї конкретної міграції.
+    const MIGRATION_KEY = 'migration_to_scoring_system_v9_applied';
+    
+    // Перевіряємо, чи була вже застосована міграція.
+    const isMigrationApplied = localStorage.getItem(MIGRATION_KEY);
+
+    if (!isMigrationApplied) {
+      console.log('Застосування міграції до нової системи оцінки цілей...');
+      
+      const allGoals = Object.values(goals);
+      let updatedCount = 0;
+
+      allGoals.forEach(goal => {
+        // Ми мігруємо ціль, якщо вона існує, але не має поля `displayScore`.
+        // Це надійний спосіб визначити "старі" цілі.
+        if (goal && goal.displayScore === undefined) {
+          
+          // Ця логіка імітує MIGRATION_8_9 з Android-додатку.
+          // Вона бере існуючі поля цілі і розраховує на їх основі нові.
+          const goalForCalc = {
+             ...goal,
+             // Якщо у вас були старі поля (напр. timeCost), ви можете перенести їх значення сюди:
+             // effort: goal.timeCost ?? 0,
+             // cost: goal.financialCost ?? 0,
+          };
+
+          const updatedGoalWithScores = calculateScores(goalForCalc);
+
+          // Оновлюємо ціль у Redux-сховищі з новими, розрахованими полями.
+          // Ми розповсюджуємо ...goal, щоб зберегти всі існуючі дані (text, description і т.д.)
+          dispatch(goalUpdated({ 
+            ...goal, 
+            ...updatedGoalWithScores 
+          }));
+          updatedCount++;
+        }
+      });
+      
+      if (updatedCount > 0) {
+        console.log(`Міграцію завершено. Оновлено ${updatedCount} цілей.`);
+      } else {
+        console.log('Міграція не потрібна, всі цілі вже у новому форматі.');
+      }
+
+      // Зберігаємо позначку, що міграція більше не потрібна.
+      localStorage.setItem(MIGRATION_KEY, 'true');
+    }
+  }, [goals, dispatch]); // Залежності, щоб хук мав доступ до актуальних даних.
+  // --- КІНЕЦЬ БЛОКУ МІГРАЦІЇ ---
 
   const [tabs, setTabs] = useState<Tab[]>(() => {
     const savedTabs = localStorage.getItem("openTabs");

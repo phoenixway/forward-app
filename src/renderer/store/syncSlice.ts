@@ -1,26 +1,32 @@
+// src/renderer/store/syncSlice.ts
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
-// Тип для звіту синхронізації, який ми покажемо користувачеві
-// Поки що простий, можна буде розширити
-interface SyncChange {
-  type: 'Add' | 'Update' | 'Remove';
+// --- НОВІ ТИПИ для звіту про зміни ---
+// Описує одну конкретну зміну (додавання або оновлення)
+export interface SyncChange {
+  type: 'Add' | 'Update';
   entityType: 'Список' | 'Ціль';
-  description: string;
+  id: string; // ID сутності
+  description: string; // Назва списку або текст цілі для відображення
+  entity: any; // Повний об'єкт (нова або оновлена сутність)
 }
 
-interface SyncReport {
+// Описує повний звіт, який ми покажемо користувачеві
+export interface SyncReport {
   changes: SyncChange[];
 }
 
 export interface SyncState {
   isModalOpen: boolean;
   modalMode: 'idle' | 'import' | 'server';
+  // Додаємо новий статус 'reviewing'
   syncStatus: 'idle' | 'fetching' | 'reviewing' | 'applying' | 'error' | 'success';
   deviceAddress: string;
   serverAddress: string | null;
   errorMessage: string | null;
+  // --- НОВІ ПОЛЯ для зберігання звіту та оригінальних даних ---
   syncReport: SyncReport | null;
-  originalBackup: any | null; 
+  originalBackup: any | null; // Зберігаємо оригінальний бекап з телефону
 }
 
 const initialState: SyncState = {
@@ -43,6 +49,8 @@ const syncSlice = createSlice({
       state.modalMode = action.payload;
       state.syncStatus = 'idle';
       state.errorMessage = null;
+      state.syncReport = null; // Скидаємо звіт при відкритті
+      state.originalBackup = null;
     },
     closeSyncModal: (state) => {
       // Повертаємо до початкового стану при закритті
@@ -59,10 +67,11 @@ const syncSlice = createSlice({
         state.syncStatus = 'error';
         state.errorMessage = action.payload;
     },
+    // --- НОВИЙ ACTION для збереження звіту ---
     setSyncReport: (state, action: PayloadAction<{ report: SyncReport, originalBackup: any }>) => {
         state.syncReport = action.payload.report;
         state.originalBackup = action.payload.originalBackup;
-        state.syncStatus = 'reviewing';
+        state.syncStatus = 'reviewing'; // Переводимо в режим перегляду
     },
     setServerAddress: (state, action: PayloadAction<string | null>) => {
         state.serverAddress = action.payload;
@@ -76,7 +85,7 @@ export const {
   setDeviceAddress,
   setSyncStatus,
   setSyncError,
-  setSyncReport,
+  setSyncReport, // Експортуємо новий action
   setServerAddress,
 } = syncSlice.actions;
 

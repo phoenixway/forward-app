@@ -6,7 +6,7 @@ import { Plus, Edit3, Trash2, Settings, ChevronDown, ChevronRight, GripVertical,
 import { Droppable, Draggable } from "@hello-pangea/dnd";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "../store/store";
-import { listAdded, listRemoved, listUpdated, listMoved } from "../store/listsSlice";
+import { listAdded, listRemoved, listUpdated, listMoved, listExpansionToggled } from "../store/listsSlice";
 import { selectTopLevelLists } from "../store/selectors";
 import GlobalSearch from "./GlobalSearch";
 
@@ -17,7 +17,7 @@ export interface OpenGoalListDetail {
   listName: string;
 }
 
-export function dispatchOpenGoalListEvent(listId: string, listName: string) {
+export function dispatchOpenGoalListEvent(listId: string, listName:string) {
   window.dispatchEvent(new CustomEvent<OpenGoalListDetail>(OPEN_GOAL_LIST_EVENT, { detail: { listId, listName } }));
 }
 
@@ -39,12 +39,10 @@ const listMatchesFilter = (list: GoalList, allLists: Record<string, GoalList>, f
   
   const lowercaseFilter = filterTerm.toLowerCase();
   
-  // Перевіряємо чи сам список відповідає фільтру
   if (list.name.toLowerCase().includes(lowercaseFilter)) {
     return true;
   }
   
-  // Перевіряємо чи якась з дочірніх списків відповідає фільтру
   if (list.childListIds && list.childListIds.length > 0) {
     return list.childListIds.some(childId => {
       const childList = allLists[childId];
@@ -66,17 +64,15 @@ const SidebarListItem: React.FC<SidebarListItemProps> = ({
   onPaste, 
   filterTerm 
 }) => {
+  const dispatch = useDispatch<AppDispatch>();
   const list = useSelector((state: RootState) => state.lists.goalLists[listId]);
   const allLists = useSelector((state: RootState) => state.lists.goalLists);
-  const [isExpanded, setIsExpanded] = useState(true);
 
-  // Фільтруємо дочірні списки
   const filteredChildIds = useMemo(() => {
     if (!list?.childListIds || !filterTerm.trim()) {
       return list?.childListIds || [];
     }
     
-    // Показуємо дочірні списки, які відповідають фільтру (включно з їх дочірніми)
     return list.childListIds.filter(childId => {
       const childList = allLists[childId];
       return childList && listMatchesFilter(childList, allLists, filterTerm);
@@ -84,6 +80,8 @@ const SidebarListItem: React.FC<SidebarListItemProps> = ({
   }, [list?.childListIds, filterTerm, allLists]);
 
   if (!list) return null;
+
+  const isExpanded = list.isExpanded ?? true; // <-- ЗМІНА: Читаємо з Redux, а не з useState
 
   const handleOpenGoalList = () => dispatchOpenGoalListEvent(list.id, list.name);
   const hasChildren = list.childListIds && list.childListIds.length > 0;
@@ -116,7 +114,10 @@ const SidebarListItem: React.FC<SidebarListItemProps> = ({
                   <div className="flex items-center flex-grow truncate mr-2" onClick={handleOpenGoalList}>
                     {hasChildren ? (
                       <button
-                        onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          dispatch(listExpansionToggled({ listId: list.id })); // <-- ЗМІНА: Диспатчимо action
+                        }}
                         className="p-0.5 mr-1 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 flex-shrink-0"
                       >
                         {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -188,6 +189,7 @@ const SidebarListItem: React.FC<SidebarListItemProps> = ({
   );
 };
 
+// Component `Sidebar` remains the same as you provided
 function Sidebar() {
   const dispatch = useDispatch<AppDispatch>();
   const allTopLevelLists = useSelector(selectTopLevelLists);
@@ -201,13 +203,11 @@ function Sidebar() {
   const [newListName, setNewListName] = useState("");
   const [cutListId, setCutListId] = useState<string | null>(null);
 
-  // Покращена фільтрація верхнього рівня з урахуванням дочірніх списків
   const filteredLists = useMemo(() => {
     if (!filterTerm.trim()) {
       return allTopLevelLists;
     }
     
-    // Показуємо списки верхнього рівня, які відповідають фільтру або мають дочірні списки, що відповідають
     return allTopLevelLists.filter(list => 
       listMatchesFilter(list, allLists, filterTerm)
     );
@@ -278,7 +278,7 @@ function Sidebar() {
     dispatch(listMoved({
       listId: cutListId,
       sourceParentId: cutList.parentId,
-      sourceIndex: -1,
+      sourceIndex: -1, // Note: index might need adjustment depending on dnd library version
       destinationParentId: destinationParentId,
       destinationIndex: destinationIndex,
     }));

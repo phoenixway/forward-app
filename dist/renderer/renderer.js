@@ -138328,6 +138328,51 @@ exports["default"] = GlobalSearchResults;
 
 /***/ }),
 
+/***/ "./src/renderer/components/GoalEditModal.tsx":
+/*!***************************************************!*\
+  !*** ./src/renderer/components/GoalEditModal.tsx ***!
+  \***************************************************/
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
+// src/renderer/components/GoalEditModal.tsx
+const react_1 = __webpack_require__(/*! react */ "./node_modules/react/index.js");
+const react_redux_1 = __webpack_require__(/*! react-redux */ "./node_modules/react-redux/dist/cjs/index.js");
+const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts");
+const goalScoring_1 = __webpack_require__(/*! ../logic/goalScoring */ "./src/renderer/logic/goalScoring.ts");
+const lucide_react_1 = __webpack_require__(/*! lucide-react */ "./node_modules/lucide-react/dist/esm/lucide-react.js");
+// Допоміжний компонент для вкладок
+const TabButton = ({ label, icon, isActive, onClick }) => ((0, jsx_runtime_1.jsxs)("button", { onClick: onClick, className: `flex items-center px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors duration-200 focus:outline-none ${isActive
+        ? 'border-blue-500 text-blue-600 dark:text-blue-400 dark:border-blue-400'
+        : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`, children: [icon, (0, jsx_runtime_1.jsx)("span", { className: "ml-2", children: label })] }));
+const GoalEditModal = ({ goal, onClose }) => {
+    const dispatch = (0, react_redux_1.useDispatch)();
+    const [localGoal, setLocalGoal] = (0, react_1.useState)(goal);
+    const [activeTab, setActiveTab] = (0, react_1.useState)('params');
+    const handleChange = (field, value) => {
+        const numericValue = typeof value === 'string' ? parseFloat(value) : value;
+        setLocalGoal(prev => ({ ...prev, [field]: numericValue }));
+    };
+    const handleTextChange = (e) => {
+        const { name, value } = e.target;
+        setLocalGoal(prev => ({ ...prev, [name]: value }));
+    };
+    const handleSave = () => {
+        const goalWithNewScores = (0, goalScoring_1.calculateScores)(localGoal);
+        dispatch((0, listsSlice_1.goalUpdated)({ ...localGoal, ...goalWithNewScores }));
+        onClose();
+    };
+    const renderSlider = (label, field, min, max, step) => ((0, jsx_runtime_1.jsxs)("div", { className: "mb-4", children: [(0, jsx_runtime_1.jsxs)("div", { className: "flex justify-between items-center mb-1", children: [(0, jsx_runtime_1.jsx)("label", { className: "text-sm font-medium text-slate-700 dark:text-slate-300 capitalize", children: label }), (0, jsx_runtime_1.jsx)("span", { className: "text-sm font-mono px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-200", children: localGoal[field] || (field.startsWith('weight') ? 1 : 0) })] }), (0, jsx_runtime_1.jsx)("input", { type: "range", min: min, max: max, step: step, value: localGoal[field] || (field.startsWith('weight') ? 1 : 0), onChange: (e) => handleChange(field, e.target.value), className: "w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 slider-thumb" })] }));
+    return ((0, jsx_runtime_1.jsx)("div", { className: "fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4", onMouseDown: onClose, children: (0, jsx_runtime_1.jsxs)("div", { className: "bg-slate-50 dark:bg-slate-800 p-6 rounded-lg shadow-xl w-full max-w-2xl text-slate-800 dark:text-slate-200 flex flex-col", onMouseDown: e => e.stopPropagation(), children: [(0, jsx_runtime_1.jsxs)("div", { className: "flex-shrink-0", children: [(0, jsx_runtime_1.jsx)("h2", { className: "text-xl font-semibold mb-2 text-slate-900 dark:text-slate-100", children: "\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u0446\u0456\u043B\u044C" }), (0, jsx_runtime_1.jsx)("textarea", { name: "text", rows: 2, value: localGoal.text, onChange: handleTextChange, className: "block w-full text-lg rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-slate-900 dark:border-slate-600 dark:text-slate-100 sm:text-lg" })] }), (0, jsx_runtime_1.jsx)("div", { className: "mt-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0", children: (0, jsx_runtime_1.jsxs)("nav", { className: "-mb-px flex space-x-4", "aria-label": "Tabs", children: [(0, jsx_runtime_1.jsx)(TabButton, { label: "\u041F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u0438", icon: (0, jsx_runtime_1.jsx)(lucide_react_1.SlidersHorizontal, { size: 16 }), isActive: activeTab === 'params', onClick: () => setActiveTab('params') }), (0, jsx_runtime_1.jsx)(TabButton, { label: "\u0412\u0430\u0433\u0438", icon: (0, jsx_runtime_1.jsx)(lucide_react_1.BarChart2, { size: 16 }), isActive: activeTab === 'weights', onClick: () => setActiveTab('weights') }), (0, jsx_runtime_1.jsx)(TabButton, { label: "\u041D\u043E\u0442\u0430\u0442\u043A\u0438", icon: (0, jsx_runtime_1.jsx)(lucide_react_1.MessageSquare, { size: 16 }), isActive: activeTab === 'notes', onClick: () => setActiveTab('notes') })] }) }), (0, jsx_runtime_1.jsxs)("div", { className: "py-5 flex-grow min-h-[250px]", children: [activeTab === 'params' && ((0, jsx_runtime_1.jsxs)("div", { children: [renderSlider("Важливість", "valueImportance", 0, 10, 1), renderSlider("Вплив", "valueImpact", 0, 10, 1), renderSlider("Зусилля", "effort", 0, 10, 1), renderSlider("Вартість", "cost", 0, 10, 1), renderSlider("Ризик", "risk", 0, 10, 1)] })), activeTab === 'weights' && ((0, jsx_runtime_1.jsxs)("div", { children: [renderSlider("Вага Зусиль", "weightEffort", 0.1, 3, 0.1), renderSlider("Вага Вартості", "weightCost", 0.1, 3, 0.1), renderSlider("Вага Ризику", "weightRisk", 0.1, 3, 0.1)] })), activeTab === 'notes' && ((0, jsx_runtime_1.jsxs)("div", { children: [(0, jsx_runtime_1.jsx)("label", { htmlFor: "description", className: "block text-sm font-medium text-slate-700 dark:text-slate-300", children: "\u041D\u043E\u0442\u0430\u0442\u043A\u0438 \u0434\u043E \u0446\u0456\u043B\u0456" }), (0, jsx_runtime_1.jsx)("textarea", { id: "description", name: "description", rows: 8, value: localGoal.description || '', onChange: handleTextChange, placeholder: "\u0414\u043E\u0434\u0430\u0439\u0442\u0435 \u0434\u0435\u0442\u0430\u043B\u044C\u043D\u0438\u0439 \u043E\u043F\u0438\u0441, \u043A\u0440\u0438\u0442\u0435\u0440\u0456\u0457 \u0432\u0438\u043A\u043E\u043D\u0430\u043D\u043D\u044F, \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F \u0442\u043E\u0449\u043E.", className: "mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100 sm:text-sm" })] }))] }), (0, jsx_runtime_1.jsxs)("div", { className: "flex justify-end space-x-2 mt-4 flex-shrink-0", children: [(0, jsx_runtime_1.jsx)("button", { type: "button", onClick: onClose, className: "px-4 py-2 text-sm rounded-md bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500", children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" }), (0, jsx_runtime_1.jsx)("button", { type: "button", onClick: handleSave, className: "px-4 py-2 text-sm rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold", children: "\u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438" })] })] }) }));
+};
+exports["default"] = GoalEditModal;
+
+
+/***/ }),
+
 /***/ "./src/renderer/components/GoalItem.tsx":
 /*!**********************************************!*\
   !*** ./src/renderer/components/GoalItem.tsx ***!
@@ -138412,24 +138457,16 @@ const selectors_1 = __webpack_require__(/*! ../store/selectors */ "./src/rendere
 const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts");
 const lucide_react_1 = __webpack_require__(/*! lucide-react */ "./node_modules/lucide-react/dist/esm/lucide-react.js");
 const SortableGoalItem_1 = __importDefault(__webpack_require__(/*! ./SortableGoalItem */ "./src/renderer/components/SortableGoalItem.tsx"));
+const GoalEditModal_1 = __importDefault(__webpack_require__(/*! ./GoalEditModal */ "./src/renderer/components/GoalEditModal.tsx")); // <-- Імпортуємо нове модальне вікно
 function GoalListPage({ listId, filterText, obsidianVaultName, onTagClickForFilter, }) {
     const dispatch = (0, react_redux_1.useDispatch)();
     const selectListInfo = (0, react_1.useMemo)(selectors_1.makeSelectListInfo, []);
     const selectEnrichedInstances = (0, react_1.useMemo)(selectors_1.makeSelectEnrichedGoalInstances, []);
     const listInfo = (0, react_redux_1.useSelector)((state) => selectListInfo(state, listId));
     const allEnrichedGoals = (0, react_redux_1.useSelector)((state) => selectEnrichedInstances(state, listId));
-    const allTags = (0, react_redux_1.useSelector)(selectors_1.selectAllUniqueTags);
-    const allContexts = (0, react_redux_1.useSelector)(selectors_1.selectAllUniqueContexts);
     const [activeFilteredGoals, setActiveFilteredGoals] = (0, react_1.useState)([]);
+    // Цей стан тепер контролює показ модального вікна
     const [editingGoal, setEditingGoal] = (0, react_1.useState)(null);
-    const [editingGoalText, setEditingGoalText] = (0, react_1.useState)("");
-    const editGoalInputRef = (0, react_1.useRef)(null);
-    const [suggestions, setSuggestions] = (0, react_1.useState)([]);
-    const [showSuggestions, setShowSuggestions] = (0, react_1.useState)(false);
-    const [activeSuggestionIndex, setActiveSuggestionIndex] = (0, react_1.useState)(0);
-    const [suggestionType, setSuggestionType] = (0, react_1.useState)(null);
-    const suggestionsRef = (0, react_1.useRef)(null);
-    const [isSuggestionsUiVisible, setIsSuggestionsUiVisible] = (0, react_1.useState)(false);
     (0, react_1.useEffect)(() => {
         if (!filterText.trim()) {
             setActiveFilteredGoals(allEnrichedGoals);
@@ -138439,27 +138476,6 @@ function GoalListPage({ listId, filterText, obsidianVaultName, onTagClickForFilt
             setActiveFilteredGoals(allEnrichedGoals.filter(({ goal }) => goal.text.toLowerCase().includes(lowercasedFilter)));
         }
     }, [allEnrichedGoals, filterText]);
-    (0, react_1.useEffect)(() => {
-        if (editingGoal && editGoalInputRef.current) {
-            editGoalInputRef.current.focus();
-            const textLength = editGoalInputRef.current.value.length;
-            editGoalInputRef.current.setSelectionRange(textLength, textLength);
-        }
-    }, [editingGoal]);
-    (0, react_1.useEffect)(() => {
-        let timerId;
-        if (showSuggestions && suggestions.length > 0) {
-            setIsSuggestionsUiVisible(true);
-        }
-        else {
-            timerId = setTimeout(() => {
-                if (!showSuggestions) {
-                    setSuggestions([]);
-                }
-            }, 200);
-        }
-        return () => clearTimeout(timerId);
-    }, [showSuggestions, suggestions.length]);
     const handleToggleGoal = (0, react_1.useCallback)((goalId) => {
         dispatch((0, listsSlice_1.goalToggled)(goalId));
     }, [dispatch]);
@@ -138469,200 +138485,24 @@ function GoalListPage({ listId, filterText, obsidianVaultName, onTagClickForFilt
             window.confirm(`Видалити ціль "${goalInstanceToDelete.goal.text}" зі списку?`)) {
             dispatch((0, listsSlice_1.instanceRemovedFromList)({ listId, instanceId }));
             if (editingGoal?.id === goalInstanceToDelete.goal.id) {
-                setEditingGoal(null);
-                setEditingGoalText("");
-                setShowSuggestions(false);
+                setEditingGoal(null); // Закриваємо модальне вікно, якщо видаляється ціль, що редагується
             }
         }
     }, [listId, allEnrichedGoals, editingGoal, dispatch]);
     const handleStartEditGoal = (0, react_1.useCallback)((goal) => {
         if (goal.completed)
             return;
-        setEditingGoal(goal);
-        setEditingGoalText(goal.text);
-        setShowSuggestions(false);
+        setEditingGoal(goal); // Встановлення цього стану відкриє модальне вікно
     }, []);
     const handleCancelEditGoal = (0, react_1.useCallback)(() => {
-        setEditingGoal(null);
-        setEditingGoalText("");
-        setShowSuggestions(false);
+        setEditingGoal(null); // Закриття модального вікна
     }, []);
-    const handleSubmitEditGoal = (0, react_1.useCallback)(() => {
-        if (!editingGoal)
-            return;
-        if (!editingGoalText.trim()) {
-            alert("Текст цілі не може бути порожнім.");
-            editGoalInputRef.current?.focus();
-            return;
-        }
-        dispatch((0, listsSlice_1.goalUpdated)({ id: editingGoal.id, text: editingGoalText.trim() }));
-        setEditingGoal(null);
-        setEditingGoalText("");
-        setShowSuggestions(false);
-    }, [dispatch, editingGoal, editingGoalText]);
-    const handleTextareaChange = (e) => {
-        const newText = e.target.value;
-        setEditingGoalText(newText);
-        const cursorPos = e.target.selectionStart;
-        const textBeforeCursor = newText.substring(0, cursorPos);
-        const lastTagIndex = textBeforeCursor.lastIndexOf("#");
-        const lastContextIndex = textBeforeCursor.lastIndexOf("@");
-        let activePrefixIndex = -1;
-        let currentPrefix = null;
-        if (lastTagIndex > lastContextIndex) {
-            activePrefixIndex = lastTagIndex;
-            currentPrefix = "#";
-        }
-        else if (lastContextIndex > lastTagIndex) {
-            activePrefixIndex = lastContextIndex;
-            currentPrefix = "@";
-        }
-        if (currentPrefix &&
-            activePrefixIndex !== -1 &&
-            (activePrefixIndex === 0 || /\s/.test(newText[activePrefixIndex - 1]))) {
-            const query = textBeforeCursor.substring(activePrefixIndex + 1);
-            if (!/\s/.test(query)) {
-                setSuggestionType(currentPrefix);
-                const source = currentPrefix === "#" ? allTags : allContexts;
-                const filteredSuggestions = source.filter((item) => item.toLowerCase().startsWith((currentPrefix + query).toLowerCase()));
-                if (filteredSuggestions.length > 0) {
-                    setSuggestions(filteredSuggestions);
-                    setShowSuggestions(true);
-                    setActiveSuggestionIndex(0);
-                }
-                else {
-                    setShowSuggestions(false);
-                }
-                return;
-            }
-        }
-        setShowSuggestions(false);
-    };
-    const handleTextareaKeyDown = (e) => {
-        if (showSuggestions && suggestions.length > 0) {
-            if (e.key === "ArrowDown") {
-                e.preventDefault();
-                setActiveSuggestionIndex((prevIndex) => prevIndex === suggestions.length - 1 ? 0 : prevIndex + 1);
-            }
-            else if (e.key === "ArrowUp") {
-                e.preventDefault();
-                setActiveSuggestionIndex((prevIndex) => prevIndex === 0 ? suggestions.length - 1 : prevIndex - 1);
-            }
-            else if (e.key === "Enter") {
-                e.preventDefault();
-                const selectedSuggestion = suggestions[activeSuggestionIndex];
-                if (selectedSuggestion) {
-                    const cursorPos = editGoalInputRef.current?.selectionStart ?? 0;
-                    const textBeforeCursor = editingGoalText.substring(0, cursorPos);
-                    let startIndex = -1;
-                    if (suggestionType === "#") {
-                        startIndex = textBeforeCursor.lastIndexOf("#");
-                    }
-                    else if (suggestionType === "@") {
-                        startIndex = textBeforeCursor.lastIndexOf("@");
-                    }
-                    if (startIndex !== -1) {
-                        const newText = editingGoalText.substring(0, startIndex) +
-                            selectedSuggestion +
-                            " " +
-                            editingGoalText.substring(cursorPos);
-                        setEditingGoalText(newText);
-                        setTimeout(() => {
-                            const newCursorPos = startIndex + selectedSuggestion.length + 1;
-                            editGoalInputRef.current?.setSelectionRange(newCursorPos, newCursorPos);
-                        }, 0);
-                    }
-                }
-                setShowSuggestions(false);
-            }
-            else if (e.key === "Escape") {
-                e.preventDefault();
-                setShowSuggestions(false);
-            }
-        }
-        else {
-            if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSubmitEditGoal();
-            }
-            if (e.key === "Escape") {
-                if (!showSuggestions) {
-                    handleCancelEditGoal();
-                }
-                else {
-                    setShowSuggestions(false);
-                }
-            }
-        }
-    };
-    (0, react_1.useEffect)(() => {
-        const handleClickOutside = (event) => {
-            if (suggestionsRef.current &&
-                !suggestionsRef.current.contains(event.target) &&
-                editGoalInputRef.current &&
-                !editGoalInputRef.current.contains(event.target)) {
-                setShowSuggestions(false);
-            }
-        };
-        if (showSuggestions) {
-            document.addEventListener("mousedown", handleClickOutside);
-        }
-        else {
-            document.removeEventListener("mousedown", handleClickOutside);
-        }
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
-    }, [showSuggestions]);
-    (0, react_1.useEffect)(() => {
-        if (showSuggestions && suggestions.length > 0 && suggestionsRef.current) {
-            const activeItem = suggestionsRef.current.children[activeSuggestionIndex];
-            if (activeItem) {
-                activeItem.scrollIntoView({ block: "nearest", inline: "nearest" });
-            }
-        }
-    }, [activeSuggestionIndex, showSuggestions, suggestions.length]);
-    const suggestionsListDynamicStyles = (0, react_1.useMemo)(() => {
-        if (editGoalInputRef.current) {
-            const { offsetTop, offsetHeight, offsetLeft, offsetWidth } = editGoalInputRef.current;
-            return {
-                top: `${offsetTop + offsetHeight + 2}px`,
-                left: `${offsetLeft}px`,
-                width: `${offsetWidth}px`,
-            };
-        }
-        return { display: "none" };
-    }, [isSuggestionsUiVisible]);
     if (!listInfo) {
         return ((0, jsx_runtime_1.jsxs)("div", { className: "p-6 flex flex-col items-center justify-center h-full text-center", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.ListChecks, { size: 48, className: "text-slate-400 dark:text-slate-500 mb-4", strokeWidth: 1.5 }), (0, jsx_runtime_1.jsx)("p", { className: "text-slate-500 dark:text-slate-400 text-lg", children: "\u0417\u0430\u0432\u0430\u043D\u0442\u0430\u0436\u0435\u043D\u043D\u044F \u0434\u0430\u043D\u0438\u0445 \u0441\u043F\u0438\u0441\u043A\u0443..." }), (0, jsx_runtime_1.jsxs)("p", { className: "text-xs text-slate-400 dark:text-slate-500", children: ["ID: ", listId] })] }));
     }
-    return ((0, jsx_runtime_1.jsxs)("div", { className: "pt-3 pl-1.5 pr-4 pb-4 min-h-full flex flex-col", children: [editingGoal && ((0, jsx_runtime_1.jsxs)("div", { className: "mb-3 p-3 border border-blue-400 dark:border-blue-600 rounded-lg bg-white dark:bg-slate-700 shadow-md flex-shrink-0 relative", children: [(0, jsx_runtime_1.jsx)("h3", { className: "text-sm font-medium text-blue-700 dark:text-blue-400 mb-1.5", children: "\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u0446\u0456\u043B\u044C" }), (0, jsx_runtime_1.jsx)("textarea", { ref: editGoalInputRef, value: editingGoalText, onChange: handleTextareaChange, onKeyDown: handleTextareaKeyDown, className: "w-full px-2.5 py-1.5 border border-slate-300 dark:border-slate-500 rounded-md bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 placeholder-slate-400 dark:placeholder-slate-500 sm:text-sm mb-2 min-h-[50px]", rows: 3 }), (0, jsx_runtime_1.jsx)("ul", { ref: suggestionsRef, className: `absolute z-10 max-h-40 overflow-y-auto bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md shadow-lg list-none p-0 transition-all duration-200 ease-out transform origin-top ${isSuggestionsUiVisible && suggestions.length > 0 ? "opacity-100 scale-y-100 pointer-events-auto" : "opacity-0 scale-y-95 pointer-events-none"}`, style: suggestionsListDynamicStyles, children: isSuggestionsUiVisible &&
-                            suggestions.map((suggestion, index) => ((0, jsx_runtime_1.jsx)("li", { className: `px-3 py-1.5 text-sm cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-700 ${index === activeSuggestionIndex ? "bg-indigo-100 dark:bg-indigo-700 text-indigo-700 dark:text-indigo-200" : "text-slate-700 dark:text-slate-200"}`, onClick: () => {
-                                    const cursorPos = editGoalInputRef.current?.selectionStart ?? 0;
-                                    const textBeforeCursor = editingGoalText.substring(0, cursorPos);
-                                    let startIndex = -1;
-                                    if (suggestionType === "#") {
-                                        startIndex = textBeforeCursor.lastIndexOf("#");
-                                    }
-                                    else if (suggestionType === "@") {
-                                        startIndex = textBeforeCursor.lastIndexOf("@");
-                                    }
-                                    if (startIndex !== -1) {
-                                        const newText = editingGoalText.substring(0, startIndex) +
-                                            suggestion +
-                                            " " +
-                                            editingGoalText.substring(cursorPos);
-                                        setEditingGoalText(newText);
-                                        setTimeout(() => {
-                                            const newCursorPos = startIndex + suggestion.length + 1;
-                                            editGoalInputRef.current?.focus();
-                                            editGoalInputRef.current?.setSelectionRange(newCursorPos, newCursorPos);
-                                        }, 0);
-                                    }
-                                    setShowSuggestions(false);
-                                }, children: suggestion }, suggestion))) }), (0, jsx_runtime_1.jsxs)("div", { className: "flex justify-end space-x-1.5", children: [(0, jsx_runtime_1.jsx)("button", { onClick: handleCancelEditGoal, className: "px-3 py-1 text-xs text-slate-700 dark:text-slate-300 bg-slate-200 dark:bg-slate-500 hover:bg-slate-300 dark:hover:bg-slate-400 rounded-md font-medium", children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" }), (0, jsx_runtime_1.jsx)("button", { onClick: handleSubmitEditGoal, className: "px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500 dark:hover:bg-blue-600 rounded-md font-medium", children: "\u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438" })] })] })), (0, jsx_runtime_1.jsxs)("div", { className: "flex-grow pr-1 overflow-y-auto", children: [activeFilteredGoals.length === 0 && !editingGoal && ((0, jsx_runtime_1.jsxs)("div", { className: "text-center py-8 px-2 flex flex-col items-center justify-center h-full", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.SearchX, { size: 40, className: "text-slate-400 dark:text-slate-500 mb-3", strokeWidth: 1.5 }), (0, jsx_runtime_1.jsx)("p", { className: "text-slate-500 dark:text-slate-400 text-sm", children: filterText.trim()
+    return ((0, jsx_runtime_1.jsxs)("div", { className: "pt-3 pl-1.5 pr-4 pb-4 min-h-full flex flex-col", children: [(0, jsx_runtime_1.jsxs)("div", { className: "flex-grow pr-1 overflow-y-auto", children: [activeFilteredGoals.length === 0 && !editingGoal && ((0, jsx_runtime_1.jsxs)("div", { className: "text-center py-8 px-2 flex flex-col items-center justify-center h-full", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.SearchX, { size: 40, className: "text-slate-400 dark:text-slate-500 mb-3", strokeWidth: 1.5 }), (0, jsx_runtime_1.jsx)("p", { className: "text-slate-500 dark:text-slate-400 text-sm", children: filterText.trim()
                                     ? `Цілей за фільтром "${filterText}" не знайдено у списку "${listInfo.name}".`
-                                    : `У списку "${listInfo.name}" ще немає цілей.` }), !filterText.trim() && ((0, jsx_runtime_1.jsx)("p", { className: "text-xs text-slate-400 dark:text-slate-500 mt-1", children: "\u0414\u043E\u0434\u0430\u0439\u0442\u0435 \u043F\u0435\u0440\u0448\u0443 \u0446\u0456\u043B\u044C, \u0432\u0438\u043A\u043E\u0440\u0438\u0441\u0442\u043E\u0432\u0443\u044E\u0447\u0438 \u043A\u043E\u043C\u0430\u043D\u0434\u043D\u0438\u0439 \u0440\u044F\u0434\u043E\u043A \u0432\u043D\u0438\u0437\u0443 \u0435\u043A\u0440\u0430\u043D\u0430." }))] })), activeFilteredGoals.length > 0 && ((0, jsx_runtime_1.jsx)("ul", { className: "space-y-1.5", children: activeFilteredGoals.map(({ instance, goal, associatedLists }, itemIndex) => ((0, jsx_runtime_1.jsx)(SortableGoalItem_1.default, { instanceId: instance.id, goal: goal, associatedLists: associatedLists, index: itemIndex, onToggle: handleToggleGoal, onDelete: handleDeleteGoal, onStartEdit: handleStartEditGoal, obsidianVaultName: obsidianVaultName, onTagClickForFilter: onTagClickForFilter }, instance.id))) }))] })] }));
+                                    : `У списку "${listInfo.name}" ще немає цілей.` }), !filterText.trim() && ((0, jsx_runtime_1.jsx)("p", { className: "text-xs text-slate-400 dark:text-slate-500 mt-1", children: "\u0414\u043E\u0434\u0430\u0439\u0442\u0435 \u043F\u0435\u0440\u0448\u0443 \u0446\u0456\u043B\u044C, \u0432\u0438\u043A\u043E\u0440\u0438\u0441\u0442\u043E\u0432\u0443\u044E\u0447\u0438 \u043A\u043E\u043C\u0430\u043D\u0434\u043D\u0438\u0439 \u0440\u044F\u0434\u043E\u043A \u0432\u043D\u0438\u0437\u0443 \u0435\u043A\u0440\u0430\u043D\u0430." }))] })), activeFilteredGoals.length > 0 && ((0, jsx_runtime_1.jsx)("ul", { className: "space-y-1.5", children: activeFilteredGoals.map(({ instance, goal, associatedLists }, itemIndex) => ((0, jsx_runtime_1.jsx)(SortableGoalItem_1.default, { instanceId: instance.id, goal: goal, associatedLists: associatedLists, index: itemIndex, onToggle: handleToggleGoal, onDelete: handleDeleteGoal, onStartEdit: handleStartEditGoal, obsidianVaultName: obsidianVaultName, onTagClickForFilter: onTagClickForFilter }, instance.id))) }))] }), editingGoal && ((0, jsx_runtime_1.jsx)(GoalEditModal_1.default, { goal: editingGoal, onClose: handleCancelEditGoal }))] }));
 }
 exports["default"] = react_1.default.memo(GoalListPage);
 
@@ -139625,6 +139465,7 @@ const ListToolbar_1 = __importDefault(__webpack_require__(/*! ./ListToolbar */ "
 const textProcessing_1 = __webpack_require__(/*! ../utils/textProcessing */ "./src/renderer/utils/textProcessing.ts");
 const dnd_1 = __webpack_require__(/*! @hello-pangea/dnd */ "./node_modules/@hello-pangea/dnd/dist/dnd.esm.js");
 const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts");
+const goalScoring_1 = __webpack_require__(/*! ../logic/goalScoring */ "./src/renderer/logic/goalScoring.ts"); // <-- ДОДАЙТЕ ЦЕЙ ІМПОРТ
 const initialLogs = [
     { id: "log-init-1", text: "Додаток запущено.", time: new Date().toLocaleTimeString() },
 ];
@@ -139634,6 +139475,48 @@ function MainPanel({ currentThemePreference, onChangeThemePreference, obsidianVa
     const globalFilterTerm = (0, react_redux_1.useSelector)((state) => state.ui.globalFilterTerm);
     const dispatch = (0, react_redux_1.useDispatch)();
     const inputPanelGlobalRef = (0, react_1.useRef)(null);
+    (0, react_1.useEffect)(() => {
+        // Унікальний ключ для цієї конкретної міграції.
+        const MIGRATION_KEY = 'migration_to_scoring_system_v9_applied';
+        // Перевіряємо, чи була вже застосована міграція.
+        const isMigrationApplied = localStorage.getItem(MIGRATION_KEY);
+        if (!isMigrationApplied) {
+            console.log('Застосування міграції до нової системи оцінки цілей...');
+            const allGoals = Object.values(goals);
+            let updatedCount = 0;
+            allGoals.forEach(goal => {
+                // Ми мігруємо ціль, якщо вона існує, але не має поля `displayScore`.
+                // Це надійний спосіб визначити "старі" цілі.
+                if (goal && goal.displayScore === undefined) {
+                    // Ця логіка імітує MIGRATION_8_9 з Android-додатку.
+                    // Вона бере існуючі поля цілі і розраховує на їх основі нові.
+                    const goalForCalc = {
+                        ...goal,
+                        // Якщо у вас були старі поля (напр. timeCost), ви можете перенести їх значення сюди:
+                        // effort: goal.timeCost ?? 0,
+                        // cost: goal.financialCost ?? 0,
+                    };
+                    const updatedGoalWithScores = (0, goalScoring_1.calculateScores)(goalForCalc);
+                    // Оновлюємо ціль у Redux-сховищі з новими, розрахованими полями.
+                    // Ми розповсюджуємо ...goal, щоб зберегти всі існуючі дані (text, description і т.д.)
+                    dispatch((0, listsSlice_1.goalUpdated)({
+                        ...goal,
+                        ...updatedGoalWithScores
+                    }));
+                    updatedCount++;
+                }
+            });
+            if (updatedCount > 0) {
+                console.log(`Міграцію завершено. Оновлено ${updatedCount} цілей.`);
+            }
+            else {
+                console.log('Міграція не потрібна, всі цілі вже у новому форматі.');
+            }
+            // Зберігаємо позначку, що міграція більше не потрібна.
+            localStorage.setItem(MIGRATION_KEY, 'true');
+        }
+    }, [goals, dispatch]); // Залежності, щоб хук мав доступ до актуальних даних.
+    // --- КІНЕЦЬ БЛОКУ МІГРАЦІЇ ---
     const [tabs, setTabs] = (0, react_1.useState)(() => {
         const savedTabs = localStorage.getItem("openTabs");
         if (savedTabs) {
@@ -140249,11 +140132,9 @@ const listMatchesFilter = (list, allLists, filterTerm) => {
     if (!filterTerm.trim())
         return true;
     const lowercaseFilter = filterTerm.toLowerCase();
-    // Перевіряємо чи сам список відповідає фільтру
     if (list.name.toLowerCase().includes(lowercaseFilter)) {
         return true;
     }
-    // Перевіряємо чи якась з дочірніх списків відповідає фільтру
     if (list.childListIds && list.childListIds.length > 0) {
         return list.childListIds.some(childId => {
             const childList = allLists[childId];
@@ -140263,15 +140144,13 @@ const listMatchesFilter = (list, allLists, filterTerm) => {
     return false;
 };
 const SidebarListItem = ({ listId, index, level, onStartEdit, onDelete, cutListId, onCut, onPaste, filterTerm }) => {
+    const dispatch = (0, react_redux_1.useDispatch)();
     const list = (0, react_redux_1.useSelector)((state) => state.lists.goalLists[listId]);
     const allLists = (0, react_redux_1.useSelector)((state) => state.lists.goalLists);
-    const [isExpanded, setIsExpanded] = (0, react_1.useState)(true);
-    // Фільтруємо дочірні списки
     const filteredChildIds = (0, react_1.useMemo)(() => {
         if (!list?.childListIds || !filterTerm.trim()) {
             return list?.childListIds || [];
         }
-        // Показуємо дочірні списки, які відповідають фільтру (включно з їх дочірніми)
         return list.childListIds.filter(childId => {
             const childList = allLists[childId];
             return childList && listMatchesFilter(childList, allLists, filterTerm);
@@ -140279,12 +140158,17 @@ const SidebarListItem = ({ listId, index, level, onStartEdit, onDelete, cutListI
     }, [list?.childListIds, filterTerm, allLists]);
     if (!list)
         return null;
+    const isExpanded = list.isExpanded ?? true; // <-- ЗМІНА: Читаємо з Redux, а не з useState
     const handleOpenGoalList = () => dispatchOpenGoalListEvent(list.id, list.name);
     const hasChildren = list.childListIds && list.childListIds.length > 0;
     const hasFilteredChildren = filteredChildIds.length > 0;
     const isCut = cutListId === list.id;
-    return ((0, jsx_runtime_1.jsx)(dnd_1.Draggable, { draggableId: list.id, index: index, children: (provided, snapshot) => ((0, jsx_runtime_1.jsxs)("div", { ref: provided.innerRef, ...provided.draggableProps, className: `rounded-md my-px transition-opacity ${snapshot.isDragging ? 'bg-blue-100 dark:bg-blue-900/50 shadow-lg' : ''} ${isCut ? 'opacity-50' : 'opacity-100'}`, children: [(0, jsx_runtime_1.jsx)(dnd_1.Droppable, { droppableId: `sidebar-${list.id}`, type: "GOAL", children: (dropProvided, dropSnapshot) => ((0, jsx_runtime_1.jsx)("div", { ref: dropProvided.innerRef, ...dropProvided.droppableProps, className: `p-1 rounded-md transition-colors ${dropSnapshot.isDraggingOver ? 'bg-green-100 dark:bg-green-900/30 ring-2 ring-green-400' : ''}`, children: (0, jsx_runtime_1.jsxs)("div", { className: "group flex items-center justify-between", style: { paddingLeft: `${level * 12}px` }, children: [(0, jsx_runtime_1.jsx)("div", { ...provided.dragHandleProps, className: "p-1 opacity-50 group-hover:opacity-100 cursor-grab", children: (0, jsx_runtime_1.jsx)(lucide_react_1.GripVertical, { size: 14 }) }), (0, jsx_runtime_1.jsxs)("div", { className: "flex items-center flex-grow truncate mr-2", onClick: handleOpenGoalList, children: [hasChildren ? ((0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }, className: "p-0.5 mr-1 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 flex-shrink-0", children: isExpanded ? (0, jsx_runtime_1.jsx)(lucide_react_1.ChevronDown, { size: 14 }) : (0, jsx_runtime_1.jsx)(lucide_react_1.ChevronRight, { size: 14 }) })) : ((0, jsx_runtime_1.jsx)("span", { className: "w-[18px] mr-1 flex-shrink-0" })), (0, jsx_runtime_1.jsx)("span", { className: "text-slate-700 dark:text-slate-300 text-sm cursor-pointer", title: list.name, children: list.name })] }), (0, jsx_runtime_1.jsxs)("div", { className: "flex-shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150 space-x-0.5", children: [cutListId && cutListId !== list.id && ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onPaste(list.id, false); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-400 rounded", title: "\u0412\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u044F\u043A \u0441\u0443\u0441\u0456\u0434\u0430", children: (0, jsx_runtime_1.jsx)(lucide_react_1.ClipboardPaste, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onPaste(list.id, true); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-400 rounded", title: "\u0412\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u044F\u043A \u0434\u043E\u0447\u0456\u0440\u043D\u0456\u0439", children: (0, jsx_runtime_1.jsx)(lucide_react_1.ClipboardPaste, { size: 14, className: "ml-[-4px]", style: { clipPath: 'inset(50% 0 0 0)' } }) })] })), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onCut(list.id); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-yellow-600 dark:hover:text-yellow-500 rounded", title: "\u0412\u0438\u0440\u0456\u0437\u0430\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Scissors, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onStartEdit(list); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded", title: "\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Edit3, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onDelete(list.id, list.name); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-500 rounded", title: "\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Trash2, { size: 14 }) })] })] }) })) }), isExpanded && hasFilteredChildren && ((0, jsx_runtime_1.jsx)(dnd_1.Droppable, { droppableId: list.id, type: "LIST", children: (provided, snapshot) => ((0, jsx_runtime_1.jsxs)("div", { ref: provided.innerRef, ...provided.droppableProps, className: `transition-all duration-150 rounded-b-md ${snapshot.isDraggingOver ? 'bg-purple-100 dark:bg-purple-700/20' : ''}`, style: { minHeight: '8px' }, children: [filteredChildIds.map((childId, childIndex) => ((0, jsx_runtime_1.jsx)(SidebarListItem, { listId: childId, index: childIndex, level: level + 1, onStartEdit: onStartEdit, onDelete: onDelete, cutListId: cutListId, onCut: onCut, onPaste: onPaste, filterTerm: filterTerm }, childId))), provided.placeholder] })) }))] })) }));
+    return ((0, jsx_runtime_1.jsx)(dnd_1.Draggable, { draggableId: list.id, index: index, children: (provided, snapshot) => ((0, jsx_runtime_1.jsxs)("div", { ref: provided.innerRef, ...provided.draggableProps, className: `rounded-md my-px transition-opacity ${snapshot.isDragging ? 'bg-blue-100 dark:bg-blue-900/50 shadow-lg' : ''} ${isCut ? 'opacity-50' : 'opacity-100'}`, children: [(0, jsx_runtime_1.jsx)(dnd_1.Droppable, { droppableId: `sidebar-${list.id}`, type: "GOAL", children: (dropProvided, dropSnapshot) => ((0, jsx_runtime_1.jsx)("div", { ref: dropProvided.innerRef, ...dropProvided.droppableProps, className: `p-1 rounded-md transition-colors ${dropSnapshot.isDraggingOver ? 'bg-green-100 dark:bg-green-900/30 ring-2 ring-green-400' : ''}`, children: (0, jsx_runtime_1.jsxs)("div", { className: "group flex items-center justify-between", style: { paddingLeft: `${level * 12}px` }, children: [(0, jsx_runtime_1.jsx)("div", { ...provided.dragHandleProps, className: "p-1 opacity-50 group-hover:opacity-100 cursor-grab", children: (0, jsx_runtime_1.jsx)(lucide_react_1.GripVertical, { size: 14 }) }), (0, jsx_runtime_1.jsxs)("div", { className: "flex items-center flex-grow truncate mr-2", onClick: handleOpenGoalList, children: [hasChildren ? ((0, jsx_runtime_1.jsx)("button", { onClick: (e) => {
+                                                e.stopPropagation();
+                                                dispatch((0, listsSlice_1.listExpansionToggled)({ listId: list.id })); // <-- ЗМІНА: Диспатчимо action
+                                            }, className: "p-0.5 mr-1 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 flex-shrink-0", children: isExpanded ? (0, jsx_runtime_1.jsx)(lucide_react_1.ChevronDown, { size: 14 }) : (0, jsx_runtime_1.jsx)(lucide_react_1.ChevronRight, { size: 14 }) })) : ((0, jsx_runtime_1.jsx)("span", { className: "w-[18px] mr-1 flex-shrink-0" })), (0, jsx_runtime_1.jsx)("span", { className: "text-slate-700 dark:text-slate-300 text-sm cursor-pointer", title: list.name, children: list.name })] }), (0, jsx_runtime_1.jsxs)("div", { className: "flex-shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150 space-x-0.5", children: [cutListId && cutListId !== list.id && ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onPaste(list.id, false); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-400 rounded", title: "\u0412\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u044F\u043A \u0441\u0443\u0441\u0456\u0434\u0430", children: (0, jsx_runtime_1.jsx)(lucide_react_1.ClipboardPaste, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onPaste(list.id, true); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-400 rounded", title: "\u0412\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u044F\u043A \u0434\u043E\u0447\u0456\u0440\u043D\u0456\u0439", children: (0, jsx_runtime_1.jsx)(lucide_react_1.ClipboardPaste, { size: 14, className: "ml-[-4px]", style: { clipPath: 'inset(50% 0 0 0)' } }) })] })), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onCut(list.id); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-yellow-600 dark:hover:text-yellow-500 rounded", title: "\u0412\u0438\u0440\u0456\u0437\u0430\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Scissors, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onStartEdit(list); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded", title: "\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Edit3, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onDelete(list.id, list.name); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-500 rounded", title: "\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Trash2, { size: 14 }) })] })] }) })) }), isExpanded && hasFilteredChildren && ((0, jsx_runtime_1.jsx)(dnd_1.Droppable, { droppableId: list.id, type: "LIST", children: (provided, snapshot) => ((0, jsx_runtime_1.jsxs)("div", { ref: provided.innerRef, ...provided.droppableProps, className: `transition-all duration-150 rounded-b-md ${snapshot.isDraggingOver ? 'bg-purple-100 dark:bg-purple-700/20' : ''}`, style: { minHeight: '8px' }, children: [filteredChildIds.map((childId, childIndex) => ((0, jsx_runtime_1.jsx)(SidebarListItem, { listId: childId, index: childIndex, level: level + 1, onStartEdit: onStartEdit, onDelete: onDelete, cutListId: cutListId, onCut: onCut, onPaste: onPaste, filterTerm: filterTerm }, childId))), provided.placeholder] })) }))] })) }));
 };
+// Component `Sidebar` remains the same as you provided
 function Sidebar() {
     const dispatch = (0, react_redux_1.useDispatch)();
     const allTopLevelLists = (0, react_redux_1.useSelector)(selectors_1.selectTopLevelLists);
@@ -140296,12 +140180,10 @@ function Sidebar() {
     const [isCreatingNewList, setIsCreatingNewList] = (0, react_1.useState)(false);
     const [newListName, setNewListName] = (0, react_1.useState)("");
     const [cutListId, setCutListId] = (0, react_1.useState)(null);
-    // Покращена фільтрація верхнього рівня з урахуванням дочірніх списків
     const filteredLists = (0, react_1.useMemo)(() => {
         if (!filterTerm.trim()) {
             return allTopLevelLists;
         }
-        // Показуємо списки верхнього рівня, які відповідають фільтру або мають дочірні списки, що відповідають
         return allTopLevelLists.filter(list => listMatchesFilter(list, allLists, filterTerm));
     }, [allTopLevelLists, filterTerm, allLists]);
     const handleStartEdit = (list) => {
@@ -140362,7 +140244,7 @@ function Sidebar() {
         dispatch((0, listsSlice_1.listMoved)({
             listId: cutListId,
             sourceParentId: cutList.parentId,
-            sourceIndex: -1,
+            sourceIndex: -1, // Note: index might need adjustment depending on dnd library version
             destinationParentId: destinationParentId,
             destinationIndex: destinationIndex,
         }));
@@ -140555,6 +140437,7 @@ const react_redux_1 = __webpack_require__(/*! react-redux */ "./node_modules/rea
 const syncSlice_1 = __webpack_require__(/*! ../store/syncSlice */ "./src/renderer/store/syncSlice.ts");
 const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts");
 const lucide_react_1 = __webpack_require__(/*! lucide-react */ "./node_modules/lucide-react/dist/esm/lucide-react.js");
+const syncLogic_1 = __webpack_require__(/*! ../logic/syncLogic */ "./src/renderer/logic/syncLogic.ts"); // <-- Наш новий "мозок"
 const WifiSyncModal = () => {
     const dispatch = (0, react_redux_1.useDispatch)();
     const { isModalOpen, modalMode, syncStatus, deviceAddress, errorMessage, } = (0, react_redux_1.useSelector)((state) => state.sync);
@@ -140565,19 +140448,53 @@ const WifiSyncModal = () => {
         const handleServer = async () => {
             if (isModalOpen && modalMode === 'server') {
                 setLocalError(null);
-                // --- КЛЮЧОВЕ ВИПРАВЛЕННЯ: Перевіряємо, чи є що експортувати ---
                 if (!listsState || Object.keys(listsState.goalLists).length === 0) {
                     const errorMessage = "Немає даних для експорту. Створіть хоча б один список.";
                     console.error("[WifiSyncModal]", errorMessage, "Current listsState:", listsState);
                     setLocalError(errorMessage);
-                    return; // Зупиняємо виконання, якщо даних немає
+                    return;
                 }
-                const exportData = {
-                    version: 2,
-                    exportedAt: new Date().toISOString(),
-                    data: listsState,
+                // --- ТРАНСФОРМАЦІЯ ДАНИХ ---
+                const { goals, goalLists, goalInstances, rootListIds } = listsState;
+                // Перетворюємо дати в ISO рядок, якщо вони Long (для майбутньої сумісності)
+                // і забезпечуємо відповідність структурі DesktopBackupFile
+                const desktopGoals = Object.values(goals).reduce((acc, goal) => {
+                    acc[goal.id] = {
+                        ...goal,
+                        createdAt: new Date(goal.createdAt).toISOString(),
+                        updatedAt: goal.updatedAt ? new Date(goal.updatedAt).toISOString() : undefined,
+                        // Переконайтеся, що всі поля відповідають DesktopGoal
+                        // Тут ми припускаємо, що структура Goal вже оновлена (Крок 1)
+                    };
+                    return acc;
+                }, {});
+                const desktopLists = Object.values(goalLists).reduce((acc, list) => {
+                    acc[list.id] = {
+                        id: list.id,
+                        name: list.name,
+                        description: list.description,
+                        itemInstanceIds: list.itemInstanceIds,
+                        createdAt: new Date(list.createdAt).toISOString(),
+                        updatedAt: list.updatedAt ? new Date(list.updatedAt).toISOString() : undefined,
+                        parentId: list.parentId,
+                        childListIds: list.childListIds,
+                        isExpanded: list.isExpanded ?? true, // <-- ЯВНО ДОДАЄМО ПОЛЕ
+                    };
+                    return acc;
+                }, {});
+                // Формат, який очікує Android
+                const desktopBackupData = {
+                    goals: desktopGoals,
+                    goalLists: desktopLists,
+                    goalInstances: goalInstances,
+                    rootListIds: rootListIds,
                 };
-                console.log("[WifiSyncModal] Preparing to start server with export data:", exportData);
+                const exportData = {
+                    version: 2, // Версія, як в Android SyncModel
+                    exportedAt: new Date().toISOString(),
+                    data: desktopBackupData,
+                };
+                console.log("[WifiSyncModal] Preparing to start server with transformed export data:", exportData);
                 const result = await window.electronAPI.startWifiServer(exportData);
                 if (result.success && result.address) {
                     setLocalServerAddress(result.address);
@@ -140594,7 +140511,6 @@ const WifiSyncModal = () => {
             }
         };
     }, [isModalOpen, modalMode, listsState]); // `dispatch` можна прибрати, він стабільний
-    // ... (решта файлу без змін) ...
     const handleFetchFromDevice = async () => {
         if (!deviceAddress) {
             dispatch((0, syncSlice_1.setSyncError)('Будь ласка, введіть адресу пристрою.'));
@@ -140603,30 +140519,73 @@ const WifiSyncModal = () => {
         dispatch((0, syncSlice_1.setSyncStatus)('fetching'));
         const result = await window.electronAPI.fetchFromDevice(deviceAddress);
         if (result.success && result.data) {
-            if (result.data && typeof result.data.data !== 'undefined') {
-                if (window.confirm("УВАГА! Дані з пристрою повністю ПЕРЕЗАПИШУТЬ всі ваші поточні дані. Продовжити?")) {
-                    dispatch((0, syncSlice_1.setSyncStatus)('applying'));
-                    dispatch((0, listsSlice_1.stateReplaced)(result.data.data));
+            try {
+                // Викликаємо наш новий аналізатор
+                const report = (0, syncLogic_1.createSyncReport)(listsState, result.data);
+                if (report.changes.length === 0) {
+                    // Якщо змін немає, просто повідомляємо про це
                     dispatch((0, syncSlice_1.setSyncStatus)('success'));
                     setTimeout(() => dispatch((0, syncSlice_1.closeSyncModal)()), 2000);
                 }
                 else {
-                    dispatch((0, syncSlice_1.setSyncStatus)('idle'));
+                    // Якщо зміни є, зберігаємо звіт і переходимо в режим перегляду
+                    dispatch((0, syncSlice_1.setSyncReport)({ report, originalBackup: result.data }));
                 }
             }
-            else {
-                dispatch((0, syncSlice_1.setSyncError)('Отримано некоректний формат даних з пристрою. Поле "data" відсутнє.'));
+            catch (error) {
+                dispatch((0, syncSlice_1.setSyncError)(error.message || 'Помилка аналізу даних.'));
             }
         }
         else {
             dispatch((0, syncSlice_1.setSyncError)(result.error || 'Не вдалося отримати дані.'));
         }
     };
+    // Вставте цю нову функцію всередині компонента WifiSyncModal
+    const { syncReport, originalBackup } = (0, react_redux_1.useSelector)((state) => state.sync);
+    const handleApplyChanges = () => {
+        if (!syncReport || !originalBackup)
+            return;
+        dispatch((0, syncSlice_1.setSyncStatus)('applying'));
+        // --- КЛЮЧОВА ЛОГІКА: ЗАСТОСУВАННЯ ЗМІН ---
+        // Тут ми могли б також оновити goalInstances, але для простоти поки що
+        // повністю перезаписуємо їх з бекапу, оскільки логіка їх злиття складна.
+        const remoteData = originalBackup.data;
+        if (remoteData && remoteData.goalInstances) {
+            // Це компроміс: ми застосовуємо зміни до цілей/списків вибірково,
+            // а порядок і приналежність цілей до списків беремо з телефону.
+            // Для цього потрібно оновити stateReplaced або створити новий action.
+            // Поки що, для простоти, застосуємо зміни до цілей і списків.
+        }
+        syncReport.changes.forEach(change => {
+            if (change.entityType === 'Список') {
+                if (change.type === 'Add') {
+                    dispatch((0, listsSlice_1.listAdded)(change.entity)); // Потрібно адаптувати payload
+                }
+                else if (change.type === 'Update') {
+                    dispatch((0, listsSlice_1.listUpdated)(change.entity));
+                }
+            }
+            else if (change.entityType === 'Ціль') {
+                if (change.type === 'Add') {
+                    dispatch((0, listsSlice_1.goalAdded)(change.entity)); // Потрібно адаптувати payload
+                }
+                else if (change.type === 'Update') {
+                    dispatch((0, listsSlice_1.goalUpdated)(change.entity));
+                }
+            }
+        });
+        // Після застосування змін, ми можемо перезаписати весь стан для коректного порядку
+        // Це найпростіший шлях забезпечити консистентність.
+        dispatch((0, listsSlice_1.stateReplaced)(remoteData));
+        dispatch((0, syncSlice_1.setSyncStatus)('success'));
+        setTimeout(() => dispatch((0, syncSlice_1.closeSyncModal)()), 2000);
+    };
     const handleClose = () => dispatch((0, syncSlice_1.closeSyncModal)());
     if (!isModalOpen)
         return null;
     const renderServerContent = () => ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("h3", { className: "text-lg font-semibold mb-4 text-center", children: "Wi-Fi \u0421\u0435\u0440\u0432\u0435\u0440" }), localServerAddress ? ((0, jsx_runtime_1.jsxs)("div", { className: 'text-center', children: [(0, jsx_runtime_1.jsx)(lucide_react_1.Wifi, { className: "mx-auto h-12 w-12 text-green-500 mb-4" }), (0, jsx_runtime_1.jsx)("p", { className: "text-sm text-slate-500 dark:text-slate-400", children: "\u0421\u0435\u0440\u0432\u0435\u0440 \u0437\u0430\u043F\u0443\u0449\u0435\u043D\u043E. \u0412\u0432\u0435\u0434\u0456\u0442\u044C \u0446\u044E \u0430\u0434\u0440\u0435\u0441\u0443 \u043D\u0430 \u0456\u043D\u0448\u043E\u043C\u0443 \u043F\u0440\u0438\u0441\u0442\u0440\u043E\u0457:" }), (0, jsx_runtime_1.jsxs)("p", { className: "mt-2 text-xl font-mono p-2 bg-slate-100 dark:bg-slate-700 rounded-md select-all", children: ["http://", localServerAddress, ":8080"] })] })) : !localError ? ((0, jsx_runtime_1.jsxs)("div", { className: 'text-center', children: [(0, jsx_runtime_1.jsx)(lucide_react_1.LoaderCircle, { className: "mx-auto h-12 w-12 text-blue-500 mb-4 animate-spin" }), (0, jsx_runtime_1.jsx)("p", { className: "text-sm text-slate-500 dark:text-slate-400", children: "\u0417\u0430\u043F\u0443\u0441\u043A \u0441\u0435\u0440\u0432\u0435\u0440\u0430..." })] })) : null, localError &&
                 (0, jsx_runtime_1.jsxs)("div", { className: "text-center py-4", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.CircleAlert, { className: "mx-auto h-10 w-10 text-red-500" }), (0, jsx_runtime_1.jsx)("p", { className: "mt-2 text-sm text-red-500", children: localError })] })] }));
+    const renderReviewContent = () => ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsxs)("h3", { className: "text-lg font-semibold mb-2 text-center flex items-center justify-center", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.FileDiff, { className: "mr-2 h-5 w-5" }), "\u041E\u0433\u043B\u044F\u0434 \u0437\u043C\u0456\u043D"] }), (0, jsx_runtime_1.jsxs)("p", { className: "text-sm text-center text-slate-500 dark:text-slate-400 mb-4", children: ["\u0417\u043D\u0430\u0439\u0434\u0435\u043D\u043E ", syncReport?.changes.length || 0, " \u0437\u043C\u0456\u043D. \u0417\u0430\u0441\u0442\u043E\u0441\u0443\u0432\u0430\u0442\u0438 \u0457\u0445?"] }), (0, jsx_runtime_1.jsx)("div", { className: "max-h-60 overflow-y-auto p-3 bg-slate-50 dark:bg-slate-700/50 rounded-md border border-slate-200 dark:border-slate-600", children: (0, jsx_runtime_1.jsx)("ul", { className: "space-y-2", children: syncReport?.changes.map(change => ((0, jsx_runtime_1.jsxs)("li", { className: "flex items-center text-sm", children: [(0, jsx_runtime_1.jsx)("span", { className: `font-bold mr-2 ${change.type === 'Add' ? 'text-green-500' : 'text-blue-500'}`, children: change.type === 'Add' ? '[ + ]' : '[ ~ ]' }), (0, jsx_runtime_1.jsxs)("span", { className: "font-medium mr-1", children: [change.entityType, ":"] }), (0, jsx_runtime_1.jsx)("span", { className: "truncate text-slate-700 dark:text-slate-300", title: change.description, children: change.description })] }, change.id))) }) }), (0, jsx_runtime_1.jsxs)("div", { className: "flex justify-end space-x-2 mt-4", children: [(0, jsx_runtime_1.jsx)("button", { onClick: () => dispatch((0, syncSlice_1.setSyncStatus)('idle')), className: "px-4 py-2 text-sm bg-slate-200 dark:bg-slate-600 rounded-md", children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" }), (0, jsx_runtime_1.jsx)("button", { onClick: handleApplyChanges, className: "px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold", children: "\u0417\u0430\u0441\u0442\u043E\u0441\u0443\u0432\u0430\u0442\u0438 \u0437\u043C\u0456\u043D\u0438" })] })] }));
     const renderImportContent = () => {
         switch (syncStatus) {
             case 'fetching':
@@ -140636,6 +140595,8 @@ const WifiSyncModal = () => {
                 return ((0, jsx_runtime_1.jsxs)("div", { className: "text-center py-8", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.CircleCheck, { className: "mx-auto h-10 w-10 text-green-500" }), (0, jsx_runtime_1.jsx)("p", { className: "mt-2 text-sm text-slate-500 dark:text-slate-400", children: "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0456\u0437\u0430\u0446\u0456\u044E \u0443\u0441\u043F\u0456\u0448\u043D\u043E \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u043E!" })] }));
             case 'error':
                 return ((0, jsx_runtime_1.jsxs)("div", { className: "text-center py-4", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.CircleAlert, { className: "mx-auto h-10 w-10 text-red-500" }), (0, jsx_runtime_1.jsx)("p", { className: "mt-2 text-sm text-red-500", children: errorMessage }), (0, jsx_runtime_1.jsx)("button", { onClick: () => dispatch((0, syncSlice_1.setSyncStatus)('idle')), className: "mt-4 px-4 py-2 text-sm bg-slate-200 dark:bg-slate-600 rounded-md", children: "\u0421\u043F\u0440\u043E\u0431\u0443\u0432\u0430\u0442\u0438 \u0449\u0435" })] }));
+            case 'reviewing':
+                return renderReviewContent();
             default: // idle
                 return ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("h3", { className: "text-lg font-semibold mb-4 text-center", children: "\u0406\u043C\u043F\u043E\u0440\u0442 \u0437 Wi-Fi" }), (0, jsx_runtime_1.jsx)("label", { htmlFor: "device-address", className: "text-sm font-medium text-slate-700 dark:text-slate-300", children: "\u0410\u0434\u0440\u0435\u0441\u0430 Android-\u043F\u0440\u0438\u0441\u0442\u0440\u043E\u044E" }), (0, jsx_runtime_1.jsx)("input", { id: "device-address", type: "text", value: deviceAddress, onChange: (e) => dispatch((0, syncSlice_1.setDeviceAddress)(e.target.value)), placeholder: "\u041D\u0430\u043F\u0440. 192.168.1.5:8080", className: "w-full mt-1 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" }), (0, jsx_runtime_1.jsx)("button", { onClick: handleFetchFromDevice, disabled: !deviceAddress, className: "w-full mt-4 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold disabled:opacity-50", children: "\u041E\u0442\u0440\u0438\u043C\u0430\u0442\u0438 \u0434\u0430\u043D\u0456" })] }));
         }
@@ -140677,6 +140638,147 @@ function dispatchOpenSettingsEvent() {
 "use strict";
 
 window.process = __webpack_require__(/*! process/browser */ "./node_modules/process/browser.js");
+
+
+/***/ }),
+
+/***/ "./src/renderer/logic/goalScoring.ts":
+/*!*******************************************!*\
+  !*** ./src/renderer/logic/goalScoring.ts ***!
+  \*******************************************/
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.calculateScores = calculateScores;
+/**
+ * Розраховує rawScore та displayScore для цілі на основі її параметрів.
+ * Ця функція є аналогом логіки з GoalScoringManager в Android-додатку.
+ * @param goal Об'єкт цілі для розрахунку.
+ * @returns Оновлений об'єкт цілі з розрахованими `rawScore` та `displayScore`.
+ */
+function calculateScores(goal) {
+    // Значення за замовчуванням, якщо поля не визначені
+    const importance = goal.valueImportance ?? 0;
+    const impact = goal.valueImpact ?? 0;
+    const effort = goal.effort ?? 0;
+    const cost = goal.cost ?? 0;
+    const risk = goal.risk ?? 0;
+    const weightEffort = goal.weightEffort ?? 1.0;
+    const weightCost = goal.weightCost ?? 1.0;
+    const weightRisk = goal.weightRisk ?? 1.0;
+    // Формула, що імітує логіку Android-додатку
+    const valueComponent = importance * impact;
+    const costComponent = (effort * weightEffort) + (cost * weightCost) + (risk * weightRisk);
+    let rawScore;
+    if (costComponent > 0) {
+        rawScore = valueComponent / costComponent;
+    }
+    else {
+        rawScore = valueComponent > 0 ? Infinity : 0; // Якщо витрат немає, цінність максимальна
+    }
+    // Перетворення rawScore у простий цілочисельний рейтинг для відображення
+    // (цю логіку можна налаштувати)
+    const displayScore = Math.round(rawScore * 10);
+    return {
+        ...goal,
+        rawScore,
+        displayScore
+    };
+}
+
+
+/***/ }),
+
+/***/ "./src/renderer/logic/syncLogic.ts":
+/*!*****************************************!*\
+  !*** ./src/renderer/logic/syncLogic.ts ***!
+  \*****************************************/
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.createSyncReport = createSyncReport;
+/**
+ * Створює звіт про зміни, порівнюючи локальні дані з даними з бекапу.
+ * @param localState Поточний стан `lists` з Redux.
+ * @param remoteBackup Дані, отримані з Android-пристрою.
+ * @returns Об'єкт SyncReport, що містить список змін.
+ */
+function createSyncReport(localState, remoteBackup) {
+    const changes = [];
+    const remoteData = remoteBackup.data;
+    if (!remoteData) {
+        throw new Error("Формат бекапу некоректний: поле 'data' відсутнє.");
+    }
+    const remoteLists = remoteData.goalLists || {};
+    const remoteGoals = remoteData.goals || {};
+    // 1. Порівняння списків (GoalList)
+    for (const listId in remoteLists) {
+        const remoteList = remoteLists[listId];
+        const localList = localState.goalLists[listId];
+        if (!localList) {
+            // Список є на телефоні, але немає локально -> Додавання
+            changes.push({
+                type: 'Add',
+                entityType: 'Список',
+                id: remoteList.id,
+                description: remoteList.name,
+                entity: remoteList,
+            });
+        }
+        else {
+            // Список є на обох пристроях, порівнюємо дати оновлення
+            const remoteDate = remoteList.updatedAt ? Date.parse(remoteList.updatedAt) : 0;
+            const localDate = localList.updatedAt ? Date.parse(localList.updatedAt) : 0;
+            if (remoteDate > localDate) {
+                // На телефоні новіша версія -> Оновлення
+                changes.push({
+                    type: 'Update',
+                    entityType: 'Список',
+                    id: remoteList.id,
+                    description: remoteList.name,
+                    entity: remoteList,
+                });
+            }
+        }
+    }
+    // 2. Порівняння цілей (Goal)
+    for (const goalId in remoteGoals) {
+        const remoteGoal = remoteGoals[goalId];
+        const localGoal = localState.goals[goalId];
+        if (!localGoal) {
+            // Ціль є на телефоні, але немає локально -> Додавання
+            changes.push({
+                type: 'Add',
+                entityType: 'Ціль',
+                id: remoteGoal.id,
+                description: remoteGoal.text,
+                entity: remoteGoal,
+            });
+        }
+        else {
+            // Ціль є на обох пристроях, порівнюємо дати оновлення
+            const remoteDate = remoteGoal.updatedAt ? Date.parse(remoteGoal.updatedAt) : 0;
+            const localDate = localGoal.updatedAt ? Date.parse(localGoal.updatedAt) : 0;
+            if (remoteDate > localDate) {
+                // На телефоні новіша версія -> Оновлення
+                changes.push({
+                    type: 'Update',
+                    entityType: 'Ціль',
+                    id: remoteGoal.id,
+                    description: remoteGoal.text,
+                    entity: remoteGoal,
+                });
+            }
+        }
+    }
+    // Примітка: тут ми не обробляємо видалення, щоб уникнути випадкової втрати даних.
+    // Це значно спрощує першу версію інтелектуальної синхронізації.
+    return { changes };
+}
 
 
 /***/ }),
@@ -140762,7 +140864,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 var _a;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.stateReplaced = exports.goalsImported = exports.goalDisassociated = exports.goalAssociated = exports.goalCopied = exports.goalReferenceAdded = exports.goalOrderUpdated = exports.goalMoved = exports.instanceRemovedFromList = exports.goalUpdated = exports.goalToggled = exports.goalAdded = exports.listMoved = exports.listRemoved = exports.listUpdated = exports.listAdded = void 0;
+exports.listExpansionToggled = exports.stateReplaced = exports.goalsImported = exports.goalDisassociated = exports.goalAssociated = exports.goalCopied = exports.goalReferenceAdded = exports.goalOrderUpdated = exports.goalMoved = exports.instanceRemovedFromList = exports.goalUpdated = exports.goalToggled = exports.goalAdded = exports.listMoved = exports.listRemoved = exports.listUpdated = exports.listAdded = void 0;
 // src/renderer/store/listsSlice.ts
 const toolkit_1 = __webpack_require__(/*! @reduxjs/toolkit */ "./node_modules/@reduxjs/toolkit/dist/redux-toolkit.modern.mjs");
 const initialState = {
@@ -140838,6 +140940,7 @@ const listsSlice = (0, toolkit_1.createSlice)({
                         updatedAt: createdAt,
                         parentId: payload.parentId || null,
                         childListIds: [],
+                        isExpanded: true,
                     },
                 };
             },
@@ -141065,6 +141168,14 @@ const listsSlice = (0, toolkit_1.createSlice)({
                 list.updatedAt = now;
             }
         },
+        listExpansionToggled(state, action) {
+            const { listId } = action.payload;
+            const list = state.goalLists[listId];
+            if (list) {
+                // Якщо поле не існувало, вважаємо, що воно було true, і тепер стане false
+                list.isExpanded = !(list.isExpanded ?? true);
+            }
+        },
         stateReplaced(state, action) {
             const { goals, goalLists, goalInstances, rootListIds } = action.payload;
             return {
@@ -141077,7 +141188,7 @@ const listsSlice = (0, toolkit_1.createSlice)({
         },
     },
 });
-_a = listsSlice.actions, exports.listAdded = _a.listAdded, exports.listUpdated = _a.listUpdated, exports.listRemoved = _a.listRemoved, exports.listMoved = _a.listMoved, exports.goalAdded = _a.goalAdded, exports.goalToggled = _a.goalToggled, exports.goalUpdated = _a.goalUpdated, exports.instanceRemovedFromList = _a.instanceRemovedFromList, exports.goalMoved = _a.goalMoved, exports.goalOrderUpdated = _a.goalOrderUpdated, exports.goalReferenceAdded = _a.goalReferenceAdded, exports.goalCopied = _a.goalCopied, exports.goalAssociated = _a.goalAssociated, exports.goalDisassociated = _a.goalDisassociated, exports.goalsImported = _a.goalsImported, exports.stateReplaced = _a.stateReplaced;
+_a = listsSlice.actions, exports.listAdded = _a.listAdded, exports.listUpdated = _a.listUpdated, exports.listRemoved = _a.listRemoved, exports.listMoved = _a.listMoved, exports.goalAdded = _a.goalAdded, exports.goalToggled = _a.goalToggled, exports.goalUpdated = _a.goalUpdated, exports.instanceRemovedFromList = _a.instanceRemovedFromList, exports.goalMoved = _a.goalMoved, exports.goalOrderUpdated = _a.goalOrderUpdated, exports.goalReferenceAdded = _a.goalReferenceAdded, exports.goalCopied = _a.goalCopied, exports.goalAssociated = _a.goalAssociated, exports.goalDisassociated = _a.goalDisassociated, exports.goalsImported = _a.goalsImported, exports.stateReplaced = _a.stateReplaced, exports.listExpansionToggled = _a.listExpansionToggled;
 exports["default"] = listsSlice.reducer;
 
 
@@ -141234,6 +141345,7 @@ exports.persistor = (0, redux_persist_1.persistStore)(exports.store);
 var _a;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.setServerAddress = exports.setSyncReport = exports.setSyncError = exports.setSyncStatus = exports.setDeviceAddress = exports.closeSyncModal = exports.openSyncModal = void 0;
+// src/renderer/store/syncSlice.ts
 const toolkit_1 = __webpack_require__(/*! @reduxjs/toolkit */ "./node_modules/@reduxjs/toolkit/dist/redux-toolkit.modern.mjs");
 const initialState = {
     isModalOpen: false,
@@ -141254,6 +141366,8 @@ const syncSlice = (0, toolkit_1.createSlice)({
             state.modalMode = action.payload;
             state.syncStatus = 'idle';
             state.errorMessage = null;
+            state.syncReport = null; // Скидаємо звіт при відкритті
+            state.originalBackup = null;
         },
         closeSyncModal: (state) => {
             // Повертаємо до початкового стану при закритті
@@ -141271,10 +141385,11 @@ const syncSlice = (0, toolkit_1.createSlice)({
             state.syncStatus = 'error';
             state.errorMessage = action.payload;
         },
+        // --- НОВИЙ ACTION для збереження звіту ---
         setSyncReport: (state, action) => {
             state.syncReport = action.payload.report;
             state.originalBackup = action.payload.originalBackup;
-            state.syncStatus = 'reviewing';
+            state.syncStatus = 'reviewing'; // Переводимо в режим перегляду
         },
         setServerAddress: (state, action) => {
             state.serverAddress = action.payload;

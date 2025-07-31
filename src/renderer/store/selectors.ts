@@ -6,25 +6,31 @@ import type { Goal, GoalInstance, GoalList } from "../types";
 // --- BASE SELECTORS ---
 const selectListsSlice = (state: RootState) => state.lists;
 const selectAllGoalLists = createSelector([selectListsSlice], (lists) => lists.goalLists);
-const selectRootListIds = createSelector([selectListsSlice], (lists) => lists.rootListIds);
 const selectGoals = createSelector([selectListsSlice], (lists) => lists.goals);
 const selectGoalInstances = createSelector([selectListsSlice], (lists) => lists.goalInstances);
 const selectListId = (_state: RootState, listId: string) => listId;
+const selectParentId = (_state: RootState, parentId: string | null) => parentId;
 
 // --- HIERARCHY SELECTORS ---
 export const selectTopLevelLists = createSelector(
-  [selectAllGoalLists, selectRootListIds],
-  (allLists, rootIds) => {
-    if (!Array.isArray(rootIds)) {
-        // Fallback for older states or during loading
-        const allChildIds = new Set(Object.values(allLists).flatMap(l => l.childListIds || []));
-        return Object.values(allLists).filter(l => !allChildIds.has(l.id) && (!l.parentId || !allLists[l.parentId]));
-    }
-    return rootIds.map(id => allLists[id]).filter(Boolean);
+  [selectAllGoalLists],
+  (allLists) => {
+    return Object.values(allLists)
+      .filter(list => list.parentId === null)
+      .sort((a, b) => a.order - b.order);
   }
 );
 
-// --- ORIGINAL SELECTORS (RESTORED) ---
+export const makeSelectChildLists = () => createSelector(
+    [selectAllGoalLists, selectParentId],
+    (allLists, parentId) => {
+        return Object.values(allLists)
+            .filter(list => list.parentId === parentId)
+            .sort((a, b) => a.order - b.order);
+    }
+);
+
+// --- ORIGINAL SELECTORS ---
 export const selectAllLists = createSelector([selectAllGoalLists], (goalLists) =>
   Object.values(goalLists),
 );
@@ -54,6 +60,7 @@ export const makeSelectGoalInstancesForList = () => createSelector(
     },
 );
 
+// ✨ ПОВЕРНУТО: Цей селектор потрібен для GoalListPage
 export const makeSelectEnrichedGoalInstances = () => createSelector(
     [makeSelectGoalInstancesForList(), selectAllGoalLists],
     (goalInstancesForList, allGoalLists) => {
@@ -83,6 +90,7 @@ const extractMatchesFromText = (text: string, regex: RegExp): string[] => {
   return Array.from(matches);
 };
 
+// ✨ ПОВЕРНУТО: Селектори для тегів та контекстів
 export const selectAllUniqueTags = createSelector(
   [selectAllGoalsArray],
   (allGoals) => {

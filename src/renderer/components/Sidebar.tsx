@@ -2,12 +2,12 @@
 import React, { useState, useMemo } from "react";
 import { dispatchOpenSettingsEvent } from "../events";
 import type { GoalList } from "../types";
-import { Plus, Edit3, Trash2, Settings, ChevronDown, ChevronRight, GripVertical, Scissors, ClipboardPaste } from "lucide-react";
+import { Plus, Edit3, Trash2, Settings, ChevronDown, ChevronRight, GripVertical, CornerDownRight, Scissors, ClipboardPaste } from "lucide-react";
 import { Droppable, Draggable } from "@hello-pangea/dnd";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "../store/store";
-import { listAdded, listRemoved, listUpdated, listMoved, listExpansionToggled } from "../store/listsSlice";
-import { selectTopLevelLists } from "../store/selectors";
+import { listAdded, listRemoved, listUpdated, listMoved, listExpansionToggled, listsReordered } from "../store/listsSlice";
+import { selectTopLevelLists, makeSelectChildLists } from "../store/selectors";
 import GlobalSearch from "./GlobalSearch";
 
 export const OPEN_GOAL_LIST_EVENT = "app:open-goal-list";
@@ -27,65 +27,53 @@ interface SidebarListItemProps {
   level: number;
   onStartEdit: (list: GoalList) => void;
   onDelete: (id: string, name: string) => void;
+  onAddChild: (parentId: string) => void;
   cutListId: string | null;
   onCut: (id: string) => void;
   onPaste: (targetListId: string, asChild: boolean) => void;
   filterTerm: string;
 }
 
-// Рекурсивна функція для перевірки чи список або його діти відповідають фільтру
 const listMatchesFilter = (list: GoalList, allLists: Record<string, GoalList>, filterTerm: string): boolean => {
   if (!filterTerm.trim()) return true;
-  
   const lowercaseFilter = filterTerm.toLowerCase();
-  
   if (list.name.toLowerCase().includes(lowercaseFilter)) {
     return true;
   }
-  
-  if (list.childListIds && list.childListIds.length > 0) {
-    return list.childListIds.some(childId => {
-      const childList = allLists[childId];
-      return childList && listMatchesFilter(childList, allLists, filterTerm);
-    });
-  }
-  
-  return false;
+  const children = Object.values(allLists).filter(l => l.parentId === list.id);
+  return children.some(childList => listMatchesFilter(childList, allLists, filterTerm));
 };
 
-const SidebarListItem: React.FC<SidebarListItemProps> = ({ 
-  listId, 
-  index, 
-  level, 
-  onStartEdit, 
-  onDelete, 
-  cutListId, 
-  onCut, 
-  onPaste, 
-  filterTerm 
+const SidebarListItem: React.FC<SidebarListItemProps> = ({
+  listId,
+  index,
+  level,
+  onStartEdit,
+  onDelete,
+  onAddChild,
+  cutListId,
+  onCut,
+  onPaste,
+  filterTerm
 }) => {
   const dispatch = useDispatch<AppDispatch>();
   const list = useSelector((state: RootState) => state.lists.goalLists[listId]);
   const allLists = useSelector((state: RootState) => state.lists.goalLists);
 
-  const filteredChildIds = useMemo(() => {
-    if (!list?.childListIds || !filterTerm.trim()) {
-      return list?.childListIds || [];
-    }
-    
-    return list.childListIds.filter(childId => {
-      const childList = allLists[childId];
-      return childList && listMatchesFilter(childList, allLists, filterTerm);
-    });
-  }, [list?.childListIds, filterTerm, allLists]);
+  const selectChildLists = useMemo(makeSelectChildLists, []);
+  const childLists = useSelector((state: RootState) => selectChildLists(state, listId));
+
+  const filteredChildLists = useMemo(() => {
+    if (!filterTerm.trim()) return childLists;
+    return childLists.filter(child => listMatchesFilter(child, allLists, filterTerm));
+  }, [childLists, filterTerm, allLists]);
 
   if (!list) return null;
 
-  const isExpanded = list.isExpanded ?? true; // <-- ЗМІНА: Читаємо з Redux, а не з useState
-
+  const isExpanded = list.isExpanded ?? true;
   const handleOpenGoalList = () => dispatchOpenGoalListEvent(list.id, list.name);
-  const hasChildren = list.childListIds && list.childListIds.length > 0;
-  const hasFilteredChildren = filteredChildIds.length > 0;
+  const hasChildren = childLists.length > 0;
+  const hasFilteredChildren = filteredChildLists.length > 0;
   const isCut = cutListId === list.id;
 
   return (
@@ -96,12 +84,12 @@ const SidebarListItem: React.FC<SidebarListItemProps> = ({
           {...provided.draggableProps}
           className={`rounded-md my-px transition-opacity ${snapshot.isDragging ? 'bg-blue-100 dark:bg-blue-900/50 shadow-lg' : ''} ${isCut ? 'opacity-50' : 'opacity-100'}`}
         >
-          <Droppable droppableId={`sidebar-${list.id}`} type="GOAL">
+          <Droppable droppableId={list.id} type="LIST">
             {(dropProvided, dropSnapshot) => (
               <div
                 ref={dropProvided.innerRef}
                 {...dropProvided.droppableProps}
-                className={`p-1 rounded-md transition-colors ${dropSnapshot.isDraggingOver ? 'bg-green-100 dark:bg-green-900/30 ring-2 ring-green-400' : ''}`}
+                className={`p-1 rounded-md transition-colors ${dropSnapshot.isDraggingOver ? 'bg-purple-100 dark:bg-purple-700/20' : ''}`}
               >
                 <div
                   className="group flex items-center justify-between"
@@ -110,13 +98,12 @@ const SidebarListItem: React.FC<SidebarListItemProps> = ({
                   <div {...provided.dragHandleProps} className="p-1 opacity-50 group-hover:opacity-100 cursor-grab">
                     <GripVertical size={14} />
                   </div>
-
                   <div className="flex items-center flex-grow truncate mr-2" onClick={handleOpenGoalList}>
                     {hasChildren ? (
                       <button
-                        onClick={(e) => { 
-                          e.stopPropagation(); 
-                          dispatch(listExpansionToggled({ listId: list.id })); // <-- ЗМІНА: Диспатчимо action
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          dispatch(listExpansionToggled({ listId: list.id }));
                         }}
                         className="p-0.5 mr-1 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 flex-shrink-0"
                       >
@@ -130,6 +117,7 @@ const SidebarListItem: React.FC<SidebarListItemProps> = ({
                     </span>
                   </div>
                   <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150 space-x-0.5">
+                    {/* ✨ ПОВЕРНУТО: Кнопки "Вирізати" та "Вставити" */}
                     {cutListId && cutListId !== list.id && (
                       <>
                         <button onClick={(e) => { e.stopPropagation(); onPaste(list.id, false); }} className="p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-400 rounded" title="Вставити як сусіда">
@@ -143,6 +131,9 @@ const SidebarListItem: React.FC<SidebarListItemProps> = ({
                     <button onClick={(e) => { e.stopPropagation(); onCut(list.id); }} className="p-1 text-slate-500 dark:text-slate-400 hover:text-yellow-600 dark:hover:text-yellow-500 rounded" title="Вирізати">
                       <Scissors size={14} />
                     </button>
+                    <button onClick={(e) => { e.stopPropagation(); onAddChild(list.id); }} className="p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-500 rounded" title="Створити дочірній список">
+                      <CornerDownRight size={14} />
+                    </button>
                     <button onClick={(e) => { e.stopPropagation(); onStartEdit(list); }} className="p-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded" title="Редагувати">
                       <Edit3 size={14} />
                     </button>
@@ -151,37 +142,29 @@ const SidebarListItem: React.FC<SidebarListItemProps> = ({
                     </button>
                   </div>
                 </div>
+                {dropProvided.placeholder}
               </div>
             )}
           </Droppable>
 
           {isExpanded && hasFilteredChildren && (
-            <Droppable droppableId={list.id} type="LIST">
-              {(provided, snapshot) => (
-                <div
-                  ref={provided.innerRef}
-                  {...provided.droppableProps}
-                  className={`transition-all duration-150 rounded-b-md ${snapshot.isDraggingOver ? 'bg-purple-100 dark:bg-purple-700/20' : ''}`}
-                  style={{ minHeight: '8px' }}
-                >
-                  {filteredChildIds.map((childId, childIndex) => (
-                    <SidebarListItem
-                      key={childId}
-                      listId={childId}
-                      index={childIndex}
-                      level={level + 1}
-                      onStartEdit={onStartEdit}
-                      onDelete={onDelete}
-                      cutListId={cutListId}
-                      onCut={onCut}
-                      onPaste={onPaste}
-                      filterTerm={filterTerm}
-                    />
-                  ))}
-                  {provided.placeholder}
-                </div>
-              )}
-            </Droppable>
+            <div className="pl-2">
+                {filteredChildLists.map((child, childIndex) => (
+                  <SidebarListItem
+                    key={child.id}
+                    listId={child.id}
+                    index={childIndex}
+                    level={level + 1}
+                    onStartEdit={onStartEdit}
+                    onDelete={onDelete}
+                    onAddChild={onAddChild}
+                    cutListId={cutListId}
+                    onCut={onCut}
+                    onPaste={onPaste}
+                    filterTerm={filterTerm}
+                  />
+                ))}
+            </div>
           )}
         </div>
       )}
@@ -189,7 +172,6 @@ const SidebarListItem: React.FC<SidebarListItemProps> = ({
   );
 };
 
-// Component `Sidebar` remains the same as you provided
 function Sidebar() {
   const dispatch = useDispatch<AppDispatch>();
   const allTopLevelLists = useSelector(selectTopLevelLists);
@@ -204,13 +186,8 @@ function Sidebar() {
   const [cutListId, setCutListId] = useState<string | null>(null);
 
   const filteredLists = useMemo(() => {
-    if (!filterTerm.trim()) {
-      return allTopLevelLists;
-    }
-    
-    return allTopLevelLists.filter(list => 
-      listMatchesFilter(list, allLists, filterTerm)
-    );
+    if (!filterTerm.trim()) return allTopLevelLists;
+    return allTopLevelLists.filter(list => listMatchesFilter(list, allLists, filterTerm));
   }, [allTopLevelLists, filterTerm, allLists]);
 
   const handleStartEdit = (list: GoalList) => {
@@ -248,11 +225,19 @@ function Sidebar() {
       setIsCreatingNewList(false);
     }
   };
+  
+  const handleAddChildList = (parentId: string) => {
+    const name = prompt("Введіть назву для нового під-списку:");
+    if (name && name.trim()) {
+      dispatch(listAdded({ name: name.trim(), parentId }));
+    }
+  };
 
   const handleCut = (id: string) => {
     setCutListId(id);
   };
 
+  // ✨ ПОВЕРНУТО: Логіка вставки
   const handlePaste = (targetListId: string, asChild: boolean) => {
     if (!cutListId) return;
     if (targetListId === cutListId) return;
@@ -261,6 +246,7 @@ function Sidebar() {
     const targetList = allLists[targetListId];
     if (!cutList || !targetList) return;
 
+    // Перевірка, щоб не вставити батька в його нащадка
     let currentParentId = asChild ? targetListId : targetList.parentId;
     while (currentParentId) {
       if (currentParentId === cutListId) {
@@ -270,19 +256,30 @@ function Sidebar() {
       currentParentId = allLists[currentParentId]?.parentId;
     }
 
-    const destinationParentId = asChild ? targetListId : targetList.parentId;
-    const parentOfTarget = targetList.parentId ? allLists[targetList.parentId] : null;
-    const siblingIds = parentOfTarget ? parentOfTarget.childListIds : allTopLevelLists.map(l => l.id);
-    const destinationIndex = asChild ? targetList.childListIds.length : siblingIds.indexOf(targetListId) + 1;
+    const oldParentId = cutList.parentId;
+    const newParentId = asChild ? targetListId : targetList.parentId;
 
-    dispatch(listMoved({
-      listId: cutListId,
-      sourceParentId: cutList.parentId,
-      sourceIndex: -1, // Note: index might need adjustment depending on dnd library version
-      destinationParentId: destinationParentId,
-      destinationIndex: destinationIndex,
-    }));
+    // 1. Переміщуємо список до нового батька
+    dispatch(listMoved({ listId: cutListId, newParentId }));
 
+    // 2. Оновлюємо порядок у старому списку (якщо він був)
+    const oldSiblings = Object.values(allLists)
+      .filter(l => l.parentId === oldParentId && l.id !== cutListId)
+      .sort((a,b) => a.order - b.order)
+      .map(l => l.id);
+    dispatch(listsReordered({ parentId: oldParentId, orderedListIds: oldSiblings }));
+
+    // 3. Оновлюємо порядок у новому списку
+    const newSiblings = Object.values(allLists)
+      .filter(l => l.parentId === newParentId && l.id !== cutListId)
+      .sort((a,b) => a.order - b.order)
+      .map(l => l.id);
+    
+    // Вставляємо наш елемент на правильну позицію
+    const targetIndex = asChild ? newSiblings.length : newSiblings.indexOf(targetListId) + 1;
+    newSiblings.splice(targetIndex, 0, cutListId);
+    dispatch(listsReordered({ parentId: newParentId, orderedListIds: newSiblings }));
+    
     setCutListId(null);
   };
 
@@ -343,6 +340,7 @@ function Sidebar() {
                       level={0}
                       onStartEdit={handleStartEdit}
                       onDelete={handleDeleteList}
+                      onAddChild={handleAddChildList}
                       cutListId={cutListId}
                       onCut={handleCut}
                       onPaste={handlePaste}

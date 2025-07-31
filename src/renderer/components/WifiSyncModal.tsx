@@ -8,15 +8,10 @@ import {
     setSyncError,
     setSyncReport,
 } from '../store/syncSlice';
-import {
-    stateReplaced,
-    listAdded,
-    listUpdated,
-    goalAdded,
-    goalUpdated,
-} from '../store/listsSlice';
+import { stateReplaced } from '../store/listsSlice';
 import { Wifi, LoaderCircle, CircleCheck, CircleAlert, X, FileDiff } from 'lucide-react';
-import { createSyncReport } from '../logic/syncLogic'; // <-- Наш новий "мозок"
+import { createSyncReport } from '../logic/syncLogic';
+import { GoalList } from '../types';
 
 const WifiSyncModal: React.FC = () => {
     const dispatch = useDispatch<AppDispatch>();
@@ -26,10 +21,11 @@ const WifiSyncModal: React.FC = () => {
         syncStatus,
         deviceAddress,
         errorMessage,
+        syncReport,
+        originalBackup,
     } = useSelector((state: RootState) => state.sync);
 
     const listsState = useSelector((state: RootState) => state.lists);
-
     const [localServerAddress, setLocalServerAddress] = useState<string | null>(null);
     const [localError, setLocalError] = useState<string | null>(null);
 
@@ -38,59 +34,20 @@ const WifiSyncModal: React.FC = () => {
             if (isModalOpen && modalMode === 'server') {
                 setLocalError(null);
 
-                if (!listsState || Object.keys(listsState.goalLists).length === 0) {
-                    const errorMessage = "Немає даних для експорту. Створіть хоча б один список.";
-                    console.error("[WifiSyncModal]", errorMessage, "Current listsState:", listsState);
-                    setLocalError(errorMessage);
-                    return;
-                }
+                const { goals, goalLists, goalInstances } = listsState;
 
-                // --- ТРАНСФОРМАЦІЯ ДАНИХ ---
-                const { goals, goalLists, goalInstances, rootListIds } = listsState;
-
-                // Перетворюємо дати в ISO рядок, якщо вони Long (для майбутньої сумісності)
-                // і забезпечуємо відповідність структурі DesktopBackupFile
-                const desktopGoals = Object.values(goals).reduce((acc, goal) => {
-                    acc[goal.id] = {
-                        ...goal,
-                        createdAt: new Date(goal.createdAt).toISOString(),
-                        updatedAt: goal.updatedAt ? new Date(goal.updatedAt).toISOString() : undefined,
-                        // Переконайтеся, що всі поля відповідають DesktopGoal
-                        // Тут ми припускаємо, що структура Goal вже оновлена (Крок 1)
-                    };
-                    return acc;
-                }, {} as any);
-
-                const desktopLists = Object.values(goalLists).reduce((acc, list) => {
-                    acc[list.id] = {
-                        id: list.id,
-                        name: list.name,
-                        description: list.description,
-                        itemInstanceIds: list.itemInstanceIds,
-                        createdAt: new Date(list.createdAt).toISOString(),
-                        updatedAt: list.updatedAt ? new Date(list.updatedAt).toISOString() : undefined,
-                        parentId: list.parentId,
-                        childListIds: list.childListIds,
-                        isExpanded: list.isExpanded ?? true, // <-- ЯВНО ДОДАЄМО ПОЛЕ
-                    };
-                    return acc;
-                }, {} as any);
-
-                // Формат, який очікує Android
                 const desktopBackupData = {
-                    goals: desktopGoals,
-                    goalLists: desktopLists,
-                    goalInstances: goalInstances,
-                    rootListIds: rootListIds,
+                    goals,
+                    goalLists,
+                    goalInstances,
                 };
 
                 const exportData = {
-                    version: 2, // Версія, як в Android SyncModel
+                    version: 3,
                     exportedAt: new Date().toISOString(),
                     data: desktopBackupData,
                 };
 
-                console.log("[WifiSyncModal] Preparing to start server with transformed export data:", exportData);
                 const result = await window.electronAPI.startWifiServer(exportData);
 
                 if (result.success && result.address) {
@@ -101,7 +58,6 @@ const WifiSyncModal: React.FC = () => {
             }
         };
 
-
         handleServer();
 
         return () => {
@@ -109,7 +65,7 @@ const WifiSyncModal: React.FC = () => {
                 window.electronAPI.stopWifiServer();
             }
         };
-    }, [isModalOpen, modalMode, listsState]); // `dispatch` можна прибрати, він стабільний
+    }, [isModalOpen, modalMode, listsState]);
 
     const handleFetchFromDevice = async () => {
         if (!deviceAddress) {
@@ -121,15 +77,11 @@ const WifiSyncModal: React.FC = () => {
 
         if (result.success && result.data) {
             try {
-                // Викликаємо наш новий аналізатор
                 const report = createSyncReport(listsState, result.data);
-
                 if (report.changes.length === 0) {
-                    // Якщо змін немає, просто повідомляємо про це
                     dispatch(setSyncStatus('success'));
                     setTimeout(() => dispatch(closeSyncModal()), 2000);
                 } else {
-                    // Якщо зміни є, зберігаємо звіт і переходимо в режим перегляду
                     dispatch(setSyncReport({ report, originalBackup: result.data }));
                 }
             } catch (error: any) {
@@ -140,45 +92,40 @@ const WifiSyncModal: React.FC = () => {
         }
     };
 
-    // Вставте цю нову функцію всередині компонента WifiSyncModal
-    const { syncReport, originalBackup } = useSelector((state: RootState) => state.sync);
-
     const handleApplyChanges = () => {
-        if (!syncReport || !originalBackup) return;
-
+        if (!originalBackup) return;
         dispatch(setSyncStatus('applying'));
 
-        // --- КЛЮЧОВА ЛОГІКА: ЗАСТОСУВАННЯ ЗМІН ---
-        // Тут ми могли б також оновити goalInstances, але для простоти поки що
-        // повністю перезаписуємо їх з бекапу, оскільки логіка їх злиття складна.
         const remoteData = originalBackup.data;
-        if (remoteData && remoteData.goalInstances) {
-            // Це компроміс: ми застосовуємо зміни до цілей/списків вибірково,
-            // а порядок і приналежність цілей до списків беремо з телефону.
-            // Для цього потрібно оновити stateReplaced або створити новий action.
-            // Поки що, для простоти, застосуємо зміни до цілей і списків.
+        if (remoteData) {
+            const goalListsFromRemote: Record<string, GoalList> = remoteData.goalLists || {};
+
+            // ✨ ВИПРАВЛЕННЯ: Створюємо НОВИЙ об'єкт для нормалізованих даних,
+            // а не змінюємо "заморожений" об'єкт зі стану.
+            const normalizedGoalLists: Record<string, GoalList> = {};
+
+            Object.keys(goalListsFromRemote).forEach(listId => {
+                const originalList = goalListsFromRemote[listId];
+                // Створюємо копію, яку можна змінювати
+                const newList = { ...originalList };
+
+                // Нормалізуємо копію
+                if (newList.parentId === undefined) {
+                    newList.parentId = null;
+                }
+                if (newList.order === undefined) {
+                    newList.order = 0;
+                }
+                
+                normalizedGoalLists[listId] = newList;
+            });
+
+            dispatch(stateReplaced({
+                goals: remoteData.goals || {},
+                goalLists: normalizedGoalLists, // Використовуємо новий, нормалізований об'єкт
+                goalInstances: remoteData.goalInstances || {},
+            }));
         }
-
-        syncReport.changes.forEach(change => {
-            if (change.entityType === 'Список') {
-                if (change.type === 'Add') {
-                    dispatch(listAdded(change.entity)); // Потрібно адаптувати payload
-                } else if (change.type === 'Update') {
-                    dispatch(listUpdated(change.entity));
-                }
-            } else if (change.entityType === 'Ціль') {
-                if (change.type === 'Add') {
-                    dispatch(goalAdded(change.entity)); // Потрібно адаптувати payload
-                } else if (change.type === 'Update') {
-                    dispatch(goalUpdated(change.entity));
-                }
-            }
-        });
-
-        // Після застосування змін, ми можемо перезаписати весь стан для коректного порядку
-        // Це найпростіший шлях забезпечити консистентність.
-        dispatch(stateReplaced(remoteData));
-
 
         dispatch(setSyncStatus('success'));
         setTimeout(() => dispatch(closeSyncModal()), 2000);
@@ -194,13 +141,13 @@ const WifiSyncModal: React.FC = () => {
             {localServerAddress ? (
                 <div className='text-center'>
                     <Wifi className="mx-auto h-12 w-12 text-green-500 mb-4" />
-                    <p className="text-sm text-slate-500 dark:text-slate-400">Сервер запущено. Введіть цю адресу на іншому пристрої:</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Сервер запущено. Введіть цю адресу на Android-пристрої:</p>
                     <p className="mt-2 text-xl font-mono p-2 bg-slate-100 dark:bg-slate-700 rounded-md select-all">
-                        http://{localServerAddress}:8080
+                        http://{localServerAddress}
                     </p>
                 </div>
             ) : !localError ? (
-                <div className='text-center'>
+                 <div className='text-center'>
                     <LoaderCircle className="mx-auto h-12 w-12 text-blue-500 mb-4 animate-spin" />
                     <p className="text-sm text-slate-500 dark:text-slate-400">Запуск сервера...</p>
                 </div>
@@ -221,7 +168,7 @@ const WifiSyncModal: React.FC = () => {
                 Огляд змін
             </h3>
             <p className="text-sm text-center text-slate-500 dark:text-slate-400 mb-4">
-                Знайдено {syncReport?.changes.length || 0} змін. Застосувати їх?
+                Знайдено {syncReport?.changes.length || 0} змін з телефону. Застосувати їх?
             </p>
             <div className="max-h-60 overflow-y-auto p-3 bg-slate-50 dark:bg-slate-700/50 rounded-md border border-slate-200 dark:border-slate-600">
                 <ul className="space-y-2">
@@ -275,7 +222,7 @@ const WifiSyncModal: React.FC = () => {
                     </div>
                 );
 
-            case 'reviewing': 
+            case 'reviewing':
                 return renderReviewContent();
 
             default: // idle
@@ -302,9 +249,6 @@ const WifiSyncModal: React.FC = () => {
                 );
         }
     };
-
-
-
 
     return (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onMouseDown={handleClose}>

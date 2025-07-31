@@ -138005,6 +138005,7 @@ const listsSlice_1 = __webpack_require__(/*! ./store/listsSlice */ "./src/render
 const App = () => {
     const dispatch = (0, react_redux_1.useDispatch)();
     const { goalLists } = (0, react_redux_1.useSelector)((state) => state.lists);
+    const allLists = (0, react_redux_1.useSelector)((state) => state.lists.goalLists);
     (0, react_1.useEffect)(() => {
         const removeImportListener = window.electronAPI.onShowWifiImportDialog(() => {
             dispatch((0, syncSlice_1.openSyncModal)('import'));
@@ -138022,19 +138023,37 @@ const App = () => {
         if (!destination)
             return;
         if (type === "LIST") {
-            if (source.droppableId === destination.droppableId && source.index === destination.index) {
-                return;
+            const sourceParentId = source.droppableId === "root" ? null : source.droppableId;
+            const destinationParentId = destination.droppableId === "root" ? null : destination.droppableId;
+            // ✨ ВИПРАВЛЕННЯ: Повністю нова логіка для обробки перетягування списків
+            if (source.droppableId === destination.droppableId) {
+                // --- Випадок 1: Зміна порядку в межах одного батька ---
+                const parentId = source.droppableId === 'root' ? null : source.droppableId;
+                const siblingLists = Object.values(allLists)
+                    .filter(l => l.parentId === parentId)
+                    .sort((a, b) => a.order - b.order);
+                const reorderedIds = siblingLists.map(l => l.id);
+                const [movedItem] = reorderedIds.splice(source.index, 1);
+                reorderedIds.splice(destination.index, 0, movedItem);
+                dispatch((0, listsSlice_1.listsReordered)({ parentId, orderedListIds: reorderedIds }));
             }
-            if (destination.droppableId === draggableId) {
-                return;
+            else {
+                // --- Випадок 2: Переміщення до нового батька ---
+                dispatch((0, listsSlice_1.listMoved)({ listId: draggableId, newParentId: destinationParentId }));
+                // Оновлюємо порядок у старому списку
+                const oldSiblings = Object.values(allLists)
+                    .filter(l => l.parentId === sourceParentId && l.id !== draggableId)
+                    .sort((a, b) => a.order - b.order)
+                    .map(l => l.id);
+                dispatch((0, listsSlice_1.listsReordered)({ parentId: sourceParentId, orderedListIds: oldSiblings }));
+                // Оновлюємо порядок у новому списку
+                const newSiblings = Object.values(allLists)
+                    .filter(l => l.parentId === destinationParentId && l.id !== draggableId)
+                    .sort((a, b) => a.order - b.order)
+                    .map(l => l.id);
+                newSiblings.splice(destination.index, 0, draggableId);
+                dispatch((0, listsSlice_1.listsReordered)({ parentId: destinationParentId, orderedListIds: newSiblings }));
             }
-            dispatch((0, listsSlice_1.listMoved)({
-                listId: draggableId,
-                sourceParentId: source.droppableId === "root" ? null : source.droppableId,
-                destinationParentId: destination.droppableId === "root" ? null : destination.droppableId,
-                sourceIndex: source.index,
-                destinationIndex: destination.index,
-            }));
             return;
         }
         if (type === "GOAL" || type === undefined) {
@@ -138056,7 +138075,7 @@ const App = () => {
                 dispatch((0, uiSlice_1.openDropActionMenu)(result));
             }
         }
-    }, [dispatch, goalLists]);
+    }, [dispatch, goalLists, allLists]);
     const [userPreference, setUserPreference] = (0, react_1.useState)('system');
     const handleThemePreferenceChange = (pref) => setUserPreference(pref);
     const [obsidianVaultPath, setObsidianVaultPath] = (0, react_1.useState)('');
@@ -139374,34 +139393,6 @@ exports["default"] = ListToolbar;
 
 /***/ }),
 
-/***/ "./src/renderer/components/LogContent.tsx":
-/*!************************************************!*\
-  !*** ./src/renderer/components/LogContent.tsx ***!
-  \************************************************/
-/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
-// src/renderer/components/LogContent.tsx
-const react_1 = __webpack_require__(/*! react */ "./node_modules/react/index.js");
-function LogContent({ messages }) {
-    const endOfMessagesRef = (0, react_1.useRef)(null);
-    (0, react_1.useEffect)(() => {
-        // Автоматично прокручувати до останнього повідомлення
-        endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages]); // Прокручувати при зміні повідомлень
-    if (!messages || messages.length === 0) {
-        return (0, jsx_runtime_1.jsx)("div", { className: "p-4 text-gray-500", children: "\u041B\u043E\u0433 \u043F\u043E\u0440\u043E\u0436\u043D\u0456\u0439." });
-    }
-    return ((0, jsx_runtime_1.jsxs)("div", { className: "p-4 overflow-y-auto h-full flex flex-col", children: [" ", messages.map((msg) => ((0, jsx_runtime_1.jsxs)("div", { className: "mb-2", children: [(0, jsx_runtime_1.jsx)("span", { className: "text-xs text-gray-500 mr-2", children: msg.time }), (0, jsx_runtime_1.jsx)("span", { className: "whitespace-pre-wrap", children: msg.text })] }, msg.id))), (0, jsx_runtime_1.jsx)("div", { ref: endOfMessagesRef }), " "] }));
-}
-exports["default"] = LogContent;
-
-
-/***/ }),
-
 /***/ "./src/renderer/components/MainPanel.tsx":
 /*!***********************************************!*\
   !*** ./src/renderer/components/MainPanel.tsx ***!
@@ -139410,39 +139401,6 @@ exports["default"] = LogContent;
 
 "use strict";
 
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -139453,179 +139411,49 @@ const react_1 = __webpack_require__(/*! react */ "./node_modules/react/index.js"
 const react_redux_1 = __webpack_require__(/*! react-redux */ "./node_modules/react-redux/dist/cjs/index.js");
 const GoalListPage_1 = __importDefault(__webpack_require__(/*! ./GoalListPage */ "./src/renderer/components/GoalListPage.tsx"));
 const NoListSelected_1 = __importDefault(__webpack_require__(/*! ./NoListSelected */ "./src/renderer/components/NoListSelected.tsx"));
-const InputPanel_1 = __importStar(__webpack_require__(/*! ./InputPanel */ "./src/renderer/components/InputPanel.tsx"));
+const InputPanel_1 = __importDefault(__webpack_require__(/*! ./InputPanel */ "./src/renderer/components/InputPanel.tsx"));
 const TabsContainer_1 = __importDefault(__webpack_require__(/*! ./TabsContainer */ "./src/renderer/components/TabsContainer.tsx"));
 const SettingsPage_1 = __importDefault(__webpack_require__(/*! ./SettingsPage */ "./src/renderer/components/SettingsPage.tsx"));
-const LogContent_1 = __importDefault(__webpack_require__(/*! ./LogContent */ "./src/renderer/components/LogContent.tsx"));
 const Sidebar_1 = __webpack_require__(/*! ./Sidebar */ "./src/renderer/components/Sidebar.tsx");
 const events_1 = __webpack_require__(/*! ../events */ "./src/renderer/events.ts");
 const GlobalSearchResults_1 = __importDefault(__webpack_require__(/*! ./GlobalSearchResults */ "./src/renderer/components/GlobalSearchResults.tsx"));
 const uiSlice_1 = __webpack_require__(/*! ../store/uiSlice */ "./src/renderer/store/uiSlice.ts");
 const ListToolbar_1 = __importDefault(__webpack_require__(/*! ./ListToolbar */ "./src/renderer/components/ListToolbar.tsx"));
-const textProcessing_1 = __webpack_require__(/*! ../utils/textProcessing */ "./src/renderer/utils/textProcessing.ts");
 const dnd_1 = __webpack_require__(/*! @hello-pangea/dnd */ "./node_modules/@hello-pangea/dnd/dist/dnd.esm.js");
 const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts");
-const goalScoring_1 = __webpack_require__(/*! ../logic/goalScoring */ "./src/renderer/logic/goalScoring.ts"); // <-- ДОДАЙТЕ ЦЕЙ ІМПОРТ
-const initialLogs = [
-    { id: "log-init-1", text: "Додаток запущено.", time: new Date().toLocaleTimeString() },
-];
-const MY_APP_PROTOCOL = "forwardapp";
+const goalScoring_1 = __webpack_require__(/*! ../logic/goalScoring */ "./src/renderer/logic/goalScoring.ts");
 function MainPanel({ currentThemePreference, onChangeThemePreference, obsidianVaultPath, onObsidianVaultChange, }) {
-    const { goals, goalLists, goalInstances } = (0, react_redux_1.useSelector)((state) => state.lists);
+    const { goals, goalLists } = (0, react_redux_1.useSelector)((state) => state.lists);
     const globalFilterTerm = (0, react_redux_1.useSelector)((state) => state.ui.globalFilterTerm);
     const dispatch = (0, react_redux_1.useDispatch)();
-    const inputPanelGlobalRef = (0, react_1.useRef)(null);
-    (0, react_1.useEffect)(() => {
-        // Унікальний ключ для цієї конкретної міграції.
-        const MIGRATION_KEY = 'migration_to_scoring_system_v9_applied';
-        // Перевіряємо, чи була вже застосована міграція.
-        const isMigrationApplied = localStorage.getItem(MIGRATION_KEY);
-        if (!isMigrationApplied) {
-            console.log('Застосування міграції до нової системи оцінки цілей...');
-            const allGoals = Object.values(goals);
-            let updatedCount = 0;
-            allGoals.forEach(goal => {
-                // Ми мігруємо ціль, якщо вона існує, але не має поля `displayScore`.
-                // Це надійний спосіб визначити "старі" цілі.
-                if (goal && goal.displayScore === undefined) {
-                    // Ця логіка імітує MIGRATION_8_9 з Android-додатку.
-                    // Вона бере існуючі поля цілі і розраховує на їх основі нові.
-                    const goalForCalc = {
-                        ...goal,
-                        // Якщо у вас були старі поля (напр. timeCost), ви можете перенести їх значення сюди:
-                        // effort: goal.timeCost ?? 0,
-                        // cost: goal.financialCost ?? 0,
-                    };
-                    const updatedGoalWithScores = (0, goalScoring_1.calculateScores)(goalForCalc);
-                    // Оновлюємо ціль у Redux-сховищі з новими, розрахованими полями.
-                    // Ми розповсюджуємо ...goal, щоб зберегти всі існуючі дані (text, description і т.д.)
-                    dispatch((0, listsSlice_1.goalUpdated)({
-                        ...goal,
-                        ...updatedGoalWithScores
-                    }));
-                    updatedCount++;
-                }
-            });
-            if (updatedCount > 0) {
-                console.log(`Міграцію завершено. Оновлено ${updatedCount} цілей.`);
-            }
-            else {
-                console.log('Міграція не потрібна, всі цілі вже у новому форматі.');
-            }
-            // Зберігаємо позначку, що міграція більше не потрібна.
-            localStorage.setItem(MIGRATION_KEY, 'true');
-        }
-    }, [goals, dispatch]); // Залежності, щоб хук мав доступ до актуальних даних.
-    // --- КІНЕЦЬ БЛОКУ МІГРАЦІЇ ---
-    const [tabs, setTabs] = (0, react_1.useState)(() => {
-        const savedTabs = localStorage.getItem("openTabs");
-        if (savedTabs) {
-            try {
-                return JSON.parse(savedTabs);
-            }
-            catch {
-                return [];
-            }
-        }
-        return [];
-    });
-    const [activeTabId, setActiveTabId] = (0, react_1.useState)(() => {
-        const savedActiveTabId = localStorage.getItem("activeTabId");
-        const savedTabsRaw = localStorage.getItem("openTabs");
-        if (savedActiveTabId)
-            return savedActiveTabId;
-        if (savedTabsRaw) {
-            try {
-                const savedTabs = JSON.parse(savedTabsRaw);
-                if (savedTabs.length > 0)
-                    return savedTabs[0].id;
-            }
-            catch { }
-        }
-        return null;
-    });
-    (0, react_1.useEffect)(() => {
-        const validListIds = new Set(Object.keys(goalLists));
-        const validatedTabs = tabs.filter((tab) => tab.type !== "goal-list" || (tab.listId && validListIds.has(tab.listId)));
-        if (validatedTabs.length !== tabs.length) {
-            setTabs(validatedTabs);
-            if (activeTabId && !validatedTabs.find((t) => t.id === activeTabId)) {
-                setActiveTabId(validatedTabs.length > 0 ? validatedTabs[0].id : null);
-            }
-        }
-    }, [goalLists, tabs, activeTabId]);
+    const [tabs, setTabs] = (0, react_1.useState)([]);
+    const [activeTabId, setActiveTabId] = (0, react_1.useState)(null);
     const [editingList, setEditingList] = (0, react_1.useState)(null);
     const [editingListName, setEditingListName] = (0, react_1.useState)("");
     const [editingListDescription, setEditingListDescription] = (0, react_1.useState)("");
-    const [logMessages, setLogMessages] = (0, react_1.useState)(initialLogs);
     const editingListModalRef = (0, react_1.useRef)(null);
-    const [showImportArea, setShowImportArea] = (0, react_1.useState)(false);
-    const [importText, setImportText] = (0, react_1.useState)("");
-    const [showExportArea, setShowExportArea] = (0, react_1.useState)(false);
-    const [exportText, setExportText] = (0, react_1.useState)("");
-    const [listForImportExport, setListForImportExport] = (0, react_1.useState)(null);
-    const importTextAreaRef = (0, react_1.useRef)(null);
-    const exportTextAreaRef = (0, react_1.useRef)(null);
-    const refreshListsAndTabs = (0, react_1.useCallback)(() => {
-        setTabs((prevTabs) => {
-            const updatedGoalListsFromStore = Object.values(goalLists);
-            const newTabs = prevTabs.map((tab) => {
-                if (tab.type === "goal-list" && tab.listId) {
-                    const correspondingList = updatedGoalListsFromStore.find((l) => l.id === tab.listId);
-                    if (correspondingList) {
-                        if (tab.title !== correspondingList.name)
-                            return { ...tab, title: correspondingList.name };
-                        return tab;
-                    }
-                    return null;
-                }
-                return tab;
-            }).filter(Boolean);
-            setActiveTabId((currentActiveTabId) => {
-                if (currentActiveTabId && !newTabs.find((t) => t.id === currentActiveTabId)) {
-                    return newTabs.length > 0 ? newTabs[0].id : null;
-                }
-                else if (newTabs.length === 0 && currentActiveTabId) {
-                    return null;
-                }
-                else if (!currentActiveTabId && newTabs.length > 0) {
-                    return newTabs[0].id;
-                }
-                return currentActiveTabId;
-            });
-            return newTabs;
-        });
-    }, [goalLists]);
-    const handleDataImported = (0, react_1.useCallback)(() => {
-        refreshListsAndTabs();
-        window.dispatchEvent(new CustomEvent(events_1.SIDEBAR_REFRESH_LISTS_EVENT));
-        setTabs((prevTabs) => {
-            const filteredTabs = prevTabs.filter((tab) => tab.type === "settings" || tab.type === "log");
-            setActiveTabId(() => {
-                const settingsTab = filteredTabs.find((tab) => tab.type === "settings");
-                if (settingsTab)
-                    return settingsTab.id;
-                const logTab = filteredTabs.find((tab) => tab.type === "log");
-                return logTab ? logTab.id : null;
-            });
-            return filteredTabs;
-        });
-        alert("Дані оновлено після імпорту. Відкрийте потрібні списки з бічної панелі.");
-    }, [refreshListsAndTabs]);
     const getActiveListIdFromTab = (0, react_1.useCallback)(() => {
         const activeTab = tabs.find((tab) => tab.id === activeTabId);
         return activeTab?.type === "goal-list" ? activeTab.listId || null : null;
     }, [tabs, activeTabId]);
     const currentActiveListId = getActiveListIdFromTab();
     (0, react_1.useEffect)(() => {
-        localStorage.setItem("openTabs", JSON.stringify(tabs));
-    }, [tabs]);
-    (0, react_1.useEffect)(() => {
-        if (activeTabId)
-            localStorage.setItem("activeTabId", activeTabId);
-        else
-            localStorage.removeItem("activeTabId");
-    }, [activeTabId]);
+        const MIGRATION_KEY = 'migration_to_scoring_system_v9_applied';
+        const isMigrationApplied = localStorage.getItem(MIGRATION_KEY);
+        if (!isMigrationApplied) {
+            console.log('Застосування міграції до нової системи оцінки цілей...');
+            Object.values(goals).forEach(goal => {
+                if (goal && goal.displayScore === undefined) {
+                    const updatedGoalWithScores = (0, goalScoring_1.calculateScores)(goal);
+                    dispatch((0, listsSlice_1.goalUpdated)({
+                        ...goal,
+                        ...updatedGoalWithScores
+                    }));
+                }
+            });
+            localStorage.setItem(MIGRATION_KEY, 'true');
+        }
+    }, [goals, dispatch]);
     const handleOpenGoalListEventCallback = (0, react_1.useCallback)((event) => {
         const customEvent = event;
         const { listId, listName } = customEvent.detail;
@@ -139635,19 +139463,13 @@ function MainPanel({ currentThemePreference, onChangeThemePreference, obsidianVa
         setTabs((prevTabs) => {
             const existingTab = prevTabs.find((tab) => tab.id === tabIdForGoalList);
             if (existingTab) {
-                if (existingTab.title !== listName) {
-                    const updatedTabs = prevTabs.map((t) => (t.id === tabIdForGoalList ? { ...t, title: listName } : t));
-                    setActiveTabId(tabIdForGoalList);
-                    return updatedTabs;
-                }
                 setActiveTabId(tabIdForGoalList);
                 return prevTabs;
             }
             else {
                 const newTab = { id: tabIdForGoalList, title: listName, type: "goal-list", listId: listId, isClosable: true };
-                const newTabsArray = [...prevTabs, newTab];
                 setActiveTabId(tabIdForGoalList);
-                return newTabsArray;
+                return [...prevTabs, newTab];
             }
         });
         dispatch((0, uiSlice_1.setGlobalFilterTerm)(""));
@@ -139655,48 +139477,32 @@ function MainPanel({ currentThemePreference, onChangeThemePreference, obsidianVa
     const handleOpenSettingsEventCallback = (0, react_1.useCallback)(() => {
         const settingsTabId = "settings-tab";
         setTabs((prevTabs) => {
-            const existingSettingsTab = prevTabs.find((tab) => tab.id === settingsTabId);
-            if (existingSettingsTab) {
+            if (prevTabs.find((tab) => tab.id === settingsTabId)) {
                 setActiveTabId(settingsTabId);
                 return prevTabs;
             }
-            else {
-                const newSettingsTab = { id: settingsTabId, title: "Налаштування", type: "settings", isClosable: true };
-                setActiveTabId(settingsTabId);
-                return [...prevTabs, newSettingsTab];
-            }
+            const newSettingsTab = { id: settingsTabId, title: "Налаштування", type: "settings", isClosable: true };
+            setActiveTabId(settingsTabId);
+            return [...prevTabs, newSettingsTab];
         });
     }, []);
     (0, react_1.useEffect)(() => {
-        const handleSidebarRefreshEvent = () => refreshListsAndTabs();
-        const handleAppDataImportedEvent = () => handleDataImported();
         window.addEventListener(Sidebar_1.OPEN_GOAL_LIST_EVENT, handleOpenGoalListEventCallback);
         window.addEventListener(events_1.OPEN_SETTINGS_EVENT, handleOpenSettingsEventCallback);
-        window.addEventListener(events_1.SIDEBAR_REFRESH_LISTS_EVENT, handleSidebarRefreshEvent);
-        window.addEventListener("app-data-imported", handleAppDataImportedEvent);
         return () => {
             window.removeEventListener(Sidebar_1.OPEN_GOAL_LIST_EVENT, handleOpenGoalListEventCallback);
             window.removeEventListener(events_1.OPEN_SETTINGS_EVENT, handleOpenSettingsEventCallback);
-            window.removeEventListener(events_1.SIDEBAR_REFRESH_LISTS_EVENT, handleSidebarRefreshEvent);
-            window.removeEventListener("app-data-imported", handleAppDataImportedEvent);
         };
-    }, [handleOpenGoalListEventCallback, handleOpenSettingsEventCallback, refreshListsAndTabs, handleDataImported]);
+    }, [handleOpenGoalListEventCallback, handleOpenSettingsEventCallback]);
     const handleGlobalFilterChange = (0, react_1.useCallback)((query) => {
         dispatch((0, uiSlice_1.setGlobalFilterTerm)(query));
     }, [dispatch]);
-    const handleTagClickFromGoalRenderer = (0, react_1.useCallback)((tagFilterTerm) => {
-        dispatch((0, uiSlice_1.setGlobalFilterTerm)(tagFilterTerm));
-        document.querySelector('.h-10 input[type="text"][placeholder="Фільтрувати цілі..."]')?.focus();
-    }, [dispatch]);
     const handleTabClick = (0, react_1.useCallback)((tabId) => {
-        if (activeTabId !== tabId) {
-            setActiveTabId(tabId);
-            const clickedTab = tabs.find((t) => t.id === tabId);
-            if (clickedTab?.type === "goal-list") {
-                dispatch((0, uiSlice_1.setGlobalFilterTerm)(""));
-            }
+        setActiveTabId(tabId);
+        if (tabs.find(t => t.id === tabId)?.type === 'goal-list') {
+            dispatch((0, uiSlice_1.setGlobalFilterTerm)(""));
         }
-    }, [tabs, activeTabId, dispatch]);
+    }, [tabs, dispatch]);
     const handleTabClose = (0, react_1.useCallback)((tabIdToClose) => {
         setTabs((prevTabs) => {
             const indexToClose = prevTabs.findIndex((tab) => tab.id === tabIdToClose);
@@ -139704,13 +139510,8 @@ function MainPanel({ currentThemePreference, onChangeThemePreference, obsidianVa
                 return prevTabs;
             const newTabs = prevTabs.filter((tab) => tab.id !== tabIdToClose);
             if (activeTabId === tabIdToClose) {
-                if (newTabs.length > 0) {
-                    const newActiveIndex = Math.max(0, indexToClose - 1);
-                    setActiveTabId(newTabs[newActiveIndex < newTabs.length ? newActiveIndex : 0].id);
-                }
-                else {
-                    setActiveTabId(null);
-                }
+                const newActiveIndex = Math.max(0, indexToClose - 1);
+                setActiveTabId(newTabs.length > 0 ? newTabs[newActiveIndex].id : null);
             }
             return newTabs;
         });
@@ -139721,91 +139522,31 @@ function MainPanel({ currentThemePreference, onChangeThemePreference, obsidianVa
             dispatch((0, listsSlice_1.listRemoved)(listId));
         }
     }, [goalLists, dispatch]);
-    const handleStartEditList = (0, react_1.useCallback)((list) => {
-        setEditingList(list);
-        setEditingListName(list.name);
-        setEditingListDescription(list.description || "");
-    }, []);
-    const handleCancelEditList = (0, react_1.useCallback)(() => {
-        setEditingList(null);
-        setEditingListName("");
-        setEditingListDescription("");
-    }, []);
-    const handleSubmitEditList = (0, react_1.useCallback)(() => {
-        if (editingList && editingListName.trim()) {
-            dispatch((0, listsSlice_1.listUpdated)({ id: editingList.id, name: editingListName.trim(), description: editingListDescription.trim() }));
-            handleCancelEditList();
-        }
-        else if (editingList && !editingListName.trim()) {
-            alert("Назва списку не може бути порожньою.");
-        }
-    }, [editingList, editingListName, editingListDescription, dispatch, handleCancelEditList]);
     const handleAddGoalToCurrentList = (0, react_1.useCallback)((listId, text) => {
-        if (!listId) {
-            alert("Будь ласка, спочатку виберіть або відкрийте список.");
+        if (!listId)
             return;
-        }
         dispatch((0, listsSlice_1.goalAdded)({ listId, text }));
     }, [dispatch]);
-    const handleSearchGoals = (0, react_1.useCallback)((query) => {
-        handleGlobalFilterChange(query);
-    }, [handleGlobalFilterChange]);
-    const handleNavigateToListByIdOrName = (0, react_1.useCallback)((listQuery) => {
-        const allLists = Object.values(goalLists);
-        const lowerQuery = listQuery.toLowerCase().trim();
-        const foundList = allLists.find((l) => l.id === lowerQuery || l.name.toLowerCase() === lowerQuery);
-        if (foundList) {
-            (0, Sidebar_1.dispatchOpenGoalListEvent)(foundList.id, foundList.name);
-        }
-        else {
-            alert(`Список "${listQuery}" не знайдено.`);
-        }
-    }, [goalLists]);
-    const handleExecuteAppCommand = (0, react_1.useCallback)((commandWithArgs) => {
-        const [command, ...args] = commandWithArgs.trim().split(/\s+/);
-        const argString = args.join(" ").trim();
-        switch (command.toLowerCase()) {
-            case "create-list":
-            case "new-list":
-                if (argString) {
-                    dispatch((0, listsSlice_1.listAdded)({ name: argString }));
-                    alert(`Список "${argString}" створено.`);
-                }
-                else {
-                    alert("Вкажіть назву списку: > create-list Назва");
-                }
-                break;
-            // other cases
-        }
-    }, [dispatch, tabs, currentActiveListId]);
-    (0, react_1.useEffect)(() => {
-        const handleClickOutside = (event) => {
-            if (editingList && editingListModalRef.current && !editingListModalRef.current.contains(event.target)) {
-                handleCancelEditList();
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [editingList, handleCancelEditList]);
     const renderActiveTabContent = () => {
-        if (!activeTabId && tabs.length > 0)
-            setActiveTabId(tabs[0].id);
         const activeTabData = tabs.find((tab) => tab.id === activeTabId);
-        if (!activeTabData)
-            return (0, jsx_runtime_1.jsx)(NoListSelected_1.default, { onCreateList: () => { }, onSelectList: () => { } });
+        if (!activeTabData) {
+            return (0, jsx_runtime_1.jsx)(NoListSelected_1.default, { onCreateList: () => {
+                    const name = prompt("Введіть назву нового списку:");
+                    if (name)
+                        dispatch((0, listsSlice_1.listAdded)({ name, parentId: null }));
+                }, onSelectList: () => {
+                    // Можна реалізувати фокус на сайдбарі, якщо потрібно
+                } });
+        }
         switch (activeTabData.type) {
             case "goal-list":
-                // --- FIX: Create a new constant for listId and use the type guard on it ---
                 const listId = activeTabData.listId;
                 if (!listId || !goalLists[listId]) {
                     return (0, jsx_runtime_1.jsx)("div", { className: "p-4 text-slate-600 dark:text-slate-400", children: "\u0421\u043F\u0438\u0441\u043E\u043A \u0432\u0438\u0434\u0430\u043B\u0435\u043D\u043E \u0430\u0431\u043E \u043D\u0435 \u0456\u0441\u043D\u0443\u0454." });
                 }
-                // After the guard, TypeScript knows `listId` is a string.
-                return ((0, jsx_runtime_1.jsx)(dnd_1.Droppable, { droppableId: listId, type: "GOAL", children: (provided, snapshot) => ((0, jsx_runtime_1.jsxs)("div", { ref: provided.innerRef, ...provided.droppableProps, className: `h-full ${snapshot.isDraggingOver ? "bg-green-50 dark:bg-green-900/30" : ""}`, children: [(0, jsx_runtime_1.jsx)(GoalListPage_1.default, { listId: listId, filterText: globalFilterTerm || '', obsidianVaultName: obsidianVaultPath, onTagClickForFilter: handleTagClickFromGoalRenderer }, listId), provided.placeholder] })) }));
+                return ((0, jsx_runtime_1.jsx)(dnd_1.Droppable, { droppableId: listId, type: "GOAL", children: (provided) => ((0, jsx_runtime_1.jsxs)("div", { ref: provided.innerRef, ...provided.droppableProps, className: "h-full", children: [(0, jsx_runtime_1.jsx)(GoalListPage_1.default, { listId: listId, filterText: globalFilterTerm || '', obsidianVaultName: obsidianVaultPath }, listId), provided.placeholder] })) }));
             case "settings":
-                return (0, jsx_runtime_1.jsx)(SettingsPage_1.default, { currentTheme: currentThemePreference, onChangeTheme: onChangeThemePreference, initialObsidianVault: obsidianVaultPath, onObsidianVaultChange: onObsidianVaultChange, onDataImported: handleDataImported });
-            case "log":
-                return (0, jsx_runtime_1.jsx)(LogContent_1.default, { messages: logMessages });
+                return (0, jsx_runtime_1.jsx)(SettingsPage_1.default, { currentTheme: currentThemePreference, onChangeTheme: onChangeThemePreference, initialObsidianVault: obsidianVaultPath, onObsidianVaultChange: onObsidianVaultChange });
             default:
                 return (0, jsx_runtime_1.jsx)("div", { className: "p-4", children: "\u041D\u0435\u0432\u0456\u0434\u043E\u043C\u0438\u0439 \u0442\u0438\u043F \u0432\u043A\u043B\u0430\u0434\u043A\u0438." });
         }
@@ -139813,71 +139554,23 @@ function MainPanel({ currentThemePreference, onChangeThemePreference, obsidianVa
     const activeTabInfo = tabs.find((tab) => tab.id === activeTabId);
     const isCurrentTabAGoalList = activeTabInfo?.type === "goal-list";
     const listIdForToolbar = isCurrentTabAGoalList ? activeTabInfo?.listId || null : null;
-    const handleOpenListSettings = (0, react_1.useCallback)((listId) => {
-        const listToEdit = goalLists[listId];
-        if (listToEdit)
-            handleStartEditList(listToEdit);
-    }, [goalLists, handleStartEditList]);
-    const handleOpenImportArea = (0, react_1.useCallback)((listId) => {
-        setListForImportExport(listId);
-        setShowExportArea(false);
-        setShowImportArea(true);
-        setTimeout(() => importTextAreaRef.current?.focus(), 0);
-    }, []);
-    const handleOpenExportArea = (0, react_1.useCallback)((listId) => {
-        const list = goalLists[listId];
-        const goalsToExport = list ? list.itemInstanceIds.map((id) => goals[goalInstances[id]?.goalId]).filter(Boolean) : [];
-        if (goalsToExport.length > 0) {
-            setListForImportExport(listId);
-            setExportText((0, textProcessing_1.formatGoalsForExport)(goalsToExport));
-            setShowExportArea(true);
-            setTimeout(() => exportTextAreaRef.current?.select(), 0);
-        }
-    }, [goals, goalLists, goalInstances]);
-    const handleCancelImportExport = () => {
-        setShowImportArea(false);
-        setShowExportArea(false);
-        setImportText("");
-        setExportText("");
-        setListForImportExport(null);
-    };
-    const handleSubmitImport = (0, react_1.useCallback)(() => {
-        if (!listForImportExport || !importText.trim()) {
-            handleCancelImportExport();
-            return;
-        }
-        const lines = (0, textProcessing_1.parseImportedText)(importText);
-        const goalsToImport = lines.map((line) => ({ text: line.trim(), completed: false })).filter((g) => g.text.length > 0);
-        if (goalsToImport.length > 0) {
-            dispatch((0, listsSlice_1.goalsImported)({ listId: listForImportExport, goalsData: goalsToImport }));
-            alert(`${goalsToImport.length} цілей імпортовано.`);
-        }
-        handleCancelImportExport();
-    }, [dispatch, listForImportExport, importText]);
-    const handleSortByRating = (0, react_1.useCallback)((listId) => {
-        const list = goalLists[listId];
-        if (!list)
-            return;
-        const itemsInList = list.itemInstanceIds.map((instanceId) => {
-            const instance = goalInstances[instanceId];
-            const goal = instance ? goals[instance.goalId] : null;
-            return goal ? { instance, goal } : null;
-        }).filter(Boolean);
-        const itemsWithRating = itemsInList.map(item => ({ ...item, rating: (0, textProcessing_1.parseGoalData)(item.goal.text).rating }))
-            .filter(item => item.rating !== undefined && !item.goal.completed);
-        const itemsWithoutRating = itemsInList.filter(item => (0, textProcessing_1.parseGoalData)(item.goal.text).rating === undefined || item.goal.completed);
-        itemsWithRating.sort((a, b) => b.rating - a.rating);
-        const sortedInstanceIds = [
-            ...itemsWithRating.map((item) => item.instance.id),
-            ...itemsWithoutRating.filter(item => !item.goal.completed).map((item) => item.instance.id),
-            ...itemsWithoutRating.filter(item => item.goal.completed).map((item) => item.instance.id),
-        ];
-        dispatch((0, listsSlice_1.goalOrderUpdated)({ listId, orderedInstanceIds: sortedInstanceIds }));
-    }, [dispatch, goals, goalLists, goalInstances]);
     if (globalFilterTerm) {
         return (0, jsx_runtime_1.jsx)(GlobalSearchResults_1.default, { obsidianVaultName: obsidianVaultPath });
     }
-    return ((0, jsx_runtime_1.jsxs)("div", { className: "flex flex-col h-full w-full overflow-hidden bg-slate-200 dark:bg-slate-950", children: [editingList && ((0, jsx_runtime_1.jsx)("div", { className: "fixed inset-0 bg-black/50 dark:bg-black/70 z-40 flex items-center justify-center p-4", children: (0, jsx_runtime_1.jsxs)("div", { ref: editingListModalRef, className: "bg-white dark:bg-slate-800 p-6 rounded-lg shadow-xl w-full max-w-md text-slate-800 dark:text-slate-200", children: [(0, jsx_runtime_1.jsx)("h2", { className: "text-xl font-semibold mb-4", children: "\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u0441\u043F\u0438\u0441\u043E\u043A" }), (0, jsx_runtime_1.jsx)("input", { value: editingListName, onChange: (e) => setEditingListName(e.target.value), className: "w-full ... mb-3", autoFocus: true }), (0, jsx_runtime_1.jsx)("textarea", { value: editingListDescription, onChange: (e) => setEditingListDescription(e.target.value), rows: 3, className: "w-full ... mb-4" }), (0, jsx_runtime_1.jsxs)("div", { className: "flex justify-end space-x-2", children: [(0, jsx_runtime_1.jsx)("button", { onClick: handleCancelEditList, className: "...", children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" }), (0, jsx_runtime_1.jsx)("button", { onClick: handleSubmitEditList, className: "...", children: "\u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438" })] })] }) })), (0, jsx_runtime_1.jsx)(TabsContainer_1.default, { tabs: tabs, activeTabId: activeTabId, onTabClick: handleTabClick, onTabClose: handleTabClose, onNewTab: () => { } }), isCurrentTabAGoalList && listIdForToolbar && ((0, jsx_runtime_1.jsx)(ListToolbar_1.default, { currentListId: listIdForToolbar, filterText: globalFilterTerm || '', onFilterTextChange: handleGlobalFilterChange, onCopyListId: (id) => navigator.clipboard.writeText(id), onOpenListSettings: handleOpenListSettings, onDeleteList: handleDeleteList, onImportGoals: handleOpenImportArea, onExportGoals: handleOpenExportArea, onSortByRating: handleSortByRating })), showImportArea && listForImportExport === currentActiveListId && ((0, jsx_runtime_1.jsx)("div", { className: "p-3 ..." })), showExportArea && listForImportExport === currentActiveListId && ((0, jsx_runtime_1.jsx)("div", { className: "p-3 ..." })), (0, jsx_runtime_1.jsx)("div", { className: "flex-grow overflow-y-auto bg-slate-50 dark:bg-slate-800 min-h-0", children: renderActiveTabContent() }), (0, jsx_runtime_1.jsx)("div", { className: "p-2 bg-slate-100 dark:bg-slate-900 border-t ...", children: (0, jsx_runtime_1.jsx)(InputPanel_1.default, { ref: inputPanelGlobalRef, currentListId: currentActiveListId ?? undefined, onAddGoal: handleAddGoalToCurrentList, onSearch: handleSearchGoals, onNavigateToList: handleNavigateToListByIdOrName, onExecuteCommand: handleExecuteAppCommand, defaultMode: InputPanel_1.CommandMode.ADD }) })] }));
+    return ((0, jsx_runtime_1.jsxs)("div", { className: "flex flex-col h-full w-full overflow-hidden bg-slate-200 dark:bg-slate-950", children: [editingList && ((0, jsx_runtime_1.jsx)("div", { className: "fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-4", children: (0, jsx_runtime_1.jsxs)("div", { ref: editingListModalRef, className: "bg-white dark:bg-slate-800 p-6 rounded-lg shadow-xl w-full max-w-md", children: [(0, jsx_runtime_1.jsx)("h2", { className: "text-xl font-semibold mb-4", children: "\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u0441\u043F\u0438\u0441\u043E\u043A" }), (0, jsx_runtime_1.jsx)("input", { value: editingListName, onChange: (e) => setEditingListName(e.target.value), className: "w-full mb-3", autoFocus: true }), (0, jsx_runtime_1.jsx)("textarea", { value: editingListDescription, onChange: (e) => setEditingListDescription(e.target.value), rows: 3, className: "w-full mb-4" }), (0, jsx_runtime_1.jsxs)("div", { className: "flex justify-end space-x-2", children: [(0, jsx_runtime_1.jsx)("button", { onClick: () => setEditingList(null), children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" }), (0, jsx_runtime_1.jsx)("button", { onClick: () => {
+                                        if (editingList && editingListName.trim()) {
+                                            dispatch((0, listsSlice_1.listUpdated)({ id: editingList.id, name: editingListName.trim(), description: editingListDescription.trim() }));
+                                        }
+                                        setEditingList(null);
+                                    }, children: "\u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438" })] })] }) })), (0, jsx_runtime_1.jsx)(TabsContainer_1.default, { tabs: tabs, activeTabId: activeTabId, onTabClick: handleTabClick, onTabClose: handleTabClose, onNewTab: () => { } }), isCurrentTabAGoalList && listIdForToolbar && ((0, jsx_runtime_1.jsx)(ListToolbar_1.default, { currentListId: listIdForToolbar, filterText: globalFilterTerm || '', onFilterTextChange: handleGlobalFilterChange, onDeleteList: handleDeleteList })), (0, jsx_runtime_1.jsx)("div", { className: "flex-grow overflow-y-auto bg-slate-50 dark:bg-slate-800 min-h-0", children: renderActiveTabContent() }), (0, jsx_runtime_1.jsx)("div", { className: "p-2 bg-slate-100 dark:bg-slate-900 border-t", children: (0, jsx_runtime_1.jsx)(InputPanel_1.default, { currentListId: currentActiveListId ?? undefined, onAddGoal: handleAddGoalToCurrentList, onSearch: handleGlobalFilterChange, onNavigateToList: (query) => {
+                        const list = Object.values(goalLists).find(l => l.name.toLowerCase() === query.toLowerCase());
+                        if (list)
+                            (0, Sidebar_1.dispatchOpenGoalListEvent)(list.id, list.name);
+                    }, onExecuteCommand: (command) => {
+                        if (command.startsWith('new-list ')) {
+                            dispatch((0, listsSlice_1.listAdded)({ name: command.replace('new-list ', ''), parentId: null }));
+                        }
+                    } }) })] }));
 }
 exports["default"] = MainPanel;
 
@@ -139918,54 +139611,21 @@ const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modul
 // src/renderer/components/SettingsPage.tsx
 const react_1 = __webpack_require__(/*! react */ "./node_modules/react/index.js");
 const react_redux_1 = __webpack_require__(/*! react-redux */ "./node_modules/react-redux/dist/cjs/index.js");
-const toolkit_1 = __webpack_require__(/*! @reduxjs/toolkit */ "./node_modules/@reduxjs/toolkit/dist/redux-toolkit.modern.mjs");
 const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts");
 function SettingsPage({ currentTheme, onChangeTheme, initialObsidianVault, onObsidianVaultChange, onDataImported, }) {
     const dispatch = (0, react_redux_1.useDispatch)();
     const listsStateForExport = (0, react_redux_1.useSelector)((state) => state.lists);
     const [obsidianVaultPath, setObsidianVaultPath] = (0, react_1.useState)(initialObsidianVault);
-    // ... (решта ваших станів залишається без змін)
-    const [isLinuxAppImage, setIsLinuxAppImage] = (0, react_1.useState)(false);
-    const [userDesktopFileExists, setUserDesktopFileExists] = (0, react_1.useState)(true);
-    const [desktopFileMessage, setDesktopFileMessage] = (0, react_1.useState)(null);
-    const [isDesktopFileProcessing, setIsDesktopFileProcessing] = (0, react_1.useState)(false);
     (0, react_1.useEffect)(() => {
         setObsidianVaultPath(initialObsidianVault);
     }, [initialObsidianVault]);
-    // ... (решта ваших useEffect та хендлерів залишається без змін)
-    (0, react_1.useEffect)(() => {
-        const checkDesktopIntegrationStatus = async () => {
-            if (window.electronAPI && navigator.platform.toUpperCase().indexOf("LINUX") >= 0) {
-                try {
-                    const isAppImage = await window.electronAPI.isAppImageOnLinux();
-                    setIsLinuxAppImage(isAppImage);
-                    if (isAppImage) {
-                        const hasFile = await window.electronAPI.hasUserDesktopFile();
-                        setUserDesktopFileExists(hasFile);
-                    }
-                }
-                catch (error) {
-                    console.error("Помилка перевірки статусу інтеграції з робочим столом:", error);
-                }
-            }
-        };
-        checkDesktopIntegrationStatus();
-    }, []);
-    const handleThemeChange = (event) => {
-        onChangeTheme(event.target.value);
-    };
-    const handleVaultPathChange = (event) => {
-        setObsidianVaultPath(event.target.value);
-    };
-    const handleSaveVaultPath = (0, react_1.useCallback)(() => {
-        onObsidianVaultChange(obsidianVaultPath.trim());
-    }, [obsidianVaultPath, onObsidianVaultChange]);
     const handleExportData = async () => {
         if (!window.electronAPI?.showSaveDialog || !window.electronAPI.writeFile)
             return;
         try {
+            // ✨ ВИПРАВЛЕНО: Експортуємо версію 3, яка не містить rootListIds
             const exportData = {
-                version: 2, // Завжди експортуємо в новому форматі (v2)
+                version: 3,
                 exportedAt: new Date().toISOString(),
                 data: listsStateForExport,
             };
@@ -140001,66 +139661,26 @@ function SettingsPage({ currentTheme, onChangeTheme, initialObsidianVault, onObs
             if (!readResult.success || typeof readResult.content !== "string")
                 throw new Error("Не вдалося прочитати файл.");
             const importedObject = JSON.parse(readResult.content);
-            if (!importedObject.version || !importedObject.data)
+            if (!importedObject.data)
                 throw new Error("Файл має невірний формат.");
             let finalState;
-            if (importedObject.version === 1) {
-                // --- МІГРАЦІЯ ЗІ СТАРОГО ФОРМАТУ (v1) ---
-                const oldData = importedObject.data;
-                const goalsAsRecord = (oldData.goals || []).reduce((acc, goal) => {
-                    acc[goal.id] = goal;
-                    return acc;
-                }, {});
-                const newInstances = {};
-                const newLists = {};
-                (oldData.goalLists || []).forEach((list) => {
-                    const newInstanceIds = (list.itemGoalIds || []).map(goalId => {
-                        if (goalsAsRecord[goalId]) {
-                            const instanceId = (0, toolkit_1.nanoid)();
-                            newInstances[instanceId] = { id: instanceId, goalId: goalId };
-                            return instanceId;
-                        }
-                        return null;
-                    }).filter(Boolean);
-                    newLists[list.id] = {
-                        ...list,
-                        itemInstanceIds: newInstanceIds,
-                        createdAt: list.createdAt || new Date().toISOString(),
-                        updatedAt: list.updatedAt || new Date().toISOString(),
-                        parentId: null, // Додаємо поле
-                        childListIds: [], // Додаємо поле
-                    };
-                });
-                finalState = {
-                    goals: goalsAsRecord,
-                    goalLists: newLists,
-                    goalInstances: newInstances,
-                    rootListIds: Object.keys(newLists), // Всі списки стають кореневими
-                };
-            }
-            else {
-                // --- ОБРОБКА НОВОГО ФОРМАТУ (v2) ---
-                const importedState = importedObject.data;
-                const goalLists = {};
-                Object.values(importedState.goalLists || {}).forEach(list => {
-                    goalLists[list.id] = {
-                        ...list,
-                        parentId: list.parentId !== undefined ? list.parentId : null,
-                        childListIds: list.childListIds || [],
-                    };
-                });
-                let rootListIds = importedState.rootListIds;
-                if (!Array.isArray(rootListIds)) {
-                    const allChildIds = new Set(Object.values(goalLists).flatMap(l => l.childListIds));
-                    rootListIds = Object.keys(goalLists).filter(id => !allChildIds.has(id));
+            // ✨ ВИПРАВЛЕНО: Уніфікована логіка для всіх версій.
+            // Ми просто беремо дані як є, а відсутні поля (напр. order) отримають значення за замовчуванням.
+            const importedState = importedObject.data;
+            finalState = {
+                goals: importedState.goals || {},
+                goalInstances: importedState.goalInstances || {},
+                goalLists: importedState.goalLists || {},
+            };
+            // Додаткова перевірка, щоб додати `order` та `parentId`, якщо їх немає (міграція зі старих версій)
+            Object.values(finalState.goalLists).forEach((list, index) => {
+                if (list.order === undefined) {
+                    list.order = index;
                 }
-                finalState = {
-                    goals: importedState.goals || {},
-                    goalInstances: importedState.goalInstances || {},
-                    goalLists,
-                    rootListIds,
-                };
-            }
+                if (list.parentId === undefined) {
+                    list.parentId = null;
+                }
+            });
             dispatch((0, listsSlice_1.stateReplaced)(finalState));
             alert("Дані успішно імпортовано!");
             if (onDataImported)
@@ -140070,29 +139690,7 @@ function SettingsPage({ currentTheme, onChangeTheme, initialObsidianVault, onObs
             alert(`Сталася помилка імпорту: ${error instanceof Error ? error.message : String(error)}.`);
         }
     };
-    const handleCreateDesktopFile = async () => {
-        if (!window.electronAPI?.createUserDesktopFile)
-            return;
-        setIsDesktopFileProcessing(true);
-        try {
-            const result = await window.electronAPI.createUserDesktopFile();
-            if (result.success) {
-                alert(result.message || "Ярлик успішно створено!");
-                setUserDesktopFileExists(true);
-            }
-            else {
-                alert(`Помилка: ${result.error || "Не вдалося створити ярлик."}`);
-            }
-        }
-        catch (error) {
-            alert(`Критична помилка: ${error.message}`);
-        }
-        finally {
-            setIsDesktopFileProcessing(false);
-        }
-    };
-    const canCreateDesktopFile = isLinuxAppImage && !userDesktopFileExists && !isDesktopFileProcessing;
-    return ((0, jsx_runtime_1.jsxs)("div", { className: "p-6 min-h-full text-slate-800 dark:text-slate-200", children: [(0, jsx_runtime_1.jsx)("h1", { className: "text-2xl font-semibold mb-8 text-slate-900 dark:text-slate-100", children: "\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F" }), (0, jsx_runtime_1.jsx)("div", { className: "space-y-10 max-w-3xl mx-auto", children: (0, jsx_runtime_1.jsxs)("section", { children: [(0, jsx_runtime_1.jsx)("h2", { className: "text-xl font-medium mb-4", children: "\u0417\u0430\u0433\u0430\u043B\u044C\u043D\u0456" }), (0, jsx_runtime_1.jsx)("div", { className: "bg-white dark:bg-slate-700/30 shadow-md sm:rounded-lg p-6", children: (0, jsx_runtime_1.jsxs)("div", { className: "space-y-6", children: [(0, jsx_runtime_1.jsxs)("div", { children: [(0, jsx_runtime_1.jsx)("label", { htmlFor: "theme", className: "block text-sm font-medium", children: "\u0422\u0435\u043C\u0430" }), (0, jsx_runtime_1.jsxs)("select", { id: "theme", value: currentTheme, onChange: handleThemeChange, className: "mt-1 block w-full ...", children: [(0, jsx_runtime_1.jsx)("option", { value: "light", children: "\u0421\u0432\u0456\u0442\u043B\u0430" }), (0, jsx_runtime_1.jsx)("option", { value: "dark", children: "\u0422\u0435\u043C\u043D\u0430" }), (0, jsx_runtime_1.jsx)("option", { value: "system", children: "\u042F\u043A \u0443 \u0441\u0438\u0441\u0442\u0435\u043C\u0456" })] })] }), (0, jsx_runtime_1.jsxs)("div", { className: "pt-4", children: [(0, jsx_runtime_1.jsx)("h3", { className: "text-md font-medium", children: "\u0420\u0435\u0437\u0435\u0440\u0432\u043D\u0435 \u043A\u043E\u043F\u0456\u044E\u0432\u0430\u043D\u043D\u044F" }), (0, jsx_runtime_1.jsxs)("div", { className: "flex space-x-3 mt-2", children: [(0, jsx_runtime_1.jsx)("button", { onClick: handleExportData, className: "px-4 py-2 text-sm bg-blue-600 text-white rounded-md", children: "\u0415\u043A\u0441\u043F\u043E\u0440\u0442" }), (0, jsx_runtime_1.jsx)("button", { onClick: handleImportData, className: "px-4 py-2 text-sm bg-orange-500 text-white rounded-md", children: "\u0406\u043C\u043F\u043E\u0440\u0442" })] })] })] }) })] }) })] }));
+    return ((0, jsx_runtime_1.jsxs)("div", { className: "p-6 min-h-full text-slate-800 dark:text-slate-200", children: [(0, jsx_runtime_1.jsx)("h1", { className: "text-2xl font-semibold mb-8 text-slate-900 dark:text-slate-100", children: "\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F" }), (0, jsx_runtime_1.jsx)("div", { className: "space-y-10 max-w-3xl mx-auto", children: (0, jsx_runtime_1.jsxs)("section", { children: [(0, jsx_runtime_1.jsx)("h2", { className: "text-xl font-medium mb-4", children: "\u0420\u0435\u0437\u0435\u0440\u0432\u043D\u0435 \u043A\u043E\u043F\u0456\u044E\u0432\u0430\u043D\u043D\u044F" }), (0, jsx_runtime_1.jsx)("div", { className: "bg-white dark:bg-slate-700/30 shadow-md sm:rounded-lg p-6", children: (0, jsx_runtime_1.jsx)("div", { className: "space-y-6", children: (0, jsx_runtime_1.jsxs)("div", { children: [(0, jsx_runtime_1.jsx)("p", { className: "text-sm text-slate-600 dark:text-slate-400", children: "\u0417\u0431\u0435\u0440\u0435\u0436\u0456\u0442\u044C \u0432\u0441\u0456 \u0432\u0430\u0448\u0456 \u0434\u0430\u043D\u0456 \u0432 \u043E\u0434\u0438\u043D \u0444\u0430\u0439\u043B \u0430\u0431\u043E \u0432\u0456\u0434\u043D\u043E\u0432\u0456\u0442\u044C \u0457\u0445 \u0437 \u0440\u0435\u0437\u0435\u0440\u0432\u043D\u043E\u0457 \u043A\u043E\u043F\u0456\u0457." }), (0, jsx_runtime_1.jsxs)("div", { className: "flex space-x-3 mt-2", children: [(0, jsx_runtime_1.jsx)("button", { onClick: handleExportData, className: "px-4 py-2 text-sm bg-blue-600 text-white rounded-md", children: "\u0415\u043A\u0441\u043F\u043E\u0440\u0442" }), (0, jsx_runtime_1.jsx)("button", { onClick: handleImportData, className: "px-4 py-2 text-sm bg-orange-500 text-white rounded-md", children: "\u0406\u043C\u043F\u043E\u0440\u0442" })] })] }) }) })] }) })] }));
 }
 exports["default"] = SettingsPage;
 
@@ -140127,7 +139725,6 @@ exports.OPEN_GOAL_LIST_EVENT = "app:open-goal-list";
 function dispatchOpenGoalListEvent(listId, listName) {
     window.dispatchEvent(new CustomEvent(exports.OPEN_GOAL_LIST_EVENT, { detail: { listId, listName } }));
 }
-// Рекурсивна функція для перевірки чи список або його діти відповідають фільтру
 const listMatchesFilter = (list, allLists, filterTerm) => {
     if (!filterTerm.trim())
         return true;
@@ -140135,40 +139732,32 @@ const listMatchesFilter = (list, allLists, filterTerm) => {
     if (list.name.toLowerCase().includes(lowercaseFilter)) {
         return true;
     }
-    if (list.childListIds && list.childListIds.length > 0) {
-        return list.childListIds.some(childId => {
-            const childList = allLists[childId];
-            return childList && listMatchesFilter(childList, allLists, filterTerm);
-        });
-    }
-    return false;
+    const children = Object.values(allLists).filter(l => l.parentId === list.id);
+    return children.some(childList => listMatchesFilter(childList, allLists, filterTerm));
 };
-const SidebarListItem = ({ listId, index, level, onStartEdit, onDelete, cutListId, onCut, onPaste, filterTerm }) => {
+const SidebarListItem = ({ listId, index, level, onStartEdit, onDelete, onAddChild, cutListId, onCut, onPaste, filterTerm }) => {
     const dispatch = (0, react_redux_1.useDispatch)();
     const list = (0, react_redux_1.useSelector)((state) => state.lists.goalLists[listId]);
     const allLists = (0, react_redux_1.useSelector)((state) => state.lists.goalLists);
-    const filteredChildIds = (0, react_1.useMemo)(() => {
-        if (!list?.childListIds || !filterTerm.trim()) {
-            return list?.childListIds || [];
-        }
-        return list.childListIds.filter(childId => {
-            const childList = allLists[childId];
-            return childList && listMatchesFilter(childList, allLists, filterTerm);
-        });
-    }, [list?.childListIds, filterTerm, allLists]);
+    const selectChildLists = (0, react_1.useMemo)(selectors_1.makeSelectChildLists, []);
+    const childLists = (0, react_redux_1.useSelector)((state) => selectChildLists(state, listId));
+    const filteredChildLists = (0, react_1.useMemo)(() => {
+        if (!filterTerm.trim())
+            return childLists;
+        return childLists.filter(child => listMatchesFilter(child, allLists, filterTerm));
+    }, [childLists, filterTerm, allLists]);
     if (!list)
         return null;
-    const isExpanded = list.isExpanded ?? true; // <-- ЗМІНА: Читаємо з Redux, а не з useState
+    const isExpanded = list.isExpanded ?? true;
     const handleOpenGoalList = () => dispatchOpenGoalListEvent(list.id, list.name);
-    const hasChildren = list.childListIds && list.childListIds.length > 0;
-    const hasFilteredChildren = filteredChildIds.length > 0;
+    const hasChildren = childLists.length > 0;
+    const hasFilteredChildren = filteredChildLists.length > 0;
     const isCut = cutListId === list.id;
-    return ((0, jsx_runtime_1.jsx)(dnd_1.Draggable, { draggableId: list.id, index: index, children: (provided, snapshot) => ((0, jsx_runtime_1.jsxs)("div", { ref: provided.innerRef, ...provided.draggableProps, className: `rounded-md my-px transition-opacity ${snapshot.isDragging ? 'bg-blue-100 dark:bg-blue-900/50 shadow-lg' : ''} ${isCut ? 'opacity-50' : 'opacity-100'}`, children: [(0, jsx_runtime_1.jsx)(dnd_1.Droppable, { droppableId: `sidebar-${list.id}`, type: "GOAL", children: (dropProvided, dropSnapshot) => ((0, jsx_runtime_1.jsx)("div", { ref: dropProvided.innerRef, ...dropProvided.droppableProps, className: `p-1 rounded-md transition-colors ${dropSnapshot.isDraggingOver ? 'bg-green-100 dark:bg-green-900/30 ring-2 ring-green-400' : ''}`, children: (0, jsx_runtime_1.jsxs)("div", { className: "group flex items-center justify-between", style: { paddingLeft: `${level * 12}px` }, children: [(0, jsx_runtime_1.jsx)("div", { ...provided.dragHandleProps, className: "p-1 opacity-50 group-hover:opacity-100 cursor-grab", children: (0, jsx_runtime_1.jsx)(lucide_react_1.GripVertical, { size: 14 }) }), (0, jsx_runtime_1.jsxs)("div", { className: "flex items-center flex-grow truncate mr-2", onClick: handleOpenGoalList, children: [hasChildren ? ((0, jsx_runtime_1.jsx)("button", { onClick: (e) => {
-                                                e.stopPropagation();
-                                                dispatch((0, listsSlice_1.listExpansionToggled)({ listId: list.id })); // <-- ЗМІНА: Диспатчимо action
-                                            }, className: "p-0.5 mr-1 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 flex-shrink-0", children: isExpanded ? (0, jsx_runtime_1.jsx)(lucide_react_1.ChevronDown, { size: 14 }) : (0, jsx_runtime_1.jsx)(lucide_react_1.ChevronRight, { size: 14 }) })) : ((0, jsx_runtime_1.jsx)("span", { className: "w-[18px] mr-1 flex-shrink-0" })), (0, jsx_runtime_1.jsx)("span", { className: "text-slate-700 dark:text-slate-300 text-sm cursor-pointer", title: list.name, children: list.name })] }), (0, jsx_runtime_1.jsxs)("div", { className: "flex-shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150 space-x-0.5", children: [cutListId && cutListId !== list.id && ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onPaste(list.id, false); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-400 rounded", title: "\u0412\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u044F\u043A \u0441\u0443\u0441\u0456\u0434\u0430", children: (0, jsx_runtime_1.jsx)(lucide_react_1.ClipboardPaste, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onPaste(list.id, true); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-400 rounded", title: "\u0412\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u044F\u043A \u0434\u043E\u0447\u0456\u0440\u043D\u0456\u0439", children: (0, jsx_runtime_1.jsx)(lucide_react_1.ClipboardPaste, { size: 14, className: "ml-[-4px]", style: { clipPath: 'inset(50% 0 0 0)' } }) })] })), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onCut(list.id); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-yellow-600 dark:hover:text-yellow-500 rounded", title: "\u0412\u0438\u0440\u0456\u0437\u0430\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Scissors, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onStartEdit(list); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded", title: "\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Edit3, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onDelete(list.id, list.name); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-500 rounded", title: "\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Trash2, { size: 14 }) })] })] }) })) }), isExpanded && hasFilteredChildren && ((0, jsx_runtime_1.jsx)(dnd_1.Droppable, { droppableId: list.id, type: "LIST", children: (provided, snapshot) => ((0, jsx_runtime_1.jsxs)("div", { ref: provided.innerRef, ...provided.droppableProps, className: `transition-all duration-150 rounded-b-md ${snapshot.isDraggingOver ? 'bg-purple-100 dark:bg-purple-700/20' : ''}`, style: { minHeight: '8px' }, children: [filteredChildIds.map((childId, childIndex) => ((0, jsx_runtime_1.jsx)(SidebarListItem, { listId: childId, index: childIndex, level: level + 1, onStartEdit: onStartEdit, onDelete: onDelete, cutListId: cutListId, onCut: onCut, onPaste: onPaste, filterTerm: filterTerm }, childId))), provided.placeholder] })) }))] })) }));
+    return ((0, jsx_runtime_1.jsx)(dnd_1.Draggable, { draggableId: list.id, index: index, children: (provided, snapshot) => ((0, jsx_runtime_1.jsxs)("div", { ref: provided.innerRef, ...provided.draggableProps, className: `rounded-md my-px transition-opacity ${snapshot.isDragging ? 'bg-blue-100 dark:bg-blue-900/50 shadow-lg' : ''} ${isCut ? 'opacity-50' : 'opacity-100'}`, children: [(0, jsx_runtime_1.jsx)(dnd_1.Droppable, { droppableId: list.id, type: "LIST", children: (dropProvided, dropSnapshot) => ((0, jsx_runtime_1.jsxs)("div", { ref: dropProvided.innerRef, ...dropProvided.droppableProps, className: `p-1 rounded-md transition-colors ${dropSnapshot.isDraggingOver ? 'bg-purple-100 dark:bg-purple-700/20' : ''}`, children: [(0, jsx_runtime_1.jsxs)("div", { className: "group flex items-center justify-between", style: { paddingLeft: `${level * 12}px` }, children: [(0, jsx_runtime_1.jsx)("div", { ...provided.dragHandleProps, className: "p-1 opacity-50 group-hover:opacity-100 cursor-grab", children: (0, jsx_runtime_1.jsx)(lucide_react_1.GripVertical, { size: 14 }) }), (0, jsx_runtime_1.jsxs)("div", { className: "flex items-center flex-grow truncate mr-2", onClick: handleOpenGoalList, children: [hasChildren ? ((0, jsx_runtime_1.jsx)("button", { onClick: (e) => {
+                                                    e.stopPropagation();
+                                                    dispatch((0, listsSlice_1.listExpansionToggled)({ listId: list.id }));
+                                                }, className: "p-0.5 mr-1 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 flex-shrink-0", children: isExpanded ? (0, jsx_runtime_1.jsx)(lucide_react_1.ChevronDown, { size: 14 }) : (0, jsx_runtime_1.jsx)(lucide_react_1.ChevronRight, { size: 14 }) })) : ((0, jsx_runtime_1.jsx)("span", { className: "w-[18px] mr-1 flex-shrink-0" })), (0, jsx_runtime_1.jsx)("span", { className: "text-slate-700 dark:text-slate-300 text-sm cursor-pointer", title: list.name, children: list.name })] }), (0, jsx_runtime_1.jsxs)("div", { className: "flex-shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150 space-x-0.5", children: [cutListId && cutListId !== list.id && ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onPaste(list.id, false); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-400 rounded", title: "\u0412\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u044F\u043A \u0441\u0443\u0441\u0456\u0434\u0430", children: (0, jsx_runtime_1.jsx)(lucide_react_1.ClipboardPaste, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onPaste(list.id, true); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-400 rounded", title: "\u0412\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u044F\u043A \u0434\u043E\u0447\u0456\u0440\u043D\u0456\u0439", children: (0, jsx_runtime_1.jsx)(lucide_react_1.ClipboardPaste, { size: 14, className: "ml-[-4px]", style: { clipPath: 'inset(50% 0 0 0)' } }) })] })), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onCut(list.id); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-yellow-600 dark:hover:text-yellow-500 rounded", title: "\u0412\u0438\u0440\u0456\u0437\u0430\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Scissors, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onAddChild(list.id); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-500 rounded", title: "\u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438 \u0434\u043E\u0447\u0456\u0440\u043D\u0456\u0439 \u0441\u043F\u0438\u0441\u043E\u043A", children: (0, jsx_runtime_1.jsx)(lucide_react_1.CornerDownRight, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onStartEdit(list); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded", title: "\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Edit3, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onDelete(list.id, list.name); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-500 rounded", title: "\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Trash2, { size: 14 }) })] })] }), dropProvided.placeholder] })) }), isExpanded && hasFilteredChildren && ((0, jsx_runtime_1.jsx)("div", { className: "pl-2", children: filteredChildLists.map((child, childIndex) => ((0, jsx_runtime_1.jsx)(SidebarListItem, { listId: child.id, index: childIndex, level: level + 1, onStartEdit: onStartEdit, onDelete: onDelete, onAddChild: onAddChild, cutListId: cutListId, onCut: onCut, onPaste: onPaste, filterTerm: filterTerm }, child.id))) }))] })) }));
 };
-// Component `Sidebar` remains the same as you provided
 function Sidebar() {
     const dispatch = (0, react_redux_1.useDispatch)();
     const allTopLevelLists = (0, react_redux_1.useSelector)(selectors_1.selectTopLevelLists);
@@ -140181,9 +139770,8 @@ function Sidebar() {
     const [newListName, setNewListName] = (0, react_1.useState)("");
     const [cutListId, setCutListId] = (0, react_1.useState)(null);
     const filteredLists = (0, react_1.useMemo)(() => {
-        if (!filterTerm.trim()) {
+        if (!filterTerm.trim())
             return allTopLevelLists;
-        }
         return allTopLevelLists.filter(list => listMatchesFilter(list, allLists, filterTerm));
     }, [allTopLevelLists, filterTerm, allLists]);
     const handleStartEdit = (list) => {
@@ -140217,9 +139805,16 @@ function Sidebar() {
             setIsCreatingNewList(false);
         }
     };
+    const handleAddChildList = (parentId) => {
+        const name = prompt("Введіть назву для нового під-списку:");
+        if (name && name.trim()) {
+            dispatch((0, listsSlice_1.listAdded)({ name: name.trim(), parentId }));
+        }
+    };
     const handleCut = (id) => {
         setCutListId(id);
     };
+    // ✨ ПОВЕРНУТО: Логіка вставки
     const handlePaste = (targetListId, asChild) => {
         if (!cutListId)
             return;
@@ -140229,6 +139824,7 @@ function Sidebar() {
         const targetList = allLists[targetListId];
         if (!cutList || !targetList)
             return;
+        // Перевірка, щоб не вставити батька в його нащадка
         let currentParentId = asChild ? targetListId : targetList.parentId;
         while (currentParentId) {
             if (currentParentId === cutListId) {
@@ -140237,17 +139833,25 @@ function Sidebar() {
             }
             currentParentId = allLists[currentParentId]?.parentId;
         }
-        const destinationParentId = asChild ? targetListId : targetList.parentId;
-        const parentOfTarget = targetList.parentId ? allLists[targetList.parentId] : null;
-        const siblingIds = parentOfTarget ? parentOfTarget.childListIds : allTopLevelLists.map(l => l.id);
-        const destinationIndex = asChild ? targetList.childListIds.length : siblingIds.indexOf(targetListId) + 1;
-        dispatch((0, listsSlice_1.listMoved)({
-            listId: cutListId,
-            sourceParentId: cutList.parentId,
-            sourceIndex: -1, // Note: index might need adjustment depending on dnd library version
-            destinationParentId: destinationParentId,
-            destinationIndex: destinationIndex,
-        }));
+        const oldParentId = cutList.parentId;
+        const newParentId = asChild ? targetListId : targetList.parentId;
+        // 1. Переміщуємо список до нового батька
+        dispatch((0, listsSlice_1.listMoved)({ listId: cutListId, newParentId }));
+        // 2. Оновлюємо порядок у старому списку (якщо він був)
+        const oldSiblings = Object.values(allLists)
+            .filter(l => l.parentId === oldParentId && l.id !== cutListId)
+            .sort((a, b) => a.order - b.order)
+            .map(l => l.id);
+        dispatch((0, listsSlice_1.listsReordered)({ parentId: oldParentId, orderedListIds: oldSiblings }));
+        // 3. Оновлюємо порядок у новому списку
+        const newSiblings = Object.values(allLists)
+            .filter(l => l.parentId === newParentId && l.id !== cutListId)
+            .sort((a, b) => a.order - b.order)
+            .map(l => l.id);
+        // Вставляємо наш елемент на правильну позицію
+        const targetIndex = asChild ? newSiblings.length : newSiblings.indexOf(targetListId) + 1;
+        newSiblings.splice(targetIndex, 0, cutListId);
+        dispatch((0, listsSlice_1.listsReordered)({ parentId: newParentId, orderedListIds: newSiblings }));
         setCutListId(null);
     };
     const renderEditForm = () => {
@@ -140255,7 +139859,7 @@ function Sidebar() {
             return null;
         return ((0, jsx_runtime_1.jsxs)("div", { className: "p-2 my-1 border border-blue-400 dark:border-blue-600 rounded-md bg-white dark:bg-slate-800 shadow", children: [(0, jsx_runtime_1.jsx)("input", { type: "text", value: editingListName, onChange: (e) => setEditingListName(e.target.value), className: "w-full text-sm p-2 mb-2 border rounded", onKeyDown: (e) => e.key === 'Enter' && submitRenameList(), autoFocus: true }), (0, jsx_runtime_1.jsx)("textarea", { value: editingListDescription, onChange: (e) => setEditingListDescription(e.target.value), rows: 2, className: "w-full text-xs p-2 mb-2 border rounded" }), (0, jsx_runtime_1.jsxs)("div", { className: "flex justify-end space-x-2", children: [(0, jsx_runtime_1.jsx)("button", { onClick: handleCancelEdit, className: "px-3 py-1 text-xs rounded bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500", children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" }), (0, jsx_runtime_1.jsx)("button", { onClick: submitRenameList, className: "px-3 py-1 text-xs rounded bg-blue-500 hover:bg-blue-600 text-white", children: "\u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438" })] })] }));
     };
-    return ((0, jsx_runtime_1.jsxs)("div", { className: "h-full flex flex-col bg-slate-100 dark:bg-slate-900", children: [(0, jsx_runtime_1.jsx)("div", { className: "p-2 border-b border-slate-200 dark:border-slate-700 flex-shrink-0", children: (0, jsx_runtime_1.jsx)(GlobalSearch_1.default, { value: filterTerm, onFilterChange: setFilterTerm }) }), (0, jsx_runtime_1.jsxs)("div", { className: "p-4 flex-shrink-0", children: [(0, jsx_runtime_1.jsxs)("div", { className: "mb-3 flex justify-between items-center", children: [(0, jsx_runtime_1.jsx)("h3", { className: "text-lg font-semibold text-slate-700 dark:text-slate-300", children: "\u0421\u043F\u0438\u0441\u043A\u0438" }), (0, jsx_runtime_1.jsx)("button", { onClick: () => setIsCreatingNewList(true), className: "p-1.5 text-slate-500 hover:text-blue-600 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Plus, { size: 20 }) })] }), isCreatingNewList && ((0, jsx_runtime_1.jsxs)("div", { className: "mb-3 p-2 border rounded-md bg-white dark:bg-slate-800", children: [(0, jsx_runtime_1.jsx)("input", { value: newListName, onChange: (e) => setNewListName(e.target.value), placeholder: "\u041D\u0430\u0437\u0432\u0430 \u043D\u043E\u0432\u043E\u0433\u043E \u0441\u043F\u0438\u0441\u043A\u0443", onKeyDown: e => e.key === 'Enter' && submitNewList(), className: "w-full p-2 mb-2 border rounded", autoFocus: true }), (0, jsx_runtime_1.jsxs)("div", { className: "flex justify-end space-x-2", children: [(0, jsx_runtime_1.jsx)("button", { onClick: () => setIsCreatingNewList(false), className: "px-3 py-1 text-xs rounded bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500", children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" }), (0, jsx_runtime_1.jsx)("button", { onClick: submitNewList, className: "px-3 py-1 text-xs rounded bg-blue-500 hover:bg-blue-600 text-white", children: "\u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438" })] })] })), editingList && renderEditForm()] }), (0, jsx_runtime_1.jsx)("div", { className: "flex-grow px-2 min-h-0 overflow-y-auto custom-scrollbar", children: (0, jsx_runtime_1.jsx)(dnd_1.Droppable, { droppableId: "root", type: "LIST", children: (provided, snapshot) => ((0, jsx_runtime_1.jsxs)("div", { ref: provided.innerRef, ...provided.droppableProps, className: `transition-colors min-h-full p-1 rounded-md ${snapshot.isDraggingOver ? 'bg-purple-100 dark:bg-purple-900/30' : ''}`, children: [filteredLists.map((list, index) => (0, jsx_runtime_1.jsx)(SidebarListItem, { listId: list.id, index: index, level: 0, onStartEdit: handleStartEdit, onDelete: handleDeleteList, cutListId: cutListId, onCut: handleCut, onPaste: handlePaste, filterTerm: filterTerm }, list.id)), provided.placeholder] })) }, filterTerm ? 'filtered-lists' : 'all-lists') }), (0, jsx_runtime_1.jsx)("div", { className: "p-4 mt-auto border-t border-slate-300 dark:border-slate-700 flex-shrink-0", children: (0, jsx_runtime_1.jsxs)("button", { onClick: events_1.dispatchOpenSettingsEvent, className: "w-full flex items-center justify-center p-2 rounded-md bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.Settings, { size: 16, className: "mr-2" }), " \u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F"] }) })] }));
+    return ((0, jsx_runtime_1.jsxs)("div", { className: "h-full flex flex-col bg-slate-100 dark:bg-slate-900", children: [(0, jsx_runtime_1.jsx)("div", { className: "p-2 border-b border-slate-200 dark:border-slate-700 flex-shrink-0", children: (0, jsx_runtime_1.jsx)(GlobalSearch_1.default, { value: filterTerm, onFilterChange: setFilterTerm }) }), (0, jsx_runtime_1.jsxs)("div", { className: "p-4 flex-shrink-0", children: [(0, jsx_runtime_1.jsxs)("div", { className: "mb-3 flex justify-between items-center", children: [(0, jsx_runtime_1.jsx)("h3", { className: "text-lg font-semibold text-slate-700 dark:text-slate-300", children: "\u0421\u043F\u0438\u0441\u043A\u0438" }), (0, jsx_runtime_1.jsx)("button", { onClick: () => setIsCreatingNewList(true), className: "p-1.5 text-slate-500 hover:text-blue-600 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Plus, { size: 20 }) })] }), isCreatingNewList && ((0, jsx_runtime_1.jsxs)("div", { className: "mb-3 p-2 border rounded-md bg-white dark:bg-slate-800", children: [(0, jsx_runtime_1.jsx)("input", { value: newListName, onChange: (e) => setNewListName(e.target.value), placeholder: "\u041D\u0430\u0437\u0432\u0430 \u043D\u043E\u0432\u043E\u0433\u043E \u0441\u043F\u0438\u0441\u043A\u0443", onKeyDown: e => e.key === 'Enter' && submitNewList(), className: "w-full p-2 mb-2 border rounded", autoFocus: true }), (0, jsx_runtime_1.jsxs)("div", { className: "flex justify-end space-x-2", children: [(0, jsx_runtime_1.jsx)("button", { onClick: () => setIsCreatingNewList(false), className: "px-3 py-1 text-xs rounded bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500", children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" }), (0, jsx_runtime_1.jsx)("button", { onClick: submitNewList, className: "px-3 py-1 text-xs rounded bg-blue-500 hover:bg-blue-600 text-white", children: "\u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438" })] })] })), editingList && renderEditForm()] }), (0, jsx_runtime_1.jsx)("div", { className: "flex-grow px-2 min-h-0 overflow-y-auto custom-scrollbar", children: (0, jsx_runtime_1.jsx)(dnd_1.Droppable, { droppableId: "root", type: "LIST", children: (provided, snapshot) => ((0, jsx_runtime_1.jsxs)("div", { ref: provided.innerRef, ...provided.droppableProps, className: `transition-colors min-h-full p-1 rounded-md ${snapshot.isDraggingOver ? 'bg-purple-100 dark:bg-purple-900/30' : ''}`, children: [filteredLists.map((list, index) => (0, jsx_runtime_1.jsx)(SidebarListItem, { listId: list.id, index: index, level: 0, onStartEdit: handleStartEdit, onDelete: handleDeleteList, onAddChild: handleAddChildList, cutListId: cutListId, onCut: handleCut, onPaste: handlePaste, filterTerm: filterTerm }, list.id)), provided.placeholder] })) }, filterTerm ? 'filtered-lists' : 'all-lists') }), (0, jsx_runtime_1.jsx)("div", { className: "p-4 mt-auto border-t border-slate-300 dark:border-slate-700 flex-shrink-0", children: (0, jsx_runtime_1.jsxs)("button", { onClick: events_1.dispatchOpenSettingsEvent, className: "w-full flex items-center justify-center p-2 rounded-md bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.Settings, { size: 16, className: "mr-2" }), " \u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F"] }) })] }));
 }
 exports["default"] = Sidebar;
 
@@ -140437,10 +140041,10 @@ const react_redux_1 = __webpack_require__(/*! react-redux */ "./node_modules/rea
 const syncSlice_1 = __webpack_require__(/*! ../store/syncSlice */ "./src/renderer/store/syncSlice.ts");
 const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts");
 const lucide_react_1 = __webpack_require__(/*! lucide-react */ "./node_modules/lucide-react/dist/esm/lucide-react.js");
-const syncLogic_1 = __webpack_require__(/*! ../logic/syncLogic */ "./src/renderer/logic/syncLogic.ts"); // <-- Наш новий "мозок"
+const syncLogic_1 = __webpack_require__(/*! ../logic/syncLogic */ "./src/renderer/logic/syncLogic.ts");
 const WifiSyncModal = () => {
     const dispatch = (0, react_redux_1.useDispatch)();
-    const { isModalOpen, modalMode, syncStatus, deviceAddress, errorMessage, } = (0, react_redux_1.useSelector)((state) => state.sync);
+    const { isModalOpen, modalMode, syncStatus, deviceAddress, errorMessage, syncReport, originalBackup, } = (0, react_redux_1.useSelector)((state) => state.sync);
     const listsState = (0, react_redux_1.useSelector)((state) => state.lists);
     const [localServerAddress, setLocalServerAddress] = (0, react_1.useState)(null);
     const [localError, setLocalError] = (0, react_1.useState)(null);
@@ -140448,53 +140052,17 @@ const WifiSyncModal = () => {
         const handleServer = async () => {
             if (isModalOpen && modalMode === 'server') {
                 setLocalError(null);
-                if (!listsState || Object.keys(listsState.goalLists).length === 0) {
-                    const errorMessage = "Немає даних для експорту. Створіть хоча б один список.";
-                    console.error("[WifiSyncModal]", errorMessage, "Current listsState:", listsState);
-                    setLocalError(errorMessage);
-                    return;
-                }
-                // --- ТРАНСФОРМАЦІЯ ДАНИХ ---
-                const { goals, goalLists, goalInstances, rootListIds } = listsState;
-                // Перетворюємо дати в ISO рядок, якщо вони Long (для майбутньої сумісності)
-                // і забезпечуємо відповідність структурі DesktopBackupFile
-                const desktopGoals = Object.values(goals).reduce((acc, goal) => {
-                    acc[goal.id] = {
-                        ...goal,
-                        createdAt: new Date(goal.createdAt).toISOString(),
-                        updatedAt: goal.updatedAt ? new Date(goal.updatedAt).toISOString() : undefined,
-                        // Переконайтеся, що всі поля відповідають DesktopGoal
-                        // Тут ми припускаємо, що структура Goal вже оновлена (Крок 1)
-                    };
-                    return acc;
-                }, {});
-                const desktopLists = Object.values(goalLists).reduce((acc, list) => {
-                    acc[list.id] = {
-                        id: list.id,
-                        name: list.name,
-                        description: list.description,
-                        itemInstanceIds: list.itemInstanceIds,
-                        createdAt: new Date(list.createdAt).toISOString(),
-                        updatedAt: list.updatedAt ? new Date(list.updatedAt).toISOString() : undefined,
-                        parentId: list.parentId,
-                        childListIds: list.childListIds,
-                        isExpanded: list.isExpanded ?? true, // <-- ЯВНО ДОДАЄМО ПОЛЕ
-                    };
-                    return acc;
-                }, {});
-                // Формат, який очікує Android
+                const { goals, goalLists, goalInstances } = listsState;
                 const desktopBackupData = {
-                    goals: desktopGoals,
-                    goalLists: desktopLists,
-                    goalInstances: goalInstances,
-                    rootListIds: rootListIds,
+                    goals,
+                    goalLists,
+                    goalInstances,
                 };
                 const exportData = {
-                    version: 2, // Версія, як в Android SyncModel
+                    version: 3,
                     exportedAt: new Date().toISOString(),
                     data: desktopBackupData,
                 };
-                console.log("[WifiSyncModal] Preparing to start server with transformed export data:", exportData);
                 const result = await window.electronAPI.startWifiServer(exportData);
                 if (result.success && result.address) {
                     setLocalServerAddress(result.address);
@@ -140510,7 +140078,7 @@ const WifiSyncModal = () => {
                 window.electronAPI.stopWifiServer();
             }
         };
-    }, [isModalOpen, modalMode, listsState]); // `dispatch` можна прибрати, він стабільний
+    }, [isModalOpen, modalMode, listsState]);
     const handleFetchFromDevice = async () => {
         if (!deviceAddress) {
             dispatch((0, syncSlice_1.setSyncError)('Будь ласка, введіть адресу пристрою.'));
@@ -140520,15 +140088,12 @@ const WifiSyncModal = () => {
         const result = await window.electronAPI.fetchFromDevice(deviceAddress);
         if (result.success && result.data) {
             try {
-                // Викликаємо наш новий аналізатор
                 const report = (0, syncLogic_1.createSyncReport)(listsState, result.data);
                 if (report.changes.length === 0) {
-                    // Якщо змін немає, просто повідомляємо про це
                     dispatch((0, syncSlice_1.setSyncStatus)('success'));
                     setTimeout(() => dispatch((0, syncSlice_1.closeSyncModal)()), 2000);
                 }
                 else {
-                    // Якщо зміни є, зберігаємо звіт і переходимо в режим перегляду
                     dispatch((0, syncSlice_1.setSyncReport)({ report, originalBackup: result.data }));
                 }
             }
@@ -140540,52 +140105,44 @@ const WifiSyncModal = () => {
             dispatch((0, syncSlice_1.setSyncError)(result.error || 'Не вдалося отримати дані.'));
         }
     };
-    // Вставте цю нову функцію всередині компонента WifiSyncModal
-    const { syncReport, originalBackup } = (0, react_redux_1.useSelector)((state) => state.sync);
     const handleApplyChanges = () => {
-        if (!syncReport || !originalBackup)
+        if (!originalBackup)
             return;
         dispatch((0, syncSlice_1.setSyncStatus)('applying'));
-        // --- КЛЮЧОВА ЛОГІКА: ЗАСТОСУВАННЯ ЗМІН ---
-        // Тут ми могли б також оновити goalInstances, але для простоти поки що
-        // повністю перезаписуємо їх з бекапу, оскільки логіка їх злиття складна.
         const remoteData = originalBackup.data;
-        if (remoteData && remoteData.goalInstances) {
-            // Це компроміс: ми застосовуємо зміни до цілей/списків вибірково,
-            // а порядок і приналежність цілей до списків беремо з телефону.
-            // Для цього потрібно оновити stateReplaced або створити новий action.
-            // Поки що, для простоти, застосуємо зміни до цілей і списків.
+        if (remoteData) {
+            const goalListsFromRemote = remoteData.goalLists || {};
+            // ✨ ВИПРАВЛЕННЯ: Створюємо НОВИЙ об'єкт для нормалізованих даних,
+            // а не змінюємо "заморожений" об'єкт зі стану.
+            const normalizedGoalLists = {};
+            Object.keys(goalListsFromRemote).forEach(listId => {
+                const originalList = goalListsFromRemote[listId];
+                // Створюємо копію, яку можна змінювати
+                const newList = { ...originalList };
+                // Нормалізуємо копію
+                if (newList.parentId === undefined) {
+                    newList.parentId = null;
+                }
+                if (newList.order === undefined) {
+                    newList.order = 0;
+                }
+                normalizedGoalLists[listId] = newList;
+            });
+            dispatch((0, listsSlice_1.stateReplaced)({
+                goals: remoteData.goals || {},
+                goalLists: normalizedGoalLists, // Використовуємо новий, нормалізований об'єкт
+                goalInstances: remoteData.goalInstances || {},
+            }));
         }
-        syncReport.changes.forEach(change => {
-            if (change.entityType === 'Список') {
-                if (change.type === 'Add') {
-                    dispatch((0, listsSlice_1.listAdded)(change.entity)); // Потрібно адаптувати payload
-                }
-                else if (change.type === 'Update') {
-                    dispatch((0, listsSlice_1.listUpdated)(change.entity));
-                }
-            }
-            else if (change.entityType === 'Ціль') {
-                if (change.type === 'Add') {
-                    dispatch((0, listsSlice_1.goalAdded)(change.entity)); // Потрібно адаптувати payload
-                }
-                else if (change.type === 'Update') {
-                    dispatch((0, listsSlice_1.goalUpdated)(change.entity));
-                }
-            }
-        });
-        // Після застосування змін, ми можемо перезаписати весь стан для коректного порядку
-        // Це найпростіший шлях забезпечити консистентність.
-        dispatch((0, listsSlice_1.stateReplaced)(remoteData));
         dispatch((0, syncSlice_1.setSyncStatus)('success'));
         setTimeout(() => dispatch((0, syncSlice_1.closeSyncModal)()), 2000);
     };
     const handleClose = () => dispatch((0, syncSlice_1.closeSyncModal)());
     if (!isModalOpen)
         return null;
-    const renderServerContent = () => ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("h3", { className: "text-lg font-semibold mb-4 text-center", children: "Wi-Fi \u0421\u0435\u0440\u0432\u0435\u0440" }), localServerAddress ? ((0, jsx_runtime_1.jsxs)("div", { className: 'text-center', children: [(0, jsx_runtime_1.jsx)(lucide_react_1.Wifi, { className: "mx-auto h-12 w-12 text-green-500 mb-4" }), (0, jsx_runtime_1.jsx)("p", { className: "text-sm text-slate-500 dark:text-slate-400", children: "\u0421\u0435\u0440\u0432\u0435\u0440 \u0437\u0430\u043F\u0443\u0449\u0435\u043D\u043E. \u0412\u0432\u0435\u0434\u0456\u0442\u044C \u0446\u044E \u0430\u0434\u0440\u0435\u0441\u0443 \u043D\u0430 \u0456\u043D\u0448\u043E\u043C\u0443 \u043F\u0440\u0438\u0441\u0442\u0440\u043E\u0457:" }), (0, jsx_runtime_1.jsxs)("p", { className: "mt-2 text-xl font-mono p-2 bg-slate-100 dark:bg-slate-700 rounded-md select-all", children: ["http://", localServerAddress, ":8080"] })] })) : !localError ? ((0, jsx_runtime_1.jsxs)("div", { className: 'text-center', children: [(0, jsx_runtime_1.jsx)(lucide_react_1.LoaderCircle, { className: "mx-auto h-12 w-12 text-blue-500 mb-4 animate-spin" }), (0, jsx_runtime_1.jsx)("p", { className: "text-sm text-slate-500 dark:text-slate-400", children: "\u0417\u0430\u043F\u0443\u0441\u043A \u0441\u0435\u0440\u0432\u0435\u0440\u0430..." })] })) : null, localError &&
+    const renderServerContent = () => ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("h3", { className: "text-lg font-semibold mb-4 text-center", children: "Wi-Fi \u0421\u0435\u0440\u0432\u0435\u0440" }), localServerAddress ? ((0, jsx_runtime_1.jsxs)("div", { className: 'text-center', children: [(0, jsx_runtime_1.jsx)(lucide_react_1.Wifi, { className: "mx-auto h-12 w-12 text-green-500 mb-4" }), (0, jsx_runtime_1.jsx)("p", { className: "text-sm text-slate-500 dark:text-slate-400", children: "\u0421\u0435\u0440\u0432\u0435\u0440 \u0437\u0430\u043F\u0443\u0449\u0435\u043D\u043E. \u0412\u0432\u0435\u0434\u0456\u0442\u044C \u0446\u044E \u0430\u0434\u0440\u0435\u0441\u0443 \u043D\u0430 Android-\u043F\u0440\u0438\u0441\u0442\u0440\u043E\u0457:" }), (0, jsx_runtime_1.jsxs)("p", { className: "mt-2 text-xl font-mono p-2 bg-slate-100 dark:bg-slate-700 rounded-md select-all", children: ["http://", localServerAddress] })] })) : !localError ? ((0, jsx_runtime_1.jsxs)("div", { className: 'text-center', children: [(0, jsx_runtime_1.jsx)(lucide_react_1.LoaderCircle, { className: "mx-auto h-12 w-12 text-blue-500 mb-4 animate-spin" }), (0, jsx_runtime_1.jsx)("p", { className: "text-sm text-slate-500 dark:text-slate-400", children: "\u0417\u0430\u043F\u0443\u0441\u043A \u0441\u0435\u0440\u0432\u0435\u0440\u0430..." })] })) : null, localError &&
                 (0, jsx_runtime_1.jsxs)("div", { className: "text-center py-4", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.CircleAlert, { className: "mx-auto h-10 w-10 text-red-500" }), (0, jsx_runtime_1.jsx)("p", { className: "mt-2 text-sm text-red-500", children: localError })] })] }));
-    const renderReviewContent = () => ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsxs)("h3", { className: "text-lg font-semibold mb-2 text-center flex items-center justify-center", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.FileDiff, { className: "mr-2 h-5 w-5" }), "\u041E\u0433\u043B\u044F\u0434 \u0437\u043C\u0456\u043D"] }), (0, jsx_runtime_1.jsxs)("p", { className: "text-sm text-center text-slate-500 dark:text-slate-400 mb-4", children: ["\u0417\u043D\u0430\u0439\u0434\u0435\u043D\u043E ", syncReport?.changes.length || 0, " \u0437\u043C\u0456\u043D. \u0417\u0430\u0441\u0442\u043E\u0441\u0443\u0432\u0430\u0442\u0438 \u0457\u0445?"] }), (0, jsx_runtime_1.jsx)("div", { className: "max-h-60 overflow-y-auto p-3 bg-slate-50 dark:bg-slate-700/50 rounded-md border border-slate-200 dark:border-slate-600", children: (0, jsx_runtime_1.jsx)("ul", { className: "space-y-2", children: syncReport?.changes.map(change => ((0, jsx_runtime_1.jsxs)("li", { className: "flex items-center text-sm", children: [(0, jsx_runtime_1.jsx)("span", { className: `font-bold mr-2 ${change.type === 'Add' ? 'text-green-500' : 'text-blue-500'}`, children: change.type === 'Add' ? '[ + ]' : '[ ~ ]' }), (0, jsx_runtime_1.jsxs)("span", { className: "font-medium mr-1", children: [change.entityType, ":"] }), (0, jsx_runtime_1.jsx)("span", { className: "truncate text-slate-700 dark:text-slate-300", title: change.description, children: change.description })] }, change.id))) }) }), (0, jsx_runtime_1.jsxs)("div", { className: "flex justify-end space-x-2 mt-4", children: [(0, jsx_runtime_1.jsx)("button", { onClick: () => dispatch((0, syncSlice_1.setSyncStatus)('idle')), className: "px-4 py-2 text-sm bg-slate-200 dark:bg-slate-600 rounded-md", children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" }), (0, jsx_runtime_1.jsx)("button", { onClick: handleApplyChanges, className: "px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold", children: "\u0417\u0430\u0441\u0442\u043E\u0441\u0443\u0432\u0430\u0442\u0438 \u0437\u043C\u0456\u043D\u0438" })] })] }));
+    const renderReviewContent = () => ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsxs)("h3", { className: "text-lg font-semibold mb-2 text-center flex items-center justify-center", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.FileDiff, { className: "mr-2 h-5 w-5" }), "\u041E\u0433\u043B\u044F\u0434 \u0437\u043C\u0456\u043D"] }), (0, jsx_runtime_1.jsxs)("p", { className: "text-sm text-center text-slate-500 dark:text-slate-400 mb-4", children: ["\u0417\u043D\u0430\u0439\u0434\u0435\u043D\u043E ", syncReport?.changes.length || 0, " \u0437\u043C\u0456\u043D \u0437 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0443. \u0417\u0430\u0441\u0442\u043E\u0441\u0443\u0432\u0430\u0442\u0438 \u0457\u0445?"] }), (0, jsx_runtime_1.jsx)("div", { className: "max-h-60 overflow-y-auto p-3 bg-slate-50 dark:bg-slate-700/50 rounded-md border border-slate-200 dark:border-slate-600", children: (0, jsx_runtime_1.jsx)("ul", { className: "space-y-2", children: syncReport?.changes.map(change => ((0, jsx_runtime_1.jsxs)("li", { className: "flex items-center text-sm", children: [(0, jsx_runtime_1.jsx)("span", { className: `font-bold mr-2 ${change.type === 'Add' ? 'text-green-500' : 'text-blue-500'}`, children: change.type === 'Add' ? '[ + ]' : '[ ~ ]' }), (0, jsx_runtime_1.jsxs)("span", { className: "font-medium mr-1", children: [change.entityType, ":"] }), (0, jsx_runtime_1.jsx)("span", { className: "truncate text-slate-700 dark:text-slate-300", title: change.description, children: change.description })] }, change.id))) }) }), (0, jsx_runtime_1.jsxs)("div", { className: "flex justify-end space-x-2 mt-4", children: [(0, jsx_runtime_1.jsx)("button", { onClick: () => dispatch((0, syncSlice_1.setSyncStatus)('idle')), className: "px-4 py-2 text-sm bg-slate-200 dark:bg-slate-600 rounded-md", children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" }), (0, jsx_runtime_1.jsx)("button", { onClick: handleApplyChanges, className: "px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold", children: "\u0417\u0430\u0441\u0442\u043E\u0441\u0443\u0432\u0430\u0442\u0438 \u0437\u043C\u0456\u043D\u0438" })] })] }));
     const renderImportContent = () => {
         switch (syncStatus) {
             case 'fetching':
@@ -140703,9 +140260,6 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.createSyncReport = createSyncReport;
 /**
  * Створює звіт про зміни, порівнюючи локальні дані з даними з бекапу.
- * @param localState Поточний стан `lists` з Redux.
- * @param remoteBackup Дані, отримані з Android-пристрою.
- * @returns Об'єкт SyncReport, що містить список змін.
  */
 function createSyncReport(localState, remoteBackup) {
     const changes = [];
@@ -140720,28 +140274,24 @@ function createSyncReport(localState, remoteBackup) {
         const remoteList = remoteLists[listId];
         const localList = localState.goalLists[listId];
         if (!localList) {
-            // Список є на телефоні, але немає локально -> Додавання
             changes.push({
-                type: 'Add',
-                entityType: 'Список',
-                id: remoteList.id,
-                description: remoteList.name,
-                entity: remoteList,
+                type: 'Add', entityType: 'Список', id: remoteList.id,
+                description: remoteList.name, entity: remoteList,
             });
         }
         else {
-            // Список є на обох пристроях, порівнюємо дати оновлення
             const remoteDate = remoteList.updatedAt ? Date.parse(remoteList.updatedAt) : 0;
             const localDate = localList.updatedAt ? Date.parse(localList.updatedAt) : 0;
-            if (remoteDate > localDate) {
-                // На телефоні новіша версія -> Оновлення
-                changes.push({
-                    type: 'Update',
-                    entityType: 'Список',
-                    id: remoteList.id,
-                    description: remoteList.name,
-                    entity: remoteList,
-                });
+            // ✨ ЗМІНА: Додано порівняння по order. Зміна буде, якщо новіша дата АБО змінився порядок.
+            const isOrderDifferent = remoteList.order !== localList.order;
+            if (remoteDate > localDate || (remoteDate === localDate && isOrderDifferent)) {
+                // Проста перевірка, чи об'єкти не ідентичні, щоб не додавати зайвих оновлень
+                if (JSON.stringify(remoteList) !== JSON.stringify(localList)) {
+                    changes.push({
+                        type: 'Update', entityType: 'Список', id: remoteList.id,
+                        description: remoteList.name, entity: remoteList,
+                    });
+                }
             }
         }
     }
@@ -140750,33 +140300,24 @@ function createSyncReport(localState, remoteBackup) {
         const remoteGoal = remoteGoals[goalId];
         const localGoal = localState.goals[goalId];
         if (!localGoal) {
-            // Ціль є на телефоні, але немає локально -> Додавання
             changes.push({
-                type: 'Add',
-                entityType: 'Ціль',
-                id: remoteGoal.id,
-                description: remoteGoal.text,
-                entity: remoteGoal,
+                type: 'Add', entityType: 'Ціль', id: remoteGoal.id,
+                description: remoteGoal.text, entity: remoteGoal,
             });
         }
         else {
-            // Ціль є на обох пристроях, порівнюємо дати оновлення
             const remoteDate = remoteGoal.updatedAt ? Date.parse(remoteGoal.updatedAt) : 0;
             const localDate = localGoal.updatedAt ? Date.parse(localGoal.updatedAt) : 0;
             if (remoteDate > localDate) {
-                // На телефоні новіша версія -> Оновлення
-                changes.push({
-                    type: 'Update',
-                    entityType: 'Ціль',
-                    id: remoteGoal.id,
-                    description: remoteGoal.text,
-                    entity: remoteGoal,
-                });
+                if (JSON.stringify(remoteGoal) !== JSON.stringify(localGoal)) {
+                    changes.push({
+                        type: 'Update', entityType: 'Ціль', id: remoteGoal.id,
+                        description: remoteGoal.text, entity: remoteGoal,
+                    });
+                }
             }
         }
     }
-    // Примітка: тут ми не обробляємо видалення, щоб уникнути випадкової втрати даних.
-    // Це значно спрощує першу версію інтелектуальної синхронізації.
     return { changes };
 }
 
@@ -140864,31 +140405,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
 var _a;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.listExpansionToggled = exports.stateReplaced = exports.goalsImported = exports.goalDisassociated = exports.goalAssociated = exports.goalCopied = exports.goalReferenceAdded = exports.goalOrderUpdated = exports.goalMoved = exports.instanceRemovedFromList = exports.goalUpdated = exports.goalToggled = exports.goalAdded = exports.listMoved = exports.listRemoved = exports.listUpdated = exports.listAdded = void 0;
+exports.listExpansionToggled = exports.stateReplaced = exports.goalsImported = exports.goalDisassociated = exports.goalAssociated = exports.goalCopied = exports.goalReferenceAdded = exports.goalOrderUpdated = exports.goalMoved = exports.instanceRemovedFromList = exports.goalUpdated = exports.goalToggled = exports.goalAdded = exports.listsReordered = exports.listMoved = exports.listRemoved = exports.listUpdated = exports.listAdded = void 0;
 // src/renderer/store/listsSlice.ts
 const toolkit_1 = __webpack_require__(/*! @reduxjs/toolkit */ "./node_modules/@reduxjs/toolkit/dist/redux-toolkit.modern.mjs");
 const initialState = {
     goals: {},
     goalLists: {},
     goalInstances: {},
-    rootListIds: [],
 };
-// Допоміжна функція для рекурсивного видалення
 const recursivelyDeleteList = (state, listId) => {
     const listToDelete = state.goalLists[listId];
     if (!listToDelete)
         return;
-    // Make a copy of childListIds before iterating, as it might be mutated
-    const childIds = [...(listToDelete.childListIds || [])];
+    const childIds = Object.values(state.goalLists)
+        .filter(l => l.parentId === listId)
+        .map(l => l.id);
     childIds.forEach(childId => {
         recursivelyDeleteList(state, childId);
     });
-    // Make a copy of itemInstanceIds before iterating
     const instanceIds = [...(listToDelete.itemInstanceIds || [])];
     instanceIds.forEach(instanceId => {
         const instance = state.goalInstances[instanceId];
         if (instance) {
-            // Check if the goal is orphaned before deleting
             const isOrphaned = !Object.values(state.goalInstances).some(i => i.id !== instanceId && i.goalId === instance.goalId);
             if (isOrphaned) {
                 delete state.goals[instance.goalId];
@@ -140902,30 +140440,14 @@ const listsSlice = (0, toolkit_1.createSlice)({
     name: "lists",
     initialState,
     reducers: {
-        // --- LIST ACTIONS (with nesting) ---
+        // --- LIST ACTIONS ---
         listAdded: {
             reducer: (state, action) => {
                 const newList = action.payload;
+                // ✨ ВИПРАВЛЕННЯ: Логіка визначення порядку перенесена сюди, де є доступ до стану
+                const siblingLists = Object.values(state.goalLists).filter(list => list.parentId === newList.parentId);
+                newList.order = siblingLists.length;
                 state.goalLists[newList.id] = newList;
-                if (newList.parentId) {
-                    const parent = state.goalLists[newList.parentId];
-                    if (parent) {
-                        if (!Array.isArray(parent.childListIds)) {
-                            parent.childListIds = [];
-                        }
-                        if (!parent.childListIds.includes(newList.id)) {
-                            parent.childListIds.push(newList.id);
-                        }
-                    }
-                }
-                else {
-                    if (!Array.isArray(state.rootListIds)) {
-                        state.rootListIds = [];
-                    }
-                    if (!state.rootListIds.includes(newList.id)) {
-                        state.rootListIds.push(newList.id);
-                    }
-                }
             },
             prepare: (payload) => {
                 const id = (0, toolkit_1.nanoid)();
@@ -140939,8 +140461,8 @@ const listsSlice = (0, toolkit_1.createSlice)({
                         createdAt,
                         updatedAt: createdAt,
                         parentId: payload.parentId || null,
-                        childListIds: [],
                         isExpanded: true,
+                        order: 0, // Порядок буде перевизначено в редьюсері
                     },
                 };
             },
@@ -140957,62 +140479,28 @@ const listsSlice = (0, toolkit_1.createSlice)({
             }
         },
         listRemoved(state, action) {
-            const listIdToRemove = action.payload;
-            const listToRemove = state.goalLists[listIdToRemove];
-            if (!listToRemove)
-                return;
-            if (listToRemove.parentId) {
-                const parent = state.goalLists[listToRemove.parentId];
-                if (parent && Array.isArray(parent.childListIds)) {
-                    parent.childListIds = parent.childListIds.filter(id => id !== listIdToRemove);
-                }
-            }
-            else {
-                if (Array.isArray(state.rootListIds)) {
-                    state.rootListIds = state.rootListIds.filter(id => id !== listIdToRemove);
-                }
-            }
-            recursivelyDeleteList(state, listIdToRemove);
+            recursivelyDeleteList(state, action.payload);
         },
         listMoved(state, action) {
-            const { listId, destinationParentId, destinationIndex } = action.payload;
-            const listToMove = state.goalLists[listId];
-            if (!listToMove)
-                return;
-            if (!Array.isArray(state.rootListIds)) {
-                state.rootListIds = [];
+            const { listId, newParentId } = action.payload;
+            const list = state.goalLists[listId];
+            if (list) {
+                // Призначаємо максимально можливий порядок, щоб він опинився в кінці нового списку
+                const newSiblings = Object.values(state.goalLists).filter(l => l.parentId === newParentId);
+                list.parentId = newParentId;
+                list.order = newSiblings.length;
+                list.updatedAt = new Date().toISOString();
             }
-            const oldParentId = listToMove.parentId;
-            if (oldParentId === null) {
-                const idx = state.rootListIds.indexOf(listId);
-                if (idx > -1) {
-                    state.rootListIds.splice(idx, 1);
+        },
+        listsReordered(state, action) {
+            const { orderedListIds } = action.payload;
+            orderedListIds.forEach((listId, index) => {
+                const list = state.goalLists[listId];
+                if (list) {
+                    list.order = index;
+                    list.updatedAt = new Date().toISOString();
                 }
-            }
-            else {
-                const oldParent = state.goalLists[oldParentId];
-                if (oldParent && Array.isArray(oldParent.childListIds)) {
-                    const idx = oldParent.childListIds.indexOf(listId);
-                    if (idx > -1) {
-                        oldParent.childListIds.splice(idx, 1);
-                    }
-                }
-            }
-            if (destinationParentId === null) {
-                state.rootListIds.splice(destinationIndex, 0, listId);
-                listToMove.parentId = null;
-            }
-            else {
-                const destParent = state.goalLists[destinationParentId];
-                if (destParent) {
-                    if (!Array.isArray(destParent.childListIds)) {
-                        destParent.childListIds = [];
-                    }
-                    destParent.childListIds.splice(destinationIndex, 0, listId);
-                    listToMove.parentId = destinationParentId;
-                }
-            }
-            listToMove.updatedAt = new Date().toISOString();
+            });
         },
         // --- GOAL & INSTANCE ACTIONS ---
         goalAdded: (state, action) => {
@@ -141023,7 +140511,6 @@ const listsSlice = (0, toolkit_1.createSlice)({
             const goalId = (0, toolkit_1.nanoid)();
             const instanceId = (0, toolkit_1.nanoid)();
             const now = new Date().toISOString();
-            // --- ОНОВЛЕНО: Створення цілі тепер відповідає типу Goal ---
             state.goals[goalId] = {
                 id: goalId,
                 text,
@@ -141044,7 +140531,6 @@ const listsSlice = (0, toolkit_1.createSlice)({
                 goal.updatedAt = new Date().toISOString();
             }
         },
-        // --- ОНОВЛЕНО: Payload тепер може містити description та associatedListIds ---
         goalUpdated(state, action) {
             const { id, text, description, associatedListIds } = action.payload;
             const goal = state.goals[id];
@@ -141092,6 +140578,7 @@ const listsSlice = (0, toolkit_1.createSlice)({
                 list.itemInstanceIds = action.payload.orderedInstanceIds;
             }
         },
+        // ✨ ПОВЕРНУТО: Екшени, що були випадково видалені
         goalReferenceAdded: (state, action) => {
             const { listId, goalId } = action.payload;
             const list = state.goalLists[listId];
@@ -141109,7 +140596,6 @@ const listsSlice = (0, toolkit_1.createSlice)({
                 const newGoalId = (0, toolkit_1.nanoid)();
                 const newInstanceId = (0, toolkit_1.nanoid)();
                 const now = new Date().toISOString();
-                // --- ОНОВЛЕНО: Копіювання тепер включає всі поля згідно типу ---
                 const newGoal = {
                     ...originalGoal,
                     id: newGoalId,
@@ -141148,7 +140634,7 @@ const listsSlice = (0, toolkit_1.createSlice)({
             const list = state.goalLists[listId];
             if (list) {
                 const newInstanceIds = [];
-                const now = new Date().toISOString(); // --- ВИПРАВЛЕНО: Змінну `now` визначено тут
+                const now = new Date().toISOString();
                 goalsData.forEach((goalData) => {
                     const newGoalId = (0, toolkit_1.nanoid)();
                     state.goals[newGoalId] = {
@@ -141172,23 +140658,21 @@ const listsSlice = (0, toolkit_1.createSlice)({
             const { listId } = action.payload;
             const list = state.goalLists[listId];
             if (list) {
-                // Якщо поле не існувало, вважаємо, що воно було true, і тепер стане false
                 list.isExpanded = !(list.isExpanded ?? true);
             }
         },
         stateReplaced(state, action) {
-            const { goals, goalLists, goalInstances, rootListIds } = action.payload;
+            const { goals, goalLists, goalInstances } = action.payload;
             return {
                 ...state,
                 goals: goals || {},
                 goalLists: goalLists || {},
                 goalInstances: goalInstances || {},
-                rootListIds: rootListIds || [],
             };
         },
     },
 });
-_a = listsSlice.actions, exports.listAdded = _a.listAdded, exports.listUpdated = _a.listUpdated, exports.listRemoved = _a.listRemoved, exports.listMoved = _a.listMoved, exports.goalAdded = _a.goalAdded, exports.goalToggled = _a.goalToggled, exports.goalUpdated = _a.goalUpdated, exports.instanceRemovedFromList = _a.instanceRemovedFromList, exports.goalMoved = _a.goalMoved, exports.goalOrderUpdated = _a.goalOrderUpdated, exports.goalReferenceAdded = _a.goalReferenceAdded, exports.goalCopied = _a.goalCopied, exports.goalAssociated = _a.goalAssociated, exports.goalDisassociated = _a.goalDisassociated, exports.goalsImported = _a.goalsImported, exports.stateReplaced = _a.stateReplaced, exports.listExpansionToggled = _a.listExpansionToggled;
+_a = listsSlice.actions, exports.listAdded = _a.listAdded, exports.listUpdated = _a.listUpdated, exports.listRemoved = _a.listRemoved, exports.listMoved = _a.listMoved, exports.listsReordered = _a.listsReordered, exports.goalAdded = _a.goalAdded, exports.goalToggled = _a.goalToggled, exports.goalUpdated = _a.goalUpdated, exports.instanceRemovedFromList = _a.instanceRemovedFromList, exports.goalMoved = _a.goalMoved, exports.goalOrderUpdated = _a.goalOrderUpdated, exports.goalReferenceAdded = _a.goalReferenceAdded, exports.goalCopied = _a.goalCopied, exports.goalAssociated = _a.goalAssociated, exports.goalDisassociated = _a.goalDisassociated, exports.goalsImported = _a.goalsImported, exports.stateReplaced = _a.stateReplaced, exports.listExpansionToggled = _a.listExpansionToggled;
 exports["default"] = listsSlice.reducer;
 
 
@@ -141203,26 +140687,29 @@ exports["default"] = listsSlice.reducer;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.selectAllUniqueContexts = exports.selectAllUniqueTags = exports.makeSelectEnrichedGoalInstances = exports.makeSelectGoalInstancesForList = exports.makeSelectListInfo = exports.selectAllLists = exports.selectTopLevelLists = void 0;
+exports.selectAllUniqueContexts = exports.selectAllUniqueTags = exports.makeSelectEnrichedGoalInstances = exports.makeSelectGoalInstancesForList = exports.makeSelectListInfo = exports.selectAllLists = exports.makeSelectChildLists = exports.selectTopLevelLists = void 0;
 // src/renderer/store/selectors.ts
 const reselect_1 = __webpack_require__(/*! reselect */ "./node_modules/reselect/dist/cjs/reselect.cjs");
 // --- BASE SELECTORS ---
 const selectListsSlice = (state) => state.lists;
 const selectAllGoalLists = (0, reselect_1.createSelector)([selectListsSlice], (lists) => lists.goalLists);
-const selectRootListIds = (0, reselect_1.createSelector)([selectListsSlice], (lists) => lists.rootListIds);
 const selectGoals = (0, reselect_1.createSelector)([selectListsSlice], (lists) => lists.goals);
 const selectGoalInstances = (0, reselect_1.createSelector)([selectListsSlice], (lists) => lists.goalInstances);
 const selectListId = (_state, listId) => listId;
+const selectParentId = (_state, parentId) => parentId;
 // --- HIERARCHY SELECTORS ---
-exports.selectTopLevelLists = (0, reselect_1.createSelector)([selectAllGoalLists, selectRootListIds], (allLists, rootIds) => {
-    if (!Array.isArray(rootIds)) {
-        // Fallback for older states or during loading
-        const allChildIds = new Set(Object.values(allLists).flatMap(l => l.childListIds || []));
-        return Object.values(allLists).filter(l => !allChildIds.has(l.id) && (!l.parentId || !allLists[l.parentId]));
-    }
-    return rootIds.map(id => allLists[id]).filter(Boolean);
+exports.selectTopLevelLists = (0, reselect_1.createSelector)([selectAllGoalLists], (allLists) => {
+    return Object.values(allLists)
+        .filter(list => list.parentId === null)
+        .sort((a, b) => a.order - b.order);
 });
-// --- ORIGINAL SELECTORS (RESTORED) ---
+const makeSelectChildLists = () => (0, reselect_1.createSelector)([selectAllGoalLists, selectParentId], (allLists, parentId) => {
+    return Object.values(allLists)
+        .filter(list => list.parentId === parentId)
+        .sort((a, b) => a.order - b.order);
+});
+exports.makeSelectChildLists = makeSelectChildLists;
+// --- ORIGINAL SELECTORS ---
 exports.selectAllLists = (0, reselect_1.createSelector)([selectAllGoalLists], (goalLists) => Object.values(goalLists));
 const makeSelectListInfo = () => (0, reselect_1.createSelector)([selectAllGoalLists, selectListId], (goalLists, listId) => {
     const list = goalLists[listId];
@@ -141245,6 +140732,7 @@ const makeSelectGoalInstancesForList = () => (0, reselect_1.createSelector)([sel
         .filter(Boolean);
 });
 exports.makeSelectGoalInstancesForList = makeSelectGoalInstancesForList;
+// ✨ ПОВЕРНУТО: Цей селектор потрібен для GoalListPage
 const makeSelectEnrichedGoalInstances = () => (0, reselect_1.createSelector)([(0, exports.makeSelectGoalInstancesForList)(), selectAllGoalLists], (goalInstancesForList, allGoalLists) => {
     return goalInstancesForList.map(({ instance, goal }) => ({
         instance,
@@ -141266,6 +140754,7 @@ const extractMatchesFromText = (text, regex) => {
     }
     return Array.from(matches);
 };
+// ✨ ПОВЕРНУТО: Селектори для тегів та контекстів
 exports.selectAllUniqueTags = (0, reselect_1.createSelector)([selectAllGoalsArray], (allGoals) => {
     const allTags = new Set();
     const tagRegex = /(?:\B|^)#[a-zA-Z0-9_а-яА-ЯіІїЇєЄ'-]+\b/g;
@@ -141457,183 +140946,6 @@ exports["default"] = uiSlice.reducer;
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 // extracted by mini-css-extract-plugin
-
-
-/***/ }),
-
-/***/ "./src/renderer/utils/textProcessing.ts":
-/*!**********************************************!*\
-  !*** ./src/renderer/utils/textProcessing.ts ***!
-  \**********************************************/
-/***/ ((__unused_webpack_module, exports) => {
-
-"use strict";
-
-// src/renderer/utils/textProcessing.ts
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.formatGoalsForExport = exports.parseImportedText = void 0;
-exports.parseGoalData = parseGoalData;
-/**
- * Парсить текст, імпортований користувачем, на окремі цілі.
- * Кожен рядок вважається потенційною ціллю.
- * Видаляє початкові маркери списків Markdown, пробіли та таби.
- *
- * @param text Багаторядковий текст для імпорту.
- * @returns Масив рядків, де кожен рядок - це очищений текст цілі.
- */
-const parseImportedText = (text) => {
-    if (!text || typeof text !== "string") {
-        return [];
-    }
-    const lines = text.split("\n");
-    const goals = [];
-    // Регулярний вираз для видалення початкових маркерів списку, пробілів та табів.
-    // Захоплює:
-    // - пробіли/таби на початку рядка (\s*)
-    // - дефіс, зірочку або цифру з крапкою (маркери списку) (?:[-*]|\d+\.)?
-    // - опціонально пробіл після маркера списку (\s?)
-    // - опціонально квадратні дужки для todo-списків Markdown (?:\[[ xX]?\])?
-    // - опціонально пробіл після квадратних дужок (\s?)
-    // Це все опціонально і групується разом ^\s*(?:(?:[-*]|\d+\.)?\s?(?:\[[ xX]?\])?\s?)?
-    // Краще зробити його простішим і надійнішим:
-    // Видаляє пробіли на початку, потім будь-яку з комбінацій "- ", "* ", "число. ", "- [ ] ", "- [x] "
-    const cleanupPatterns = [
-        /^\s*-\s*\[\s*[xX]?\s*\]\s*/, // Matches "- [ ] " or "- [x] "
-        /^\s*-\s+/, // Matches "- "
-        /^\s*\*\s+/, // Matches "* "
-        /^\s*\d+\.\s+/, // Matches "1. ", "2. ", etc.
-    ];
-    for (const line of lines) {
-        let currentLine = line;
-        // Послідовно застосовуємо патерни для очищення
-        for (const pattern of cleanupPatterns) {
-            if (pattern.test(currentLine)) {
-                currentLine = currentLine.replace(pattern, "");
-                break; // Після першого спрацювання патерна, вважаємо маркер видаленим
-            }
-        }
-        // Додаткове очищення від початкових/кінцевих пробілів, які могли залишитися
-        const cleanedLine = currentLine.trim();
-        if (cleanedLine) {
-            // Додавати тільки не порожні рядки
-            goals.push(cleanedLine);
-        }
-    }
-    return goals;
-};
-exports.parseImportedText = parseImportedText;
-/**
- * Форматує масив об'єктів цілей у текстовий рядок для експорту.
- * Кожна ціль буде в новому рядку, з префіксом "- " для Markdown.
- *
- * @param goals Масив об'єктів цілей.
- * @returns Багаторядковий текст, готовий для експорту.
- */
-const formatGoalsForExport = (goals) => {
-    if (!goals || !Array.isArray(goals)) {
-        return "";
-    }
-    // Експортуємо як Markdown todo-список, зберігаючи стан completed
-    return goals
-        .map((goal) => `- [${goal.completed ? "x" : " "}] ${goal.text}`)
-        .join("\n");
-};
-exports.formatGoalsForExport = formatGoalsForExport;
-function parseGoalData(text) {
-    const fieldRegex = /\[([\w_]+?)::([^\]]+?)\]/g;
-    const allParsedFields = [];
-    // Зберігаємо значення полів для розрахунків, ключі в нижньому регістрі для уніфікованого доступу
-    const extractedValues = {};
-    let match;
-    while ((match = fieldRegex.exec(text)) !== null) {
-        const fieldName = match[1];
-        const fieldValue = match[2];
-        allParsedFields.push({ name: fieldName, value: fieldValue });
-        const numValue = parseFloat(fieldValue);
-        if (!isNaN(numValue)) {
-            extractedValues[fieldName.toLowerCase()] = {
-                value: numValue,
-                originalValue: fieldValue,
-                fieldName: fieldName,
-            };
-        }
-    }
-    let rating;
-    let ratingLabel;
-    // Пріоритетний розрахунок: parent_value * impact / costs
-    const pValData = extractedValues["parent_value"];
-    const impactData = extractedValues["impact"];
-    const costsData = extractedValues["costs"];
-    if (pValData && impactData && costsData) {
-        if (costsData.value !== 0) {
-            rating = (pValData.value * impactData.value) / costsData.value;
-            ratingLabel = "Рейтинг (P*I/C)";
-        }
-        else {
-            // Обробка ділення на нуль
-            const numerator = pValData.value * impactData.value;
-            rating = numerator > 0 ? Infinity : numerator < 0 ? -Infinity : 0;
-            ratingLabel = "P*I/C (витрати=0)";
-        }
-    }
-    else {
-        // Альтернативний розрахунок: [rating::value], [value::value], [priority::value] або [p::value]
-        const directRatingData = extractedValues["rating"] ??
-            extractedValues["value"] ??
-            extractedValues["priority"] ??
-            extractedValues["p"];
-        if (directRatingData) {
-            rating = directRatingData.value;
-            // Використовуємо оригінальну назву поля як мітку, якщо вона одна з стандартних для прямого рейтингу
-            const labelKey = Object.keys(extractedValues).find((k) => extractedValues[k] === directRatingData);
-            ratingLabel = labelKey ? extractedValues[labelKey].fieldName : "Рейтинг";
-        }
-        else {
-            // Альтернативний розрахунок: impact / costs (якщо є impact)
-            // Використовуємо impactData/costsData, якщо вони не були частиною P*I/C
-            if (impactData) {
-                if (costsData) {
-                    // є impact і costs, але не parent_value
-                    if (costsData.value !== 0) {
-                        rating = impactData.value / costsData.value;
-                        ratingLabel = "Impact/Costs";
-                    }
-                    else {
-                        rating =
-                            impactData.value > 0
-                                ? Infinity
-                                : impactData.value < 0
-                                    ? -Infinity
-                                    : 0;
-                        ratingLabel = "Impact/Costs (витрати=0)";
-                    }
-                }
-                else {
-                    // є тільки impact
-                    rating = impactData.value;
-                    ratingLabel = "Impact";
-                }
-            }
-            else if (costsData) {
-                // є тільки costs (без impact, parent_value)
-                // Менші витрати зазвичай краще, тому можна інвертувати значення для рейтингу
-                rating = -costsData.value;
-                ratingLabel = `Витрати (інверт.)`;
-            }
-        }
-    }
-    // displayableFields - це всі поля [name::value], що були знайдені в тексті.
-    // Вони будуть показані "як є" у спеціальному блоці при наведенні.
-    const displayableFields = allParsedFields;
-    return {
-        displayableFields,
-        rating,
-        ratingLabel,
-    };
-}
-// Існуючий код ...
-// export const formatGoalsForExport = ...
-// export const parseImportedText = ...
 
 
 /***/ })

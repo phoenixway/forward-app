@@ -1,25 +1,14 @@
 // src/renderer/components/Sidebar.tsx
-import React, { useState, useMemo } from "react";
-import { dispatchOpenSettingsEvent } from "../events";
+import React, { useState, useMemo, useEffect } from "react";
+import { dispatchOpenSettingsEvent, dispatchOpenGoalListEvent, SIDEBAR_CREATE_NEW_LIST_EVENT } from "../events";
 import type { GoalList } from "../types";
 import { Plus, Edit3, Trash2, Settings, ChevronDown, ChevronRight, GripVertical, CornerDownRight, Scissors, ClipboardPaste } from "lucide-react";
 import { Droppable, Draggable } from "@hello-pangea/dnd";
-// ВИПРАВЛЕНО: Імпортуємо наші нові типізовані хуки
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { listAdded, listRemoved, listUpdated, listMoved, listExpansionToggled, listsReordered } from "../store/listsSlice";
+import { listAdded, listRemoved, listUpdated, listMoved, listExpansionToggled } from "../store/listsSlice";
 import { selectTopLevelLists, makeSelectChildLists } from "../store/selectors";
 import GlobalSearch from "./GlobalSearch";
-
-export const OPEN_GOAL_LIST_EVENT = "app:open-goal-list";
-
-export interface OpenGoalListDetail {
-  listId: string;
-  listName: string;
-}
-
-export function dispatchOpenGoalListEvent(listId: string, listName:string) {
-  window.dispatchEvent(new CustomEvent<OpenGoalListDetail>(OPEN_GOAL_LIST_EVENT, { detail: { listId, listName } }));
-}
+import { nanoid } from "@reduxjs/toolkit";
 
 interface SidebarListItemProps {
   listId: string;
@@ -56,13 +45,11 @@ const SidebarListItem: React.FC<SidebarListItemProps> = ({
   onPaste,
   filterTerm
 }) => {
-  // ВИПРАВЛЕНО: Використовуємо типізовані хуки
   const dispatch = useAppDispatch();
   const list = useAppSelector((state) => state.lists.goalLists[listId]);
   const allLists = useAppSelector((state) => state.lists.goalLists);
 
   const selectChildLists = useMemo(makeSelectChildLists, []);
-  // Тепер `state` автоматично типізований
   const childLists = useAppSelector((state) => selectChildLists(state, listId));
 
   const filteredChildLists = useMemo(() => {
@@ -173,8 +160,8 @@ const SidebarListItem: React.FC<SidebarListItemProps> = ({
   );
 };
 
+
 function Sidebar() {
-  // ВИПРАВЛЕНО: Використовуємо типізовані хуки
   const dispatch = useAppDispatch();
   const allTopLevelLists = useAppSelector(selectTopLevelLists);
   const allLists = useAppSelector((state) => state.lists.goalLists);
@@ -186,6 +173,18 @@ function Sidebar() {
   const [isCreatingNewList, setIsCreatingNewList] = useState(false);
   const [newListName, setNewListName] = useState("");
   const [cutListId, setCutListId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleCreateRequest = () => {
+        setIsCreatingNewList(true);
+    };
+
+    window.addEventListener(SIDEBAR_CREATE_NEW_LIST_EVENT, handleCreateRequest);
+
+    return () => {
+        window.removeEventListener(SIDEBAR_CREATE_NEW_LIST_EVENT, handleCreateRequest);
+    };
+  }, []);
 
   const filteredLists = useMemo(() => {
     if (!filterTerm.trim()) return allTopLevelLists;
@@ -222,7 +221,21 @@ function Sidebar() {
 
   const submitNewList = () => {
     if (newListName.trim()) {
-      dispatch(listAdded({ name: newListName.trim(), parentId: null }));
+      const newId = nanoid();
+      const name = newListName.trim();
+      const newList: GoalList = {
+        id: newId,
+        name: name,
+        parentId: null,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        description: "",
+        isExpanded: true,
+        order: 0,
+        tags: []
+      };
+      dispatch(listAdded(newList));
+      dispatchOpenGoalListEvent(newId, name);
       setNewListName("");
       setIsCreatingNewList(false);
     }
@@ -231,7 +244,21 @@ function Sidebar() {
   const handleAddChildList = (parentId: string) => {
     const name = prompt("Введіть назву для нового під-списку:");
     if (name && name.trim()) {
-      dispatch(listAdded({ name: name.trim(), parentId }));
+      const newId = nanoid();
+      const newName = name.trim();
+      const newList: GoalList = {
+        id: newId,
+        name: newName,
+        parentId: parentId,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        description: "",
+        isExpanded: true,
+        order: 0,
+        tags: []
+      };
+      dispatch(listAdded(newList));
+      dispatchOpenGoalListEvent(newId, newName);
     }
   };
 
@@ -239,7 +266,6 @@ function Sidebar() {
     setCutListId(id);
   };
 
-  // ВИПРАВЛЕНО: Надійна версія handlePaste
   const handlePaste = (targetListId: string, asChild: boolean) => {
     if (!cutListId || targetListId === cutListId) return;
 
@@ -258,24 +284,9 @@ function Sidebar() {
 
     const newParentId = asChild ? targetListId : targetList.parentId;
     
-    // Визначаємо індекс для вставки
-    const newSiblings = Object.values(allLists)
-      .filter(l => l.parentId === newParentId)
-      .sort((a,b) => a.order - b.order);
-      
-    // Вставляємо або в кінець (якщо дочірній), або після цільового елемента
-    const targetIndexInSiblings = newSiblings.findIndex(l => l.id === targetListId);
-    const destinationIndex = asChild 
-      ? newSiblings.length 
-      : targetIndexInSiblings + 1;
-
-    // Використовуємо покращений екшен `listMoved`, якщо ви його реалізували
-    // Цей екшен має приймати `destinationIndex` і обробляти сортування всередині
     dispatch(listMoved({
       listId: cutListId,
       newParentId: newParentId,
-      // @ts-ignore - припускаємо, що ви оновили payload для listMoved
-      destinationIndex: destinationIndex
     }));
     
     setCutListId(null);
@@ -301,9 +312,9 @@ function Sidebar() {
         <GlobalSearch value={filterTerm} onFilterChange={setFilterTerm} />
       </div>
 
-      <div className="p-4 flex-shrink-0">
-        <div className="mb-3 flex justify-between items-center">
-          <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300">Списки</h3>
+      <div className="px-4 py-2 flex-shrink-0"> {/* Зменшено вертикальний відступ */}
+        <div className="mb-2 flex justify-between items-center"> {/* Зменшено нижній відступ */}
+          <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300">Backlogs</h3> {/* Змінено заголовок */}
           <button onClick={() => setIsCreatingNewList(true)} className="p-1.5 text-slate-500 hover:text-blue-600 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"><Plus size={20} /></button>
         </div>
         {isCreatingNewList && (
@@ -349,10 +360,6 @@ function Sidebar() {
               </div>
             )}
           </Droppable>
-      </div>
-
-      <div className="p-4 mt-auto border-t border-slate-300 dark:border-slate-700 flex-shrink-0">
-          <button onClick={dispatchOpenSettingsEvent} className="w-full flex items-center justify-center p-2 rounded-md bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600"><Settings size={16} className="mr-2" /> Налаштування</button>
       </div>
     </div>
   );

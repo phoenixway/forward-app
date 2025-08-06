@@ -1,6 +1,5 @@
 // src/renderer/components/AssociatedListsPopover.tsx
 import React, { useState, useEffect, useRef } from "react";
-// ВИПРАВЛЕНО: Замінюємо стандартні хуки на наші типізовані
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import {
   listAdded,
@@ -8,8 +7,9 @@ import {
   goalDisassociated,
 } from "../store/listsSlice";
 import type { Goal, GoalList } from "../types";
-import { dispatchOpenGoalListEvent } from "./Sidebar";
+import { dispatchOpenGoalListEvent } from "../events"; // ВИПРАВЛЕНО: Шлях імпорту
 import { X, Plus, Link2 as LinkIcon, Link2Off, Eye } from "lucide-react";
+import { nanoid } from "@reduxjs/toolkit"; // Додано для генерації ID
 
 interface AssociatedListsPopoverProps {
   targetGoal: Goal;
@@ -22,24 +22,19 @@ const AssociatedListsPopover: React.FC<AssociatedListsPopoverProps> = ({
   onClose,
   anchorEl,
 }) => {
-  // ВИПРАВЛЕНО: Використовуємо useAppDispatch
   const dispatch = useAppDispatch();
 
-  // ВИПРАВЛЕНО: Використовуємо useAppSelector, `state` тепер автоматично типізований
   const { associatedListDetails, availableListsToSelect } = useAppSelector(
     (state) => {
       const currentTargetGoal = state.lists.goals[targetGoal.id] || targetGoal;
       const associatedIds = new Set(currentTargetGoal.associatedListIds || []);
-
       const allLists = Object.values(state.lists.goalLists);
-
       const associatedDetails = allLists.filter((list: GoalList) =>
         associatedIds.has(list.id),
       );
       const availableLists = allLists.filter(
         (list: GoalList) => !associatedIds.has(list.id),
       );
-
       return {
         associatedListDetails: associatedDetails,
         availableListsToSelect: availableLists,
@@ -59,7 +54,7 @@ const AssociatedListsPopover: React.FC<AssociatedListsPopoverProps> = ({
       if (
         popoverRef.current &&
         !popoverRef.current.contains(event.target as Node) &&
-        !anchorEl?.contains(event.target as Node) // Додано, щоб не закривати при кліку на ту ж кнопку
+        !anchorEl?.contains(event.target as Node)
       ) {
         onClose();
       }
@@ -91,6 +86,7 @@ const AssociatedListsPopover: React.FC<AssociatedListsPopoverProps> = ({
     );
   };
 
+  // ВИПРАВЛЕНО: Функція тепер створює повний об'єкт GoalList
   const handleCreateAndAssociateList = () => {
     const trimmedName = newListName.trim();
     if (!trimmedName) {
@@ -98,11 +94,22 @@ const AssociatedListsPopover: React.FC<AssociatedListsPopoverProps> = ({
       if (newListInputRef.current) newListInputRef.current.focus();
       return;
     }
-    const newListAction = listAdded({ name: trimmedName });
-    const newListId = newListAction.payload.id;
+    const newId = nanoid();
+    const now = Date.now();
+    const newList: GoalList = {
+      id: newId,
+      name: trimmedName,
+      parentId: null, // Створюємо як список верхнього рівня
+      createdAt: now,
+      updatedAt: now,
+      description: "",
+      isExpanded: true,
+      order: 0,
+      tags: [],
+    };
 
-    dispatch(newListAction);
-    dispatch(goalAssociated({ goalId: targetGoal.id, listId: newListId }));
+    dispatch(listAdded(newList));
+    dispatch(goalAssociated({ goalId: targetGoal.id, listId: newList.id }));
 
     setShowCreateNewListForm(false);
     setNewListName("");

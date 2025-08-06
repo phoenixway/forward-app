@@ -6,7 +6,7 @@ import { RootState } from '../store/store';
 import { setGlobalFilterTerm, setGoalToHighlight } from '../store/uiSlice';
 import type { Goal } from '../types';
 import GoalItem from './GoalItem';
-import { dispatchOpenGoalListEvent } from './Sidebar';
+import { dispatchOpenGoalListEvent } from '../events'; // ВИПРАВЛЕНО: Шлях імпорту
 
 const selectFilteredGoals = createSelector(
   (state: RootState) => state.lists.goals,
@@ -32,11 +32,8 @@ const GlobalSearchResults: React.FC<GlobalSearchResultsProps> = ({ obsidianVault
   const allLists = useAppSelector(selectAllLists);
   const goalInstances = useAppSelector((state) => state.lists.goalInstances);
 
-  // ✨ ВИПРАВЛЕННЯ: Повністю оновлена логіка пошуку батьківського списку
   const findParentList = (goalId: string) => {
-    // 1. Знаходимо перший-ліпший екземпляр цієї цілі
     const instance = Object.values(goalInstances).find(inst => inst.goalId === goalId);
-    // 2. Якщо екземпляр знайдено, використовуємо його listId, щоб знайти список
     if (instance) {
       return allLists[instance.listId] || null;
     }

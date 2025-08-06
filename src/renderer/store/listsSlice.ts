@@ -58,35 +58,17 @@ const listsSlice = createSlice({
   initialState,
   reducers: {
     // --- LIST ACTIONS ---
-    listAdded: {
-      reducer: (state, action: PayloadAction<GoalList>) => {
-        const newList = action.payload;
-        const siblingLists = Object.values(state.goalLists).filter(
-          list => list.parentId === newList.parentId
-        );
-        newList.order = siblingLists.length;
-        state.goalLists[newList.id] = newList;
-      },
-      prepare: (payload: { name: string; description?: string, parentId?: string | null }) => {
-        const id = nanoid();
-        // ✨ ЗМІНА: Дати тепер є числами
-        const now = Date.now();
-        return {
-          payload: {
-            id,
-            name: payload.name,
-            description: payload.description || "",
-            // itemInstanceIds більше не існує
-            createdAt: now,
-            updatedAt: now,
-            parentId: payload.parentId || null,
-            isExpanded: true,
-            order: 0,
-            tags: [],
-          },
-        };
-      },
+
+    listAdded(state, action: PayloadAction<GoalList>) {
+      const newList = action.payload;
+      const siblingLists = Object.values(state.goalLists).filter(
+        (list) => list.parentId === newList.parentId
+      );
+      // Розраховуємо порядок серед сусідніх елементів
+      newList.order = siblingLists.length;
+      state.goalLists[newList.id] = newList;
     },
+
     listUpdated(
       state,
       action: PayloadAction<{ id: string; name: string; description?: string }>,
@@ -116,14 +98,14 @@ const listsSlice = createSlice({
       }
     },
     listsReordered(state, action: PayloadAction<{ parentId: string | null; orderedListIds: string[] }>) {
-        const { orderedListIds } = action.payload;
-        orderedListIds.forEach((listId, index) => {
-            const list = state.goalLists[listId];
-            if (list) {
-                list.order = index;
-                list.updatedAt = Date.now();
-            }
-        });
+      const { orderedListIds } = action.payload;
+      orderedListIds.forEach((listId, index) => {
+        const list = state.goalLists[listId];
+        if (list) {
+          list.order = index;
+          list.updatedAt = Date.now();
+        }
+      });
     },
 
     // --- GOAL & INSTANCE ACTIONS ---
@@ -135,7 +117,7 @@ const listsSlice = createSlice({
       const goalId = nanoid();
       const instanceId = nanoid();
       const now = Date.now();
-      
+
       // Створюємо нову ціль
       state.goals[goalId] = {
         id: goalId,
@@ -194,7 +176,7 @@ const listsSlice = createSlice({
       const { instanceId, destinationListId, destinationIndex } = action.payload;
       const instance = state.goalInstances[instanceId];
       if (!instance) return;
-      
+
       // 1. Оновлюємо listId екземпляра
       instance.listId = destinationListId;
 
@@ -203,7 +185,7 @@ const listsSlice = createSlice({
         .filter(i => i.listId === destinationListId && i.instanceId !== instanceId)
         .sort((a, b) => a.order - b.order)
         .map(i => i.instanceId);
-      
+
       destinationSiblings.splice(destinationIndex, 0, instanceId);
 
       destinationSiblings.forEach((id, index) => {
@@ -215,11 +197,11 @@ const listsSlice = createSlice({
     // ✨ КАРДИНАЛЬНА ЗМІНА: Логіка оновлення порядку
     goalOrderUpdated: (state, action: PayloadAction<{ listId: string; orderedInstanceIds: string[] }>) => {
       const { listId, orderedInstanceIds } = action.payload;
-      
+
       // Перевіряємо, чи всі екземпляри належать до вказаного списку
       const instancesInList = Object.values(state.goalInstances).filter(i => i.listId === listId);
       if (instancesInList.length !== orderedInstanceIds.length) {
-          console.warn("Mismatch in goalOrderUpdated instance count.");
+        console.warn("Mismatch in goalOrderUpdated instance count.");
       }
 
       orderedInstanceIds.forEach((instanceId, index) => {

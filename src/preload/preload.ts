@@ -23,13 +23,18 @@ export const IPC_CHANNELS = {
   APP_HAS_USER_DESKTOP_FILE: "app:hasUserDesktopFile",
   APP_CREATE_USER_DESKTOP_FILE: "app:createUserDesktopFile",
   
-  // --- НОВІ КАНАЛИ ---
+  // --- SYNC CHANNELS ---
   WIFI_SYNC_START_SERVER: "wifi-sync:start-server",
   WIFI_SYNC_STOP_SERVER: "wifi-sync:stop-server",
   WIFI_SYNC_FETCH_FROM_DEVICE: "wifi-sync:fetch-from-device",
   WIFI_SYNC_APPLY_TO_DEVICE: "wifi-sync:apply-to-device",
   SHOW_WIFI_IMPORT_DIALOG: "show-wifi-import-dialog",
   SHOW_WIFI_SERVER_STATUS: "show-wifi-server-status",
+
+  // --- MENU TRIGGER CHANNELS ---
+  TRIGGER_FILE_EXPORT: "trigger-file-export",
+  TRIGGER_FILE_IMPORT: "trigger-file-import",
+  TRIGGER_SHOW_SETTINGS: "trigger-show-settings",
 };
 
 export interface ElectronAPI {
@@ -50,15 +55,18 @@ export interface ElectronAPI {
   hasUserDesktopFile: () => Promise<boolean>;
   createUserDesktopFile: () => Promise<{ success: boolean; error?: string; message?: string }>;
 
-  // --- НОВІ ФУНКЦІЇ ДЛЯ WI-FI SYNC ---
+  // --- WI-FI SYNC FUNCTIONS ---
   startWifiServer: (dataForExport: any) => Promise<{ success: boolean; address?: string, error?: string }>;
 
   stopWifiServer: () => Promise<{ success: boolean; error?: string }>;
   fetchFromDevice: (deviceAddress: string) => Promise<{ success: boolean; data?: any, error?: string }>;
   applyToDevice: (options: { deviceAddress: string; payload: any }) => Promise<{ success: boolean; data?: any, error?: string }>;
-  // --- НОВІ СЛУХАЧІ ДЛЯ ВИКЛИКІВ З МЕНЮ ---
+  // --- MENU TRIGGER LISTENERS ---
   onShowWifiImportDialog: (callback: () => void) => () => void;
   onShowWifiServerStatus: (callback: () => void) => () => void;
+  onTriggerFileExport: (callback: () => void) => () => void;
+  onTriggerFileImport: (callback: () => void) => () => void;
+  onShowSettingsPage: (callback: () => void) => () => void;
 }
 
 
@@ -139,13 +147,14 @@ const exposedAPI: ElectronAPI = {
   createUserDesktopFile: () =>
     ipcRenderer.invoke(IPC_CHANNELS.APP_CREATE_USER_DESKTOP_FILE),
 
-  // --- НОВІ РЕАЛІЗАЦІЇ ---
+  // --- WI-FI SYNC IMPLEMENTATIONS ---
   startWifiServer: (dataForExport) => ipcRenderer.invoke(IPC_CHANNELS.WIFI_SYNC_START_SERVER, dataForExport),
 
   stopWifiServer: () => ipcRenderer.invoke(IPC_CHANNELS.WIFI_SYNC_STOP_SERVER),
   fetchFromDevice: (deviceAddress) => ipcRenderer.invoke(IPC_CHANNELS.WIFI_SYNC_FETCH_FROM_DEVICE, deviceAddress),
   applyToDevice: (options) => ipcRenderer.invoke(IPC_CHANNELS.WIFI_SYNC_APPLY_TO_DEVICE, options),
 
+  // --- MENU TRIGGER LISTENERS IMPLEMENTATIONS ---
   onShowWifiImportDialog: (callback) => {
     const listener = () => callback();
     ipcRenderer.on(IPC_CHANNELS.SHOW_WIFI_IMPORT_DIALOG, listener);
@@ -155,6 +164,21 @@ const exposedAPI: ElectronAPI = {
     const listener = () => callback();
     ipcRenderer.on(IPC_CHANNELS.SHOW_WIFI_SERVER_STATUS, listener);
     return () => ipcRenderer.removeListener(IPC_CHANNELS.SHOW_WIFI_SERVER_STATUS, listener);
+  },
+  onTriggerFileExport: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on(IPC_CHANNELS.TRIGGER_FILE_EXPORT, listener);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.TRIGGER_FILE_EXPORT, listener);
+  },
+  onTriggerFileImport: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on(IPC_CHANNELS.TRIGGER_FILE_IMPORT, listener);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.TRIGGER_FILE_IMPORT, listener);
+  },
+  onShowSettingsPage: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on(IPC_CHANNELS.TRIGGER_SHOW_SETTINGS, listener);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.TRIGGER_SHOW_SETTINGS, listener);
   },
 };
 

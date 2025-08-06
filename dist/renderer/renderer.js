@@ -138003,14 +138003,68 @@ const hooks_1 = __webpack_require__(/*! ./store/hooks */ "./src/renderer/store/h
 const uiSlice_1 = __webpack_require__(/*! ./store/uiSlice */ "./src/renderer/store/uiSlice.ts");
 const syncSlice_1 = __webpack_require__(/*! ./store/syncSlice */ "./src/renderer/store/syncSlice.ts");
 const listsSlice_1 = __webpack_require__(/*! ./store/listsSlice */ "./src/renderer/store/listsSlice.ts");
+const syncLogic_1 = __webpack_require__(/*! ./logic/syncLogic */ "./src/renderer/logic/syncLogic.ts");
+const events_1 = __webpack_require__(/*! ./events */ "./src/renderer/events.ts"); // Імпортуємо нову функцію
 const App = () => {
     const dispatch = (0, hooks_1.useAppDispatch)();
-    // ✨ ВИПРАВЛЕННЯ: Отримуємо також goalInstances для нової логіки сортування
-    const { goalLists, allLists, goalInstances } = (0, hooks_1.useAppSelector)((state) => ({
+    const { goalLists, allLists, goalInstances, listsState } = (0, hooks_1.useAppSelector)((state) => ({
         goalLists: state.lists.goalLists,
         allLists: state.lists.goalLists,
         goalInstances: state.lists.goalInstances,
+        listsState: state.lists,
     }));
+    const handleExportData = (0, react_1.useCallback)(async () => {
+        if (!window.electronAPI)
+            return;
+        try {
+            const dataForExport = (0, syncLogic_1.formatStateForExport)(listsState);
+            const exportFileContent = {
+                version: 4,
+                exportedAt: new Date().toISOString(),
+                data: dataForExport,
+            };
+            const result = await window.electronAPI.showSaveDialog({
+                title: "Export All Data",
+                defaultPath: `forward-app-backup-${new Date().toISOString().split("T")[0]}.json`,
+                filters: [{ name: "JSON Files", extensions: ["json"] }],
+            });
+            if (!result.canceled && result.filePath) {
+                const jsonContent = JSON.stringify(exportFileContent, null, 2);
+                await window.electronAPI.writeFile(result.filePath, jsonContent);
+                alert("Data successfully exported!");
+            }
+        }
+        catch (error) {
+            alert(`An export error occurred: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }, [listsState]);
+    const handleImportData = (0, react_1.useCallback)(async () => {
+        if (!window.electronAPI)
+            return;
+        if (!window.confirm("WARNING! Importing data will completely OVERWRITE all your current data. Continue?"))
+            return;
+        try {
+            const result = await window.electronAPI.showOpenDialog({
+                title: "Import All Data",
+                filters: [{ name: "JSON Files", extensions: ["json"] }],
+                properties: ["openFile"],
+            });
+            if (result.canceled || !result.filePaths || result.filePaths.length === 0)
+                return;
+            const readResult = await window.electronAPI.readFile(result.filePaths[0]);
+            if (!readResult.success || typeof readResult.content !== "string")
+                throw new Error("Could not read the file.");
+            const importedObject = JSON.parse(readResult.content);
+            if (!importedObject.data)
+                throw new Error("The file has an invalid format.");
+            const finalState = (0, syncLogic_1.transformImportedData)(importedObject.data);
+            dispatch((0, listsSlice_1.stateReplaced)(finalState));
+            alert("Data successfully imported!");
+        }
+        catch (error) {
+            alert(`An import error occurred: ${error instanceof Error ? error.message : String(error)}.`);
+        }
+    }, [dispatch]);
     (0, react_1.useEffect)(() => {
         const removeImportListener = window.electronAPI.onShowWifiImportDialog(() => {
             dispatch((0, syncSlice_1.openSyncModal)('import'));
@@ -138018,24 +138072,30 @@ const App = () => {
         const removeServerListener = window.electronAPI.onShowWifiServerStatus(() => {
             dispatch((0, syncSlice_1.openSyncModal)('server'));
         });
+        const removeFileExportListener = window.electronAPI.onTriggerFileExport(handleExportData);
+        const removeFileImportListener = window.electronAPI.onTriggerFileImport(handleImportData);
+        const removeShowSettingsListener = window.electronAPI.onShowSettingsPage(() => {
+            // Замість зміни стану, ми відправляємо подію, яку слухає MainPanel
+            (0, events_1.dispatchOpenSettingsEvent)();
+        });
         return () => {
             removeImportListener();
             removeServerListener();
+            removeFileExportListener();
+            removeFileImportListener();
+            removeShowSettingsListener();
         };
-    }, [dispatch]);
+    }, [dispatch, handleExportData, handleImportData]);
     const handleDragEnd = (0, react_1.useCallback)((result) => {
         const { source, destination, type, draggableId } = result;
         if (!destination)
             return;
         if (type === "LIST") {
-            // ... (логіка для списків залишається без змін)
             const sourceParentId = source.droppableId === "root" ? null : source.droppableId;
             const destinationParentId = destination.droppableId === "root" ? null : destination.droppableId;
             if (source.droppableId === destination.droppableId) {
                 const parentId = source.droppableId === 'root' ? null : source.droppableId;
-                const siblingLists = Object.values(allLists)
-                    .filter((l) => l.parentId === parentId)
-                    .sort((a, b) => a.order - b.order);
+                const siblingLists = Object.values(allLists).filter((l) => l.parentId === parentId).sort((a, b) => a.order - b.order);
                 const reorderedIds = siblingLists.map((l) => l.id);
                 const [movedItem] = reorderedIds.splice(source.index, 1);
                 reorderedIds.splice(destination.index, 0, movedItem);
@@ -138051,28 +138111,17 @@ const App = () => {
             }
             return;
         }
-        // ✨ ВИПРАВЛЕННЯ: Повністю оновлена логіка для сортування цілей
         if (type === "GOAL" || type === undefined) {
             const sourceListId = source.droppableId;
             const destinationListId = destination.droppableId;
             if (sourceListId === destinationListId) {
-                // 1. Знаходимо всі екземпляри для цього списку
-                const instancesInList = Object.values(goalInstances)
-                    .filter(inst => inst.listId === sourceListId)
-                    .sort((a, b) => a.order - b.order);
-                // 2. Створюємо масив їх ID у поточному порядку
+                const instancesInList = Object.values(goalInstances).filter(inst => inst.listId === sourceListId).sort((a, b) => a.order - b.order);
                 const orderedInstanceIds = instancesInList.map(inst => inst.instanceId);
-                // 3. Виконуємо сортування
                 const [movedItem] = orderedInstanceIds.splice(source.index, 1);
                 orderedInstanceIds.splice(destination.index, 0, movedItem);
-                // 4. Відправляємо екшен з новим порядком ID
-                dispatch((0, listsSlice_1.goalOrderUpdated)({
-                    listId: sourceListId,
-                    orderedInstanceIds: orderedInstanceIds,
-                }));
+                dispatch((0, listsSlice_1.goalOrderUpdated)({ listId: sourceListId, orderedInstanceIds: orderedInstanceIds }));
             }
             else {
-                // Логіка переміщення між списками залишається через DropActionMenu
                 dispatch((0, uiSlice_1.openDropActionMenu)(result));
             }
         }
@@ -138081,7 +138130,11 @@ const App = () => {
     const handleThemePreferenceChange = (pref) => setUserPreference(pref);
     const [obsidianVaultPath, setObsidianVaultPath] = (0, react_1.useState)('');
     const handleObsidianVaultChange = (path) => setObsidianVaultPath(path);
-    return ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)(dnd_1.DragDropContext, { onDragEnd: handleDragEnd, children: (0, jsx_runtime_1.jsx)(Layout_1.default, { sidebar: (0, jsx_runtime_1.jsx)(Sidebar_1.default, {}), mainPanel: (0, jsx_runtime_1.jsx)(MainPanel_1.default, { currentThemePreference: userPreference, onChangeThemePreference: handleThemePreferenceChange, obsidianVaultPath: obsidianVaultPath, onObsidianVaultChange: handleObsidianVaultChange }) }) }), (0, jsx_runtime_1.jsx)(DropActionMenu_1.default, {}), (0, jsx_runtime_1.jsx)(WifiSyncModal_1.default, {})] }));
+    return ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)(dnd_1.DragDropContext, { onDragEnd: handleDragEnd, children: (0, jsx_runtime_1.jsx)(Layout_1.default, { sidebar: (0, jsx_runtime_1.jsx)(Sidebar_1.default, {}), mainPanel: (0, jsx_runtime_1.jsx)(MainPanel_1.default
+                    // Пропси isSettingsVisible та onCloseSettings більше не потрібні
+                    , { 
+                        // Пропси isSettingsVisible та onCloseSettings більше не потрібні
+                        currentThemePreference: userPreference, onChangeThemePreference: handleThemePreferenceChange, obsidianVaultPath: obsidianVaultPath, onObsidianVaultChange: handleObsidianVaultChange }) }) }), (0, jsx_runtime_1.jsx)(DropActionMenu_1.default, {}), (0, jsx_runtime_1.jsx)(WifiSyncModal_1.default, {})] }));
 };
 exports["default"] = App;
 
@@ -138100,15 +138153,13 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
 // src/renderer/components/AssociatedListsPopover.tsx
 const react_1 = __webpack_require__(/*! react */ "./node_modules/react/index.js");
-// ВИПРАВЛЕНО: Замінюємо стандартні хуки на наші типізовані
 const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/hooks.ts");
 const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts");
-const Sidebar_1 = __webpack_require__(/*! ./Sidebar */ "./src/renderer/components/Sidebar.tsx");
+const events_1 = __webpack_require__(/*! ../events */ "./src/renderer/events.ts"); // ВИПРАВЛЕНО: Шлях імпорту
 const lucide_react_1 = __webpack_require__(/*! lucide-react */ "./node_modules/lucide-react/dist/esm/lucide-react.js");
+const toolkit_1 = __webpack_require__(/*! @reduxjs/toolkit */ "./node_modules/@reduxjs/toolkit/dist/redux-toolkit.modern.mjs"); // Додано для генерації ID
 const AssociatedListsPopover = ({ targetGoal, onClose, anchorEl, }) => {
-    // ВИПРАВЛЕНО: Використовуємо useAppDispatch
     const dispatch = (0, hooks_1.useAppDispatch)();
-    // ВИПРАВЛЕНО: Використовуємо useAppSelector, `state` тепер автоматично типізований
     const { associatedListDetails, availableListsToSelect } = (0, hooks_1.useAppSelector)((state) => {
         const currentTargetGoal = state.lists.goals[targetGoal.id] || targetGoal;
         const associatedIds = new Set(currentTargetGoal.associatedListIds || []);
@@ -138129,8 +138180,7 @@ const AssociatedListsPopover = ({ targetGoal, onClose, anchorEl, }) => {
         const handleClickOutside = (event) => {
             if (popoverRef.current &&
                 !popoverRef.current.contains(event.target) &&
-                !anchorEl?.contains(event.target) // Додано, щоб не закривати при кліку на ту ж кнопку
-            ) {
+                !anchorEl?.contains(event.target)) {
                 onClose();
             }
         };
@@ -138156,6 +138206,7 @@ const AssociatedListsPopover = ({ targetGoal, onClose, anchorEl, }) => {
             listId: listIdToDisassociate,
         }));
     };
+    // ВИПРАВЛЕНО: Функція тепер створює повний об'єкт GoalList
     const handleCreateAndAssociateList = () => {
         const trimmedName = newListName.trim();
         if (!trimmedName) {
@@ -138164,15 +138215,26 @@ const AssociatedListsPopover = ({ targetGoal, onClose, anchorEl, }) => {
                 newListInputRef.current.focus();
             return;
         }
-        const newListAction = (0, listsSlice_1.listAdded)({ name: trimmedName });
-        const newListId = newListAction.payload.id;
-        dispatch(newListAction);
-        dispatch((0, listsSlice_1.goalAssociated)({ goalId: targetGoal.id, listId: newListId }));
+        const newId = (0, toolkit_1.nanoid)();
+        const now = Date.now();
+        const newList = {
+            id: newId,
+            name: trimmedName,
+            parentId: null, // Створюємо як список верхнього рівня
+            createdAt: now,
+            updatedAt: now,
+            description: "",
+            isExpanded: true,
+            order: 0,
+            tags: [],
+        };
+        dispatch((0, listsSlice_1.listAdded)(newList));
+        dispatch((0, listsSlice_1.goalAssociated)({ goalId: targetGoal.id, listId: newList.id }));
         setShowCreateNewListForm(false);
         setNewListName("");
     };
     const handleOpenAssociatedList = (listId, listName) => {
-        (0, Sidebar_1.dispatchOpenGoalListEvent)(listId, listName);
+        (0, events_1.dispatchOpenGoalListEvent)(listId, listName);
         onClose();
     };
     const buttonClass = "p-1 rounded text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-none";
@@ -138302,7 +138364,7 @@ const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/
 const toolkit_1 = __webpack_require__(/*! @reduxjs/toolkit */ "./node_modules/@reduxjs/toolkit/dist/redux-toolkit.modern.mjs");
 const uiSlice_1 = __webpack_require__(/*! ../store/uiSlice */ "./src/renderer/store/uiSlice.ts");
 const GoalItem_1 = __importDefault(__webpack_require__(/*! ./GoalItem */ "./src/renderer/components/GoalItem.tsx"));
-const Sidebar_1 = __webpack_require__(/*! ./Sidebar */ "./src/renderer/components/Sidebar.tsx");
+const events_1 = __webpack_require__(/*! ../events */ "./src/renderer/events.ts"); // ВИПРАВЛЕНО: Шлях імпорту
 const selectFilteredGoals = (0, toolkit_1.createSelector)((state) => state.lists.goals, (state) => state.ui.globalFilterTerm, (allGoals, filterTerm) => {
     if (!filterTerm)
         return [];
@@ -138316,11 +138378,8 @@ const GlobalSearchResults = ({ obsidianVaultName }) => {
     const filterTerm = (0, hooks_1.useAppSelector)((state) => state.ui.globalFilterTerm);
     const allLists = (0, hooks_1.useAppSelector)(selectAllLists);
     const goalInstances = (0, hooks_1.useAppSelector)((state) => state.lists.goalInstances);
-    // ✨ ВИПРАВЛЕННЯ: Повністю оновлена логіка пошуку батьківського списку
     const findParentList = (goalId) => {
-        // 1. Знаходимо перший-ліпший екземпляр цієї цілі
         const instance = Object.values(goalInstances).find(inst => inst.goalId === goalId);
-        // 2. Якщо екземпляр знайдено, використовуємо його listId, щоб знайти список
         if (instance) {
             return allLists[instance.listId] || null;
         }
@@ -138331,7 +138390,7 @@ const GlobalSearchResults = ({ obsidianVaultName }) => {
         if (parentList) {
             dispatch((0, uiSlice_1.setGlobalFilterTerm)(''));
             dispatch((0, uiSlice_1.setGoalToHighlight)(goal.id));
-            (0, Sidebar_1.dispatchOpenGoalListEvent)(parentList.id, parentList.name);
+            (0, events_1.dispatchOpenGoalListEvent)(parentList.id, parentList.name);
         }
         else {
             alert(`Не вдалося знайти батьківський список для цілі: "${goal.text}"`);
@@ -139418,14 +139477,12 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
 // src/renderer/components/MainPanel.tsx
 const react_1 = __webpack_require__(/*! react */ "./node_modules/react/index.js");
-// ВИПРАВЛЕНО: Імпортуємо типізовані хуки
 const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/hooks.ts");
 const GoalListPage_1 = __importDefault(__webpack_require__(/*! ./GoalListPage */ "./src/renderer/components/GoalListPage.tsx"));
 const NoListSelected_1 = __importDefault(__webpack_require__(/*! ./NoListSelected */ "./src/renderer/components/NoListSelected.tsx"));
 const InputPanel_1 = __importDefault(__webpack_require__(/*! ./InputPanel */ "./src/renderer/components/InputPanel.tsx"));
 const TabsContainer_1 = __importDefault(__webpack_require__(/*! ./TabsContainer */ "./src/renderer/components/TabsContainer.tsx"));
 const SettingsPage_1 = __importDefault(__webpack_require__(/*! ./SettingsPage */ "./src/renderer/components/SettingsPage.tsx"));
-const Sidebar_1 = __webpack_require__(/*! ./Sidebar */ "./src/renderer/components/Sidebar.tsx");
 const events_1 = __webpack_require__(/*! ../events */ "./src/renderer/events.ts");
 const GlobalSearchResults_1 = __importDefault(__webpack_require__(/*! ./GlobalSearchResults */ "./src/renderer/components/GlobalSearchResults.tsx"));
 const uiSlice_1 = __webpack_require__(/*! ../store/uiSlice */ "./src/renderer/store/uiSlice.ts");
@@ -139433,8 +139490,8 @@ const ListToolbar_1 = __importDefault(__webpack_require__(/*! ./ListToolbar */ "
 const dnd_1 = __webpack_require__(/*! @hello-pangea/dnd */ "./node_modules/@hello-pangea/dnd/dist/dnd.esm.js");
 const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts");
 const goalScoring_1 = __webpack_require__(/*! ../logic/goalScoring */ "./src/renderer/logic/goalScoring.ts");
+const toolkit_1 = __webpack_require__(/*! @reduxjs/toolkit */ "./node_modules/@reduxjs/toolkit/dist/redux-toolkit.modern.mjs");
 function MainPanel({ currentThemePreference, onChangeThemePreference, obsidianVaultPath, onObsidianVaultChange, }) {
-    // ВИПРАВЛЕНО: Використовуємо типізовані хуки
     const { goals, goalLists } = (0, hooks_1.useAppSelector)((state) => state.lists);
     const globalFilterTerm = (0, hooks_1.useAppSelector)((state) => state.ui.globalFilterTerm);
     const dispatch = (0, hooks_1.useAppDispatch)();
@@ -139499,10 +139556,10 @@ function MainPanel({ currentThemePreference, onChangeThemePreference, obsidianVa
         });
     }, []);
     (0, react_1.useEffect)(() => {
-        window.addEventListener(Sidebar_1.OPEN_GOAL_LIST_EVENT, handleOpenGoalListEventCallback);
+        window.addEventListener(events_1.OPEN_GOAL_LIST_EVENT, handleOpenGoalListEventCallback);
         window.addEventListener(events_1.OPEN_SETTINGS_EVENT, handleOpenSettingsEventCallback);
         return () => {
-            window.removeEventListener(Sidebar_1.OPEN_GOAL_LIST_EVENT, handleOpenGoalListEventCallback);
+            window.removeEventListener(events_1.OPEN_GOAL_LIST_EVENT, handleOpenGoalListEventCallback);
             window.removeEventListener(events_1.OPEN_SETTINGS_EVENT, handleOpenSettingsEventCallback);
         };
     }, [handleOpenGoalListEventCallback, handleOpenSettingsEventCallback]);
@@ -139542,13 +139599,8 @@ function MainPanel({ currentThemePreference, onChangeThemePreference, obsidianVa
     const renderActiveTabContent = () => {
         const activeTabData = tabs.find((tab) => tab.id === activeTabId);
         if (!activeTabData) {
-            return (0, jsx_runtime_1.jsx)(NoListSelected_1.default, { onCreateList: () => {
-                    const name = prompt("Введіть назву нового списку:");
-                    if (name)
-                        dispatch((0, listsSlice_1.listAdded)({ name, parentId: null }));
-                }, onSelectList: () => {
-                    // Можна реалізувати фокус на сайдбарі, якщо потрібно
-                } });
+            // Видалено пропс onCreateList
+            return (0, jsx_runtime_1.jsx)(NoListSelected_1.default, {});
         }
         switch (activeTabData.type) {
             case "goal-list":
@@ -139577,10 +139629,14 @@ function MainPanel({ currentThemePreference, onChangeThemePreference, obsidianVa
                                     }, children: "\u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438" })] })] }) })), (0, jsx_runtime_1.jsx)(TabsContainer_1.default, { tabs: tabs, activeTabId: activeTabId, onTabClick: handleTabClick, onTabClose: handleTabClose, onNewTab: () => { } }), isCurrentTabAGoalList && listIdForToolbar && ((0, jsx_runtime_1.jsx)(ListToolbar_1.default, { currentListId: listIdForToolbar, filterText: globalFilterTerm || '', onFilterTextChange: handleGlobalFilterChange, onDeleteList: handleDeleteList })), (0, jsx_runtime_1.jsx)("div", { className: "flex-grow overflow-y-auto bg-slate-50 dark:bg-slate-800 min-h-0", children: renderActiveTabContent() }), (0, jsx_runtime_1.jsx)("div", { className: "p-2 bg-slate-100 dark:bg-slate-900 border-t", children: (0, jsx_runtime_1.jsx)(InputPanel_1.default, { currentListId: currentActiveListId ?? undefined, onAddGoal: handleAddGoalToCurrentList, onSearch: handleGlobalFilterChange, onNavigateToList: (query) => {
                         const list = Object.values(goalLists).find(l => l.name.toLowerCase() === query.toLowerCase());
                         if (list)
-                            (0, Sidebar_1.dispatchOpenGoalListEvent)(list.id, list.name);
+                            (0, events_1.dispatchOpenGoalListEvent)(list.id, list.name);
                     }, onExecuteCommand: (command) => {
                         if (command.startsWith('new-list ')) {
-                            dispatch((0, listsSlice_1.listAdded)({ name: command.replace('new-list ', ''), parentId: null }));
+                            const name = command.replace('new-list ', '');
+                            const newId = (0, toolkit_1.nanoid)();
+                            const newList = { id: newId, name, parentId: null, createdAt: Date.now(), updatedAt: Date.now(), description: "", isExpanded: true, order: 0, tags: [] };
+                            dispatch((0, listsSlice_1.listAdded)(newList));
+                            (0, events_1.dispatchOpenGoalListEvent)(newId, name);
                         }
                     } }) })] }));
 }
@@ -139599,11 +139655,9 @@ exports["default"] = MainPanel;
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
-const NoListSelected = ({ onSelectList, onCreateList }) => {
-    // Тут можна додати логіку для відображення існуючих списків, якщо вони є,
-    // але для простоти зараз тільки кнопка створення.
-    // Наприклад, можна передати `goalLists` сюди.
-    return ((0, jsx_runtime_1.jsxs)("div", { className: "flex flex-col items-center justify-center h-full p-8 text-center bg-slate-50", children: [(0, jsx_runtime_1.jsx)("svg", { xmlns: "http://www.w3.org/2000/svg", className: "h-16 w-16 text-slate-400 mb-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: (0, jsx_runtime_1.jsx)("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M4 7v10m0 0h16M4 7L12 3l8 4M4 7h16m0 0L12 3m8 4v10m0 0h-3.5a1.5 1.5 0 00-1.5 1.5v2.5a1.5 1.5 0 001.5 1.5H16M4 17h3.5a1.5 1.5 0 011.5 1.5v2.5a1.5 1.5 0 01-1.5 1.5H4m0-17L12 3" }) }), (0, jsx_runtime_1.jsx)("h2", { className: "text-2xl font-semibold text-slate-700 mb-3", children: "\u0421\u043F\u0438\u0441\u043E\u043A \u043D\u0435 \u0432\u0438\u0431\u0440\u0430\u043D\u043E" }), (0, jsx_runtime_1.jsx)("p", { className: "text-slate-500 mb-6 max-w-md", children: "\u0411\u0443\u0434\u044C \u043B\u0430\u0441\u043A\u0430, \u0432\u0438\u0431\u0435\u0440\u0456\u0442\u044C \u0456\u0441\u043D\u0443\u044E\u0447\u0438\u0439 \u0441\u043F\u0438\u0441\u043E\u043A \u0437 \u0431\u0456\u0447\u043D\u043E\u0457 \u043F\u0430\u043D\u0435\u043B\u0456 \u0430\u0431\u043E \u0441\u0442\u0432\u043E\u0440\u0456\u0442\u044C \u043D\u043E\u0432\u0438\u0439, \u0449\u043E\u0431 \u043F\u043E\u0447\u0430\u0442\u0438 \u0440\u043E\u0431\u043E\u0442\u0443 \u0437 \u0446\u0456\u043B\u044F\u043C\u0438." }), (0, jsx_runtime_1.jsx)("button", { onClick: onCreateList, className: "px-6 py-2.5 bg-indigo-600 text-white font-medium text-sm rounded-md shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2", children: "\u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438 \u043D\u043E\u0432\u0438\u0439 \u0441\u043F\u0438\u0441\u043E\u043A" })] }));
+const events_1 = __webpack_require__(/*! ../events */ "./src/renderer/events.ts"); // Імпортуємо нову функцію
+const NoListSelected = () => {
+    return ((0, jsx_runtime_1.jsxs)("div", { className: "flex flex-col items-center justify-center h-full p-8 text-center bg-slate-50 dark:bg-slate-800", children: [(0, jsx_runtime_1.jsx)("svg", { xmlns: "http://www.w3.org/2000/svg", className: "h-16 w-16 text-slate-400 dark:text-slate-500 mb-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: (0, jsx_runtime_1.jsx)("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M4 7v10m0 0h16M4 7L12 3l8 4M4 7h16m0 0L12 3m8 4v10m0 0h-3.5a1.5 1.5 0 00-1.5 1.5v2.5a1.5 1.5 0 001.5 1.5H16M4 17h3.5a1.5 1.5 0 011.5 1.5v2.5a1.5 1.5 0 01-1.5 1.5H4m0-17L12 3" }) }), (0, jsx_runtime_1.jsx)("h2", { className: "text-2xl font-semibold text-slate-700 dark:text-slate-200 mb-3", children: "\u0421\u043F\u0438\u0441\u043E\u043A \u043D\u0435 \u0432\u0438\u0431\u0440\u0430\u043D\u043E" }), (0, jsx_runtime_1.jsx)("p", { className: "text-slate-500 dark:text-slate-400 mb-6 max-w-md", children: "\u0411\u0443\u0434\u044C \u043B\u0430\u0441\u043A\u0430, \u0432\u0438\u0431\u0435\u0440\u0456\u0442\u044C \u0456\u0441\u043D\u0443\u044E\u0447\u0438\u0439 \u0441\u043F\u0438\u0441\u043E\u043A \u0437 \u0431\u0456\u0447\u043D\u043E\u0457 \u043F\u0430\u043D\u0435\u043B\u0456 \u0430\u0431\u043E \u0441\u0442\u0432\u043E\u0440\u0456\u0442\u044C \u043D\u043E\u0432\u0438\u0439, \u0449\u043E\u0431 \u043F\u043E\u0447\u0430\u0442\u0438 \u0440\u043E\u0431\u043E\u0442\u0443 \u0437 \u0446\u0456\u043B\u044F\u043C\u0438." }), (0, jsx_runtime_1.jsx)("button", { onClick: events_1.dispatchSidebarCreateNewListEvent, className: "px-6 py-2.5 bg-indigo-600 dark:bg-indigo-500 text-white font-medium text-sm rounded-md shadow-md hover:bg-indigo-700 dark:hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-50 dark:focus:ring-offset-slate-800", children: "\u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438 \u043D\u043E\u0432\u0438\u0439 \u0441\u043F\u0438\u0441\u043E\u043A" })] }));
 };
 exports["default"] = NoListSelected;
 
@@ -139620,68 +139674,9 @@ exports["default"] = NoListSelected;
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
-const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/hooks.ts");
-const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts");
-const syncLogic_1 = __webpack_require__(/*! ../logic/syncLogic */ "./src/renderer/logic/syncLogic.ts");
-function SettingsPage({ currentTheme, onChangeTheme, initialObsidianVault, onObsidianVaultChange, onDataImported, }) {
-    const dispatch = (0, hooks_1.useAppDispatch)();
-    const listsState = (0, hooks_1.useAppSelector)((state) => state.lists);
-    const handleExportData = async () => {
-        if (!window.electronAPI?.showSaveDialog || !window.electronAPI.writeFile)
-            return;
-        try {
-            const dataForExport = (0, syncLogic_1.formatStateForExport)(listsState);
-            const exportFileContent = {
-                version: 4,
-                exportedAt: new Date().toISOString(),
-                data: dataForExport,
-            };
-            const result = await window.electronAPI.showSaveDialog({
-                title: "Експорт всіх даних",
-                defaultPath: `forward-app-backup-${new Date().toISOString().split("T")[0]}.json`,
-                filters: [{ name: "JSON Files", extensions: ["json"] }],
-            });
-            if (!result.canceled && result.filePath) {
-                const jsonContent = JSON.stringify(exportFileContent, null, 2);
-                await window.electronAPI.writeFile(result.filePath, jsonContent);
-                alert("Дані успішно експортовано!");
-            }
-        }
-        catch (error) {
-            alert(`Сталася помилка експорту: ${error instanceof Error ? error.message : String(error)}`);
-        }
-    };
-    const handleImportData = async () => {
-        if (!window.electronAPI?.showOpenDialog || !window.electronAPI.readFile)
-            return;
-        if (!window.confirm("УВАГА! Імпорт даних повністю ПЕРЕЗАПИШЕ всі ваші поточні дані. Продовжити?"))
-            return;
-        try {
-            const result = await window.electronAPI.showOpenDialog({
-                title: "Імпорт всіх даних",
-                filters: [{ name: "JSON Files", extensions: ["json"] }],
-                properties: ["openFile"],
-            });
-            if (result.canceled || !result.filePaths || result.filePaths.length === 0)
-                return;
-            const readResult = await window.electronAPI.readFile(result.filePaths[0]);
-            if (!readResult.success || typeof readResult.content !== "string")
-                throw new Error("Не вдалося прочитати файл.");
-            const importedObject = JSON.parse(readResult.content);
-            if (!importedObject.data)
-                throw new Error("Файл має невірний формат.");
-            const finalState = (0, syncLogic_1.transformImportedData)(importedObject.data);
-            dispatch((0, listsSlice_1.stateReplaced)(finalState));
-            alert("Дані успішно імпортовано!");
-            if (onDataImported)
-                onDataImported();
-        }
-        catch (error) {
-            alert(`Сталася помилка імпорту: ${error instanceof Error ? error.message : String(error)}.`);
-        }
-    };
-    return ((0, jsx_runtime_1.jsxs)("div", { className: "p-6 min-h-full text-slate-800 dark:text-slate-200", children: [(0, jsx_runtime_1.jsx)("h1", { className: "text-2xl font-semibold mb-8 text-slate-900 dark:text-slate-100", children: "\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F" }), (0, jsx_runtime_1.jsx)("div", { className: "space-y-10 max-w-3xl mx-auto", children: (0, jsx_runtime_1.jsxs)("section", { children: [(0, jsx_runtime_1.jsx)("h2", { className: "text-xl font-medium mb-4", children: "\u0420\u0435\u0437\u0435\u0440\u0432\u043D\u0435 \u043A\u043E\u043F\u0456\u044E\u0432\u0430\u043D\u043D\u044F" }), (0, jsx_runtime_1.jsx)("div", { className: "bg-white dark:bg-slate-700/30 shadow-md sm:rounded-lg p-6", children: (0, jsx_runtime_1.jsx)("div", { className: "space-y-6", children: (0, jsx_runtime_1.jsxs)("div", { children: [(0, jsx_runtime_1.jsx)("p", { className: "text-sm text-slate-600 dark:text-slate-400", children: "\u0417\u0431\u0435\u0440\u0435\u0436\u0456\u0442\u044C \u0432\u0441\u0456 \u0432\u0430\u0448\u0456 \u0434\u0430\u043D\u0456 \u0432 \u043E\u0434\u0438\u043D \u0444\u0430\u0439\u043B \u0430\u0431\u043E \u0432\u0456\u0434\u043D\u043E\u0432\u0456\u0442\u044C \u0457\u0445 \u0437 \u0440\u0435\u0437\u0435\u0440\u0432\u043D\u043E\u0457 \u043A\u043E\u043F\u0456\u0457." }), (0, jsx_runtime_1.jsxs)("div", { className: "flex space-x-3 mt-2", children: [(0, jsx_runtime_1.jsx)("button", { onClick: handleExportData, className: "px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700", children: "\u0415\u043A\u0441\u043F\u043E\u0440\u0442" }), (0, jsx_runtime_1.jsx)("button", { onClick: handleImportData, className: "px-4 py-2 text-sm bg-orange-500 text-white rounded-md hover:bg-orange-600", children: "\u0406\u043C\u043F\u043E\u0440\u0442" })] })] }) }) })] }) })] }));
-}
+const SettingsPage = ({ currentTheme, onChangeTheme, initialObsidianVault, onObsidianVaultChange, }) => {
+    return ((0, jsx_runtime_1.jsxs)("div", { className: "p-6 min-h-full text-slate-800 dark:text-slate-200", children: [(0, jsx_runtime_1.jsx)("h1", { className: "text-2xl font-semibold mb-8 text-slate-900 dark:text-slate-100", children: "\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F" }), (0, jsx_runtime_1.jsxs)("div", { className: "space-y-10 max-w-3xl mx-auto", children: [(0, jsx_runtime_1.jsxs)("section", { children: [(0, jsx_runtime_1.jsx)("h2", { className: "text-xl font-medium mb-4", children: "\u0412\u0438\u0433\u043B\u044F\u0434" }), (0, jsx_runtime_1.jsx)("div", { className: "bg-white dark:bg-slate-700/30 shadow-md sm:rounded-lg p-6", children: (0, jsx_runtime_1.jsx)("div", { className: "space-y-4", children: (0, jsx_runtime_1.jsxs)("div", { children: [(0, jsx_runtime_1.jsx)("label", { htmlFor: "theme-select", className: "block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1", children: "\u0422\u0435\u043C\u0430 \u043E\u0444\u043E\u0440\u043C\u043B\u0435\u043D\u043D\u044F" }), (0, jsx_runtime_1.jsxs)("select", { id: "theme-select", value: currentTheme, onChange: (e) => onChangeTheme(e.target.value), className: "mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md", children: [(0, jsx_runtime_1.jsx)("option", { value: "system", children: "\u0421\u0438\u0441\u0442\u0435\u043C\u043D\u0430" }), (0, jsx_runtime_1.jsx)("option", { value: "light", children: "\u0421\u0432\u0456\u0442\u043B\u0430" }), (0, jsx_runtime_1.jsx)("option", { value: "dark", children: "\u0422\u0435\u043C\u043D\u0430" })] })] }) }) })] }), (0, jsx_runtime_1.jsxs)("section", { children: [(0, jsx_runtime_1.jsx)("h2", { className: "text-xl font-medium mb-4", children: "\u0406\u043D\u0442\u0435\u0433\u0440\u0430\u0446\u0456\u0457" }), (0, jsx_runtime_1.jsx)("div", { className: "bg-white dark:bg-slate-700/30 shadow-md sm:rounded-lg p-6", children: (0, jsx_runtime_1.jsx)("div", { className: "space-y-4", children: (0, jsx_runtime_1.jsxs)("div", { children: [(0, jsx_runtime_1.jsx)("label", { htmlFor: "obsidian-path", className: "block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1", children: "\u0428\u043B\u044F\u0445 \u0434\u043E \u0441\u0445\u043E\u0432\u0438\u0449\u0430 Obsidian" }), (0, jsx_runtime_1.jsx)("input", { type: "text", id: "obsidian-path", value: initialObsidianVault, onChange: (e) => onObsidianVaultChange(e.target.value), placeholder: "/path/to/your/vault", className: "mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" }), (0, jsx_runtime_1.jsx)("p", { className: "mt-2 text-xs text-slate-500 dark:text-slate-400", children: "\u0412\u043A\u0430\u0436\u0456\u0442\u044C \u0448\u043B\u044F\u0445 \u0434\u043B\u044F \u0441\u0442\u0432\u043E\u0440\u0435\u043D\u043D\u044F \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u044C `obsidian://`." })] }) }) })] })] })] }));
+};
 exports["default"] = SettingsPage;
 
 
@@ -139699,23 +139694,17 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.OPEN_GOAL_LIST_EVENT = void 0;
-exports.dispatchOpenGoalListEvent = dispatchOpenGoalListEvent;
 const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
 // src/renderer/components/Sidebar.tsx
 const react_1 = __webpack_require__(/*! react */ "./node_modules/react/index.js");
 const events_1 = __webpack_require__(/*! ../events */ "./src/renderer/events.ts");
 const lucide_react_1 = __webpack_require__(/*! lucide-react */ "./node_modules/lucide-react/dist/esm/lucide-react.js");
 const dnd_1 = __webpack_require__(/*! @hello-pangea/dnd */ "./node_modules/@hello-pangea/dnd/dist/dnd.esm.js");
-// ВИПРАВЛЕНО: Імпортуємо наші нові типізовані хуки
 const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/hooks.ts");
 const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts");
 const selectors_1 = __webpack_require__(/*! ../store/selectors */ "./src/renderer/store/selectors.ts");
 const GlobalSearch_1 = __importDefault(__webpack_require__(/*! ./GlobalSearch */ "./src/renderer/components/GlobalSearch.tsx"));
-exports.OPEN_GOAL_LIST_EVENT = "app:open-goal-list";
-function dispatchOpenGoalListEvent(listId, listName) {
-    window.dispatchEvent(new CustomEvent(exports.OPEN_GOAL_LIST_EVENT, { detail: { listId, listName } }));
-}
+const toolkit_1 = __webpack_require__(/*! @reduxjs/toolkit */ "./node_modules/@reduxjs/toolkit/dist/redux-toolkit.modern.mjs");
 const listMatchesFilter = (list, allLists, filterTerm) => {
     if (!filterTerm.trim())
         return true;
@@ -139727,12 +139716,10 @@ const listMatchesFilter = (list, allLists, filterTerm) => {
     return children.some(childList => listMatchesFilter(childList, allLists, filterTerm));
 };
 const SidebarListItem = ({ listId, index, level, onStartEdit, onDelete, onAddChild, cutListId, onCut, onPaste, filterTerm }) => {
-    // ВИПРАВЛЕНО: Використовуємо типізовані хуки
     const dispatch = (0, hooks_1.useAppDispatch)();
     const list = (0, hooks_1.useAppSelector)((state) => state.lists.goalLists[listId]);
     const allLists = (0, hooks_1.useAppSelector)((state) => state.lists.goalLists);
     const selectChildLists = (0, react_1.useMemo)(selectors_1.makeSelectChildLists, []);
-    // Тепер `state` автоматично типізований
     const childLists = (0, hooks_1.useAppSelector)((state) => selectChildLists(state, listId));
     const filteredChildLists = (0, react_1.useMemo)(() => {
         if (!filterTerm.trim())
@@ -139742,7 +139729,7 @@ const SidebarListItem = ({ listId, index, level, onStartEdit, onDelete, onAddChi
     if (!list)
         return null;
     const isExpanded = list.isExpanded ?? true;
-    const handleOpenGoalList = () => dispatchOpenGoalListEvent(list.id, list.name);
+    const handleOpenGoalList = () => (0, events_1.dispatchOpenGoalListEvent)(list.id, list.name);
     const hasChildren = childLists.length > 0;
     const hasFilteredChildren = filteredChildLists.length > 0;
     const isCut = cutListId === list.id;
@@ -139752,7 +139739,6 @@ const SidebarListItem = ({ listId, index, level, onStartEdit, onDelete, onAddChi
                                                 }, className: "p-0.5 mr-1 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 flex-shrink-0", children: isExpanded ? (0, jsx_runtime_1.jsx)(lucide_react_1.ChevronDown, { size: 14 }) : (0, jsx_runtime_1.jsx)(lucide_react_1.ChevronRight, { size: 14 }) })) : ((0, jsx_runtime_1.jsx)("span", { className: "w-[18px] mr-1 flex-shrink-0" })), (0, jsx_runtime_1.jsx)("span", { className: "text-slate-700 dark:text-slate-300 text-sm cursor-pointer", title: list.name, children: list.name })] }), (0, jsx_runtime_1.jsxs)("div", { className: "flex-shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150 space-x-0.5", children: [cutListId && cutListId !== list.id && ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onPaste(list.id, false); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-400 rounded", title: "\u0412\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u044F\u043A \u0441\u0443\u0441\u0456\u0434\u0430", children: (0, jsx_runtime_1.jsx)(lucide_react_1.ClipboardPaste, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onPaste(list.id, true); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-400 rounded", title: "\u0412\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u044F\u043A \u0434\u043E\u0447\u0456\u0440\u043D\u0456\u0439", children: (0, jsx_runtime_1.jsx)(lucide_react_1.ClipboardPaste, { size: 14, className: "ml-[-4px]", style: { clipPath: 'inset(50% 0 0 0)' } }) })] })), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onCut(list.id); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-yellow-600 dark:hover:text-yellow-500 rounded", title: "\u0412\u0438\u0440\u0456\u0437\u0430\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Scissors, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onAddChild(list.id); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-500 rounded", title: "\u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438 \u0434\u043E\u0447\u0456\u0440\u043D\u0456\u0439 \u0441\u043F\u0438\u0441\u043E\u043A", children: (0, jsx_runtime_1.jsx)(lucide_react_1.CornerDownRight, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onStartEdit(list); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded", title: "\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Edit3, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onDelete(list.id, list.name); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-500 rounded", title: "\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Trash2, { size: 14 }) })] })] }), dropProvided.placeholder] })) }), isExpanded && hasFilteredChildren && ((0, jsx_runtime_1.jsx)("div", { className: "pl-2", children: filteredChildLists.map((child, childIndex) => ((0, jsx_runtime_1.jsx)(SidebarListItem, { listId: child.id, index: childIndex, level: level + 1, onStartEdit: onStartEdit, onDelete: onDelete, onAddChild: onAddChild, cutListId: cutListId, onCut: onCut, onPaste: onPaste, filterTerm: filterTerm }, child.id))) }))] })) }));
 };
 function Sidebar() {
-    // ВИПРАВЛЕНО: Використовуємо типізовані хуки
     const dispatch = (0, hooks_1.useAppDispatch)();
     const allTopLevelLists = (0, hooks_1.useAppSelector)(selectors_1.selectTopLevelLists);
     const allLists = (0, hooks_1.useAppSelector)((state) => state.lists.goalLists);
@@ -139763,6 +139749,15 @@ function Sidebar() {
     const [isCreatingNewList, setIsCreatingNewList] = (0, react_1.useState)(false);
     const [newListName, setNewListName] = (0, react_1.useState)("");
     const [cutListId, setCutListId] = (0, react_1.useState)(null);
+    (0, react_1.useEffect)(() => {
+        const handleCreateRequest = () => {
+            setIsCreatingNewList(true);
+        };
+        window.addEventListener(events_1.SIDEBAR_CREATE_NEW_LIST_EVENT, handleCreateRequest);
+        return () => {
+            window.removeEventListener(events_1.SIDEBAR_CREATE_NEW_LIST_EVENT, handleCreateRequest);
+        };
+    }, []);
     const filteredLists = (0, react_1.useMemo)(() => {
         if (!filterTerm.trim())
             return allTopLevelLists;
@@ -139794,7 +139789,21 @@ function Sidebar() {
     };
     const submitNewList = () => {
         if (newListName.trim()) {
-            dispatch((0, listsSlice_1.listAdded)({ name: newListName.trim(), parentId: null }));
+            const newId = (0, toolkit_1.nanoid)();
+            const name = newListName.trim();
+            const newList = {
+                id: newId,
+                name: name,
+                parentId: null,
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+                description: "",
+                isExpanded: true,
+                order: 0,
+                tags: []
+            };
+            dispatch((0, listsSlice_1.listAdded)(newList));
+            (0, events_1.dispatchOpenGoalListEvent)(newId, name);
             setNewListName("");
             setIsCreatingNewList(false);
         }
@@ -139802,13 +139811,26 @@ function Sidebar() {
     const handleAddChildList = (parentId) => {
         const name = prompt("Введіть назву для нового під-списку:");
         if (name && name.trim()) {
-            dispatch((0, listsSlice_1.listAdded)({ name: name.trim(), parentId }));
+            const newId = (0, toolkit_1.nanoid)();
+            const newName = name.trim();
+            const newList = {
+                id: newId,
+                name: newName,
+                parentId: parentId,
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+                description: "",
+                isExpanded: true,
+                order: 0,
+                tags: []
+            };
+            dispatch((0, listsSlice_1.listAdded)(newList));
+            (0, events_1.dispatchOpenGoalListEvent)(newId, newName);
         }
     };
     const handleCut = (id) => {
         setCutListId(id);
     };
-    // ВИПРАВЛЕНО: Надійна версія handlePaste
     const handlePaste = (targetListId, asChild) => {
         if (!cutListId || targetListId === cutListId)
             return;
@@ -139825,22 +139847,9 @@ function Sidebar() {
             currentParentIdCheck = allLists[currentParentIdCheck]?.parentId;
         }
         const newParentId = asChild ? targetListId : targetList.parentId;
-        // Визначаємо індекс для вставки
-        const newSiblings = Object.values(allLists)
-            .filter(l => l.parentId === newParentId)
-            .sort((a, b) => a.order - b.order);
-        // Вставляємо або в кінець (якщо дочірній), або після цільового елемента
-        const targetIndexInSiblings = newSiblings.findIndex(l => l.id === targetListId);
-        const destinationIndex = asChild
-            ? newSiblings.length
-            : targetIndexInSiblings + 1;
-        // Використовуємо покращений екшен `listMoved`, якщо ви його реалізували
-        // Цей екшен має приймати `destinationIndex` і обробляти сортування всередині
         dispatch((0, listsSlice_1.listMoved)({
             listId: cutListId,
             newParentId: newParentId,
-            // @ts-ignore - припускаємо, що ви оновили payload для listMoved
-            destinationIndex: destinationIndex
         }));
         setCutListId(null);
     };
@@ -139849,7 +139858,7 @@ function Sidebar() {
             return null;
         return ((0, jsx_runtime_1.jsxs)("div", { className: "p-2 my-1 border border-blue-400 dark:border-blue-600 rounded-md bg-white dark:bg-slate-800 shadow", children: [(0, jsx_runtime_1.jsx)("input", { type: "text", value: editingListName, onChange: (e) => setEditingListName(e.target.value), className: "w-full text-sm p-2 mb-2 border rounded", onKeyDown: (e) => e.key === 'Enter' && submitRenameList(), autoFocus: true }), (0, jsx_runtime_1.jsx)("textarea", { value: editingListDescription, onChange: (e) => setEditingListDescription(e.target.value), rows: 2, className: "w-full text-xs p-2 mb-2 border rounded" }), (0, jsx_runtime_1.jsxs)("div", { className: "flex justify-end space-x-2", children: [(0, jsx_runtime_1.jsx)("button", { onClick: handleCancelEdit, className: "px-3 py-1 text-xs rounded bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500", children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" }), (0, jsx_runtime_1.jsx)("button", { onClick: submitRenameList, className: "px-3 py-1 text-xs rounded bg-blue-500 hover:bg-blue-600 text-white", children: "\u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438" })] })] }));
     };
-    return ((0, jsx_runtime_1.jsxs)("div", { className: "h-full flex flex-col bg-slate-100 dark:bg-slate-900", children: [(0, jsx_runtime_1.jsx)("div", { className: "p-2 border-b border-slate-200 dark:border-slate-700 flex-shrink-0", children: (0, jsx_runtime_1.jsx)(GlobalSearch_1.default, { value: filterTerm, onFilterChange: setFilterTerm }) }), (0, jsx_runtime_1.jsxs)("div", { className: "p-4 flex-shrink-0", children: [(0, jsx_runtime_1.jsxs)("div", { className: "mb-3 flex justify-between items-center", children: [(0, jsx_runtime_1.jsx)("h3", { className: "text-lg font-semibold text-slate-700 dark:text-slate-300", children: "\u0421\u043F\u0438\u0441\u043A\u0438" }), (0, jsx_runtime_1.jsx)("button", { onClick: () => setIsCreatingNewList(true), className: "p-1.5 text-slate-500 hover:text-blue-600 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Plus, { size: 20 }) })] }), isCreatingNewList && ((0, jsx_runtime_1.jsxs)("div", { className: "mb-3 p-2 border rounded-md bg-white dark:bg-slate-800", children: [(0, jsx_runtime_1.jsx)("input", { value: newListName, onChange: (e) => setNewListName(e.target.value), placeholder: "\u041D\u0430\u0437\u0432\u0430 \u043D\u043E\u0432\u043E\u0433\u043E \u0441\u043F\u0438\u0441\u043A\u0443", onKeyDown: e => e.key === 'Enter' && submitNewList(), className: "w-full p-2 mb-2 border rounded", autoFocus: true }), (0, jsx_runtime_1.jsxs)("div", { className: "flex justify-end space-x-2", children: [(0, jsx_runtime_1.jsx)("button", { onClick: () => setIsCreatingNewList(false), className: "px-3 py-1 text-xs rounded bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500", children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" }), (0, jsx_runtime_1.jsx)("button", { onClick: submitNewList, className: "px-3 py-1 text-xs rounded bg-blue-500 hover:bg-blue-600 text-white", children: "\u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438" })] })] })), editingList && renderEditForm()] }), (0, jsx_runtime_1.jsx)("div", { className: "flex-grow px-2 min-h-0 overflow-y-auto custom-scrollbar", children: (0, jsx_runtime_1.jsx)(dnd_1.Droppable, { droppableId: "root", type: "LIST", children: (provided, snapshot) => ((0, jsx_runtime_1.jsxs)("div", { ref: provided.innerRef, ...provided.droppableProps, className: `transition-colors min-h-full p-1 rounded-md ${snapshot.isDraggingOver ? 'bg-purple-100 dark:bg-purple-900/30' : ''}`, children: [filteredLists.map((list, index) => (0, jsx_runtime_1.jsx)(SidebarListItem, { listId: list.id, index: index, level: 0, onStartEdit: handleStartEdit, onDelete: handleDeleteList, onAddChild: handleAddChildList, cutListId: cutListId, onCut: handleCut, onPaste: handlePaste, filterTerm: filterTerm }, list.id)), provided.placeholder] })) }, filterTerm ? 'filtered-lists' : 'all-lists') }), (0, jsx_runtime_1.jsx)("div", { className: "p-4 mt-auto border-t border-slate-300 dark:border-slate-700 flex-shrink-0", children: (0, jsx_runtime_1.jsxs)("button", { onClick: events_1.dispatchOpenSettingsEvent, className: "w-full flex items-center justify-center p-2 rounded-md bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.Settings, { size: 16, className: "mr-2" }), " \u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F"] }) })] }));
+    return ((0, jsx_runtime_1.jsxs)("div", { className: "h-full flex flex-col bg-slate-100 dark:bg-slate-900", children: [(0, jsx_runtime_1.jsx)("div", { className: "p-2 border-b border-slate-200 dark:border-slate-700 flex-shrink-0", children: (0, jsx_runtime_1.jsx)(GlobalSearch_1.default, { value: filterTerm, onFilterChange: setFilterTerm }) }), (0, jsx_runtime_1.jsxs)("div", { className: "px-4 py-2 flex-shrink-0", children: [" ", (0, jsx_runtime_1.jsxs)("div", { className: "mb-2 flex justify-between items-center", children: [" ", (0, jsx_runtime_1.jsx)("h3", { className: "text-lg font-semibold text-slate-700 dark:text-slate-300", children: "Backlogs" }), " ", (0, jsx_runtime_1.jsx)("button", { onClick: () => setIsCreatingNewList(true), className: "p-1.5 text-slate-500 hover:text-blue-600 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Plus, { size: 20 }) })] }), isCreatingNewList && ((0, jsx_runtime_1.jsxs)("div", { className: "mb-3 p-2 border rounded-md bg-white dark:bg-slate-800", children: [(0, jsx_runtime_1.jsx)("input", { value: newListName, onChange: (e) => setNewListName(e.target.value), placeholder: "\u041D\u0430\u0437\u0432\u0430 \u043D\u043E\u0432\u043E\u0433\u043E \u0441\u043F\u0438\u0441\u043A\u0443", onKeyDown: e => e.key === 'Enter' && submitNewList(), className: "w-full p-2 mb-2 border rounded", autoFocus: true }), (0, jsx_runtime_1.jsxs)("div", { className: "flex justify-end space-x-2", children: [(0, jsx_runtime_1.jsx)("button", { onClick: () => setIsCreatingNewList(false), className: "px-3 py-1 text-xs rounded bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500", children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" }), (0, jsx_runtime_1.jsx)("button", { onClick: submitNewList, className: "px-3 py-1 text-xs rounded bg-blue-500 hover:bg-blue-600 text-white", children: "\u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438" })] })] })), editingList && renderEditForm()] }), (0, jsx_runtime_1.jsx)("div", { className: "flex-grow px-2 min-h-0 overflow-y-auto custom-scrollbar", children: (0, jsx_runtime_1.jsx)(dnd_1.Droppable, { droppableId: "root", type: "LIST", children: (provided, snapshot) => ((0, jsx_runtime_1.jsxs)("div", { ref: provided.innerRef, ...provided.droppableProps, className: `transition-colors min-h-full p-1 rounded-md ${snapshot.isDraggingOver ? 'bg-purple-100 dark:bg-purple-900/30' : ''}`, children: [filteredLists.map((list, index) => (0, jsx_runtime_1.jsx)(SidebarListItem, { listId: list.id, index: index, level: 0, onStartEdit: handleStartEdit, onDelete: handleDeleteList, onAddChild: handleAddChildList, cutListId: cutListId, onCut: handleCut, onPaste: handlePaste, filterTerm: filterTerm }, list.id)), provided.placeholder] })) }, filterTerm ? 'filtered-lists' : 'all-lists') })] }));
 }
 exports["default"] = Sidebar;
 
@@ -139875,10 +139884,10 @@ const dnd_1 = __webpack_require__(/*! @hello-pangea/dnd */ "./node_modules/@hell
 const lucide_react_1 = __webpack_require__(/*! lucide-react */ "./node_modules/lucide-react/dist/esm/lucide-react.js");
 const GoalTextRenderer_1 = __importDefault(__webpack_require__(/*! ./GoalTextRenderer */ "./src/renderer/components/GoalTextRenderer.tsx"));
 const AssociatedListsPopover_1 = __importDefault(__webpack_require__(/*! ./AssociatedListsPopover */ "./src/renderer/components/AssociatedListsPopover.tsx"));
-const Sidebar_1 = __webpack_require__(/*! ./Sidebar */ "./src/renderer/components/Sidebar.tsx");
 // ВИПРАВЛЕНО: Імпортуємо типізовані хуки
 const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/hooks.ts");
 const uiSlice_1 = __webpack_require__(/*! ../store/uiSlice */ "./src/renderer/store/uiSlice.ts");
+const events_1 = __webpack_require__(/*! ../events */ "./src/renderer/events.ts");
 function SortableGoalItem({ instanceId, goal, index, associatedLists, onToggle, onDelete, onStartEdit, obsidianVaultName, onTagClickForFilter, }) {
     // ВИПРАВЛЕНО: Використовуємо типізовані хуки
     const dispatch = (0, hooks_1.useAppDispatch)();
@@ -139903,7 +139912,7 @@ function SortableGoalItem({ instanceId, goal, index, associatedLists, onToggle, 
     const handleGoToList = (0, react_1.useCallback)((event, list) => {
         event.stopPropagation();
         const detail = { listId: list.id, listName: list.name };
-        const customEvent = new CustomEvent(Sidebar_1.OPEN_GOAL_LIST_EVENT, { detail });
+        const customEvent = new CustomEvent(events_1.OPEN_GOAL_LIST_EVENT, { detail });
         window.dispatchEvent(customEvent);
     }, []);
     const isHighlighted = goalToHighlight === goal.id;
@@ -140005,8 +140014,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
 const TabItem_1 = __importDefault(__webpack_require__(/*! ./TabItem */ "./src/renderer/components/TabItem.tsx")); // TabItem також має бути оновлений для dark mode
-function TabsContainer({ tabs, activeTabId, onTabClick, onTabClose, onNewTab, }) {
-    return ((0, jsx_runtime_1.jsxs)("div", { className: "flex border-b border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 overflow-x-auto relative z-0 flex-shrink-0 ", children: [tabs.map((tab) => ((0, jsx_runtime_1.jsx)(TabItem_1.default, { tab: tab, isActive: tab.id === activeTabId, onClick: onTabClick, onClose: onTabClose }, tab.id))), (0, jsx_runtime_1.jsx)("button", { onClick: onNewTab, className: "p-3 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 focus:outline-none flex-shrink-0", "aria-label": "\u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438 \u043D\u043E\u0432\u0443 \u0432\u043A\u043B\u0430\u0434\u043A\u0443", title: "\u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438 \u043D\u043E\u0432\u0443 \u0432\u043A\u043B\u0430\u0434\u043A\u0443", children: (0, jsx_runtime_1.jsx)("svg", { xmlns: "http://www.w3.org/2000/svg", className: "h-4 w-4", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: 2, children: (0, jsx_runtime_1.jsx)("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M12 4v16m8-8H4" }) }) })] }));
+function TabsContainer({ tabs, activeTabId, onTabClick, onTabClose, onNewTab, // проп залишається, але кнопка видалена
+ }) {
+    return ((0, jsx_runtime_1.jsx)("div", { className: "flex border-b border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 overflow-x-auto relative z-0 flex-shrink-0 ", children: tabs.map((tab) => ((0, jsx_runtime_1.jsx)(TabItem_1.default, { tab: tab, isActive: tab.id === activeTabId, onClick: onTabClick, onClose: onTabClose }, tab.id))) }));
 }
 exports["default"] = TabsContainer;
 
@@ -140133,14 +140143,44 @@ exports["default"] = WifiSyncModal;
 
 "use strict";
 
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.SIDEBAR_REFRESH_LISTS_EVENT = exports.OPEN_SETTINGS_EVENT = void 0;
-exports.dispatchOpenSettingsEvent = dispatchOpenSettingsEvent;
 // src/renderer/events.ts
-exports.OPEN_SETTINGS_EVENT = "app:open-settings";
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.SIDEBAR_CREATE_NEW_LIST_EVENT = exports.OPEN_GOAL_LIST_EVENT = exports.SIDEBAR_REFRESH_LISTS_EVENT = exports.OPEN_SETTINGS_EVENT = void 0;
+exports.dispatchOpenSettingsEvent = dispatchOpenSettingsEvent;
+exports.dispatchSidebarRefreshEvent = dispatchSidebarRefreshEvent;
+exports.dispatchOpenGoalListEvent = dispatchOpenGoalListEvent;
+exports.dispatchSidebarCreateNewListEvent = dispatchSidebarCreateNewListEvent;
+/**
+ * Подія для відкриття вкладки налаштувань.
+ */
+exports.OPEN_SETTINGS_EVENT = 'app:open-settings';
+/**
+ * Подія для примусового оновлення списків у сайдбарі
+ */
 exports.SIDEBAR_REFRESH_LISTS_EVENT = "app:sidebar-refresh-lists";
+/**
+ * Подія для відкриття вкладки зі списком цілей.
+ * Очікує в detail: { listId: string; listName: string }
+ */
+exports.OPEN_GOAL_LIST_EVENT = 'app:open-goal-list';
+/**
+ * Подія, яка сигналізує сайдбару, що потрібно ініціювати створення нового списку.
+ */
+exports.SIDEBAR_CREATE_NEW_LIST_EVENT = 'app:sidebar-create-new-list';
+// --- Функції-хелпери для відправки подій ---
 function dispatchOpenSettingsEvent() {
     window.dispatchEvent(new CustomEvent(exports.OPEN_SETTINGS_EVENT));
+}
+function dispatchSidebarRefreshEvent() {
+    window.dispatchEvent(new CustomEvent(exports.SIDEBAR_REFRESH_LISTS_EVENT));
+}
+function dispatchOpenGoalListEvent(listId, listName) {
+    window.dispatchEvent(new CustomEvent(exports.OPEN_GOAL_LIST_EVENT, {
+        detail: { listId, listName }
+    }));
+}
+function dispatchSidebarCreateNewListEvent() {
+    window.dispatchEvent(new CustomEvent(exports.SIDEBAR_CREATE_NEW_LIST_EVENT));
 }
 
 
@@ -140475,32 +140515,12 @@ const listsSlice = (0, toolkit_1.createSlice)({
     initialState,
     reducers: {
         // --- LIST ACTIONS ---
-        listAdded: {
-            reducer: (state, action) => {
-                const newList = action.payload;
-                const siblingLists = Object.values(state.goalLists).filter(list => list.parentId === newList.parentId);
-                newList.order = siblingLists.length;
-                state.goalLists[newList.id] = newList;
-            },
-            prepare: (payload) => {
-                const id = (0, toolkit_1.nanoid)();
-                // ✨ ЗМІНА: Дати тепер є числами
-                const now = Date.now();
-                return {
-                    payload: {
-                        id,
-                        name: payload.name,
-                        description: payload.description || "",
-                        // itemInstanceIds більше не існує
-                        createdAt: now,
-                        updatedAt: now,
-                        parentId: payload.parentId || null,
-                        isExpanded: true,
-                        order: 0,
-                        tags: [],
-                    },
-                };
-            },
+        listAdded(state, action) {
+            const newList = action.payload;
+            const siblingLists = Object.values(state.goalLists).filter((list) => list.parentId === newList.parentId);
+            // Розраховуємо порядок серед сусідніх елементів
+            newList.order = siblingLists.length;
+            state.goalLists[newList.id] = newList;
         },
         listUpdated(state, action) {
             const { id, name, description } = action.payload;

@@ -100,6 +100,9 @@ const IPC_CHANNELS_FROM_PRELOAD = {
   WIFI_SYNC_APPLY_TO_DEVICE: "wifi-sync:apply-to-device",
   SHOW_WIFI_IMPORT_DIALOG: "show-wifi-import-dialog",
   SHOW_WIFI_SERVER_STATUS: "show-wifi-server-status",
+  TRIGGER_FILE_EXPORT: "trigger-file-export",
+  TRIGGER_FILE_IMPORT: "trigger-file-import",
+  TRIGGER_SHOW_SETTINGS: "trigger-show-settings",
 };
 
 let syncServer: Express | null = null;
@@ -498,31 +501,50 @@ app.whenReady().then(() => {
       | Electron.MenuItem
     )[] = [
       {
-        label: "Файл",
+        label: "File",
         submenu: [
-          { label: "Вихід", role: "quit" },
+          {
+            label: "Settings",
+            click: () => {
+              mainWindowInstance?.webContents.send("trigger-show-settings");
+            },
+          },
+          { type: 'separator' },
+          { label: "Exit", role: "quit" },
         ],
       },
       {
-        label: "Синхронізація",
+        label: "Sync",
         submenu: [
           {
-            label: "Імпорт з Wi-Fi (Android)...",
+            label: "Import from File...",
+            click: () => {
+              mainWindowInstance?.webContents.send("trigger-file-import");
+            },
+          },
+          {
+            label: "Export to File...",
+            click: () => {
+              mainWindowInstance?.webContents.send("trigger-file-export");
+            },
+          },
+          { type: 'separator' },
+          {
+            label: "Import from Wi-Fi...",
             click: () => {
               mainWindowInstance?.webContents.send("show-wifi-import-dialog");
             },
           },
           {
-            label: "Запустити Wi-Fi сервер",
+            label: "Show Wi-Fi Server Status...",
             click: () => {
               mainWindowInstance?.webContents.send("show-wifi-server-status");
             },
           },
         ],
       },
-      // ✨ ВИПРАВЛЕННЯ: Меню розробки тепер доступне завжди.
       {
-          label: 'Розробка',
+          label: 'Development',
           submenu: [
               { role: 'reload' },
               { role: 'forceReload' },
@@ -531,23 +553,23 @@ app.whenReady().then(() => {
           ]
       },
       {
-        label: "Допомога",
+        label: "Help",
         submenu: [
           {
-            label: `Про програму ${app.getName()}`,
+            label: `About ${app.getName()}`,
             click: () => {
               if (mainWindowInstance) {
                 dialog.showMessageBox(mainWindowInstance, {
                   type: "info",
-                  title: `Про програму`,
+                  title: `About`,
                   message: app.getName(),
-                  detail: `Версія: ${app.getVersion()}`,
+                  detail: `Version: ${app.getVersion()}`,
                 });
               }
             },
           },
           {
-            label: "Відвідати GitHub",
+            label: "Visit GitHub",
             click: async () => {
               await shell.openExternal("https://github.com/phoenixway/forward-app");
             },

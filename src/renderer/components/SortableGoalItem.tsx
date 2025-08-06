@@ -12,10 +12,10 @@ import {
 import type { Goal, GoalList } from "../types";
 import GoalTextRenderer from "./GoalTextRenderer";
 import AssociatedListsPopover from "./AssociatedListsPopover";
-import { OPEN_GOAL_LIST_EVENT, OpenGoalListDetail } from "./Sidebar";
 // ВИПРАВЛЕНО: Імпортуємо типізовані хуки
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { setGoalToHighlight } from "../store/uiSlice";
+import { OpenGoalListDetail, OPEN_GOAL_LIST_EVENT } from "../events";
 
 export interface SortableGoalItemProps {
   instanceId: string;

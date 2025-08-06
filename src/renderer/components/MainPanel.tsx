@@ -1,6 +1,5 @@
 // src/renderer/components/MainPanel.tsx
 import React, { useState, useEffect, useCallback, useRef } from "react";
-// ВИПРАВЛЕНО: Імпортуємо типізовані хуки
 import { useAppSelector, useAppDispatch } from "../store/hooks";
 import type { Goal, GoalList } from "../types";
 import GoalListPage from "./GoalListPage";
@@ -12,8 +11,8 @@ import {
   OPEN_GOAL_LIST_EVENT,
   OpenGoalListDetail,
   dispatchOpenGoalListEvent,
-} from "./Sidebar";
-import { OPEN_SETTINGS_EVENT } from "../events";
+  OPEN_SETTINGS_EVENT
+} from "../events";
 
 import GlobalSearchResults from "./GlobalSearchResults";
 import { setGlobalFilterTerm } from "../store/uiSlice";
@@ -29,6 +28,7 @@ import {
   goalUpdated,
 } from "../store/listsSlice";
 import { calculateScores } from '../logic/goalScoring';
+import { nanoid } from "@reduxjs/toolkit";
 
 export interface MainPanelProps {
   currentThemePreference: string;
@@ -51,7 +51,6 @@ function MainPanel({
   obsidianVaultPath,
   onObsidianVaultChange,
 }: MainPanelProps) {
-  // ВИПРАВЛЕНО: Використовуємо типізовані хуки
   const { goals, goalLists } = useAppSelector((state) => state.lists);
   const globalFilterTerm = useAppSelector((state) => state.ui.globalFilterTerm);
   const dispatch = useAppDispatch();
@@ -168,15 +167,8 @@ function MainPanel({
   const renderActiveTabContent = () => {
     const activeTabData = tabs.find((tab) => tab.id === activeTabId);
     if (!activeTabData) {
-      return <NoListSelected 
-        onCreateList={() => {
-          const name = prompt("Введіть назву нового списку:");
-          if (name) dispatch(listAdded({name, parentId: null}));
-        }}
-        onSelectList={() => {
-          // Можна реалізувати фокус на сайдбарі, якщо потрібно
-        }}
-      />;
+      // Видалено пропс onCreateList
+      return <NoListSelected />;
     }
 
     switch (activeTabData.type) {
@@ -264,7 +256,11 @@ function MainPanel({
           }}
           onExecuteCommand={(command) => {
               if(command.startsWith('new-list ')) {
-                  dispatch(listAdded({name: command.replace('new-list ', ''), parentId: null}));
+                  const name = command.replace('new-list ', '');
+                  const newId = nanoid();
+                  const newList: GoalList = {id: newId, name, parentId: null, createdAt: Date.now(), updatedAt: Date.now(), description: "", isExpanded: true, order: 0, tags: []};
+                  dispatch(listAdded(newList));
+                  dispatchOpenGoalListEvent(newId, name);
               }
           }}
         />

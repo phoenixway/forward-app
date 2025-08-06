@@ -137990,6 +137990,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
+// src/renderer/App.tsx
 const react_1 = __webpack_require__(/*! react */ "./node_modules/react/index.js");
 __webpack_require__(/*! ./styles.css */ "./src/renderer/styles.css");
 const Layout_1 = __importDefault(__webpack_require__(/*! ./components/Layout */ "./src/renderer/components/Layout.tsx"));
@@ -137998,17 +137999,18 @@ const dnd_1 = __webpack_require__(/*! @hello-pangea/dnd */ "./node_modules/@hell
 const Sidebar_1 = __importDefault(__webpack_require__(/*! ./components/Sidebar */ "./src/renderer/components/Sidebar.tsx"));
 const DropActionMenu_1 = __importDefault(__webpack_require__(/*! ./components/DropActionMenu */ "./src/renderer/components/DropActionMenu.tsx"));
 const WifiSyncModal_1 = __importDefault(__webpack_require__(/*! ./components/WifiSyncModal */ "./src/renderer/components/WifiSyncModal.tsx"));
-// --- ВИПРАВЛЕННЯ: Імпортуємо наші нові типізовані хуки ---
 const hooks_1 = __webpack_require__(/*! ./store/hooks */ "./src/renderer/store/hooks.ts");
 const uiSlice_1 = __webpack_require__(/*! ./store/uiSlice */ "./src/renderer/store/uiSlice.ts");
 const syncSlice_1 = __webpack_require__(/*! ./store/syncSlice */ "./src/renderer/store/syncSlice.ts");
 const listsSlice_1 = __webpack_require__(/*! ./store/listsSlice */ "./src/renderer/store/listsSlice.ts");
 const App = () => {
-    // --- ВИПРАВЛЕННЯ: Використовуємо useAppDispatch та useAppSelector ---
     const dispatch = (0, hooks_1.useAppDispatch)();
-    // Тепер `state` автоматично має тип `RootState`, і `allLists` буде правильно типізовано
-    const allLists = (0, hooks_1.useAppSelector)((state) => state.lists.goalLists);
-    const goalLists = allLists; // `goalLists` - це те саме, що `allLists`
+    // ✨ ВИПРАВЛЕННЯ: Отримуємо також goalInstances для нової логіки сортування
+    const { goalLists, allLists, goalInstances } = (0, hooks_1.useAppSelector)((state) => ({
+        goalLists: state.lists.goalLists,
+        allLists: state.lists.goalLists,
+        goalInstances: state.lists.goalInstances,
+    }));
     (0, react_1.useEffect)(() => {
         const removeImportListener = window.electronAPI.onShowWifiImportDialog(() => {
             dispatch((0, syncSlice_1.openSyncModal)('import'));
@@ -138026,11 +138028,11 @@ const App = () => {
         if (!destination)
             return;
         if (type === "LIST") {
+            // ... (логіка для списків залишається без змін)
             const sourceParentId = source.droppableId === "root" ? null : source.droppableId;
             const destinationParentId = destination.droppableId === "root" ? null : destination.droppableId;
             if (source.droppableId === destination.droppableId) {
                 const parentId = source.droppableId === 'root' ? null : source.droppableId;
-                // Тепер, коли allLists має правильний тип, ці явні анотації працюватимуть коректно
                 const siblingLists = Object.values(allLists)
                     .filter((l) => l.parentId === parentId)
                     .sort((a, b) => a.order - b.order);
@@ -138041,46 +138043,44 @@ const App = () => {
             }
             else {
                 dispatch((0, listsSlice_1.listMoved)({ listId: draggableId, newParentId: destinationParentId }));
-                const oldSiblings = Object.values(allLists)
-                    .filter((l) => l.parentId === sourceParentId && l.id !== draggableId)
-                    .sort((a, b) => a.order - b.order)
-                    .map((l) => l.id);
+                const oldSiblings = Object.values(allLists).filter((l) => l.parentId === sourceParentId && l.id !== draggableId).sort((a, b) => a.order - b.order).map((l) => l.id);
                 dispatch((0, listsSlice_1.listsReordered)({ parentId: sourceParentId, orderedListIds: oldSiblings }));
-                const newSiblings = Object.values(allLists)
-                    .filter((l) => l.parentId === destinationParentId && l.id !== draggableId)
-                    .sort((a, b) => a.order - b.order)
-                    .map((l) => l.id);
+                const newSiblings = Object.values(allLists).filter((l) => l.parentId === destinationParentId && l.id !== draggableId).sort((a, b) => a.order - b.order).map((l) => l.id);
                 newSiblings.splice(destination.index, 0, draggableId);
                 dispatch((0, listsSlice_1.listsReordered)({ parentId: destinationParentId, orderedListIds: newSiblings }));
             }
             return;
         }
+        // ✨ ВИПРАВЛЕННЯ: Повністю оновлена логіка для сортування цілей
         if (type === "GOAL" || type === undefined) {
             const sourceListId = source.droppableId;
             const destinationListId = destination.droppableId;
             if (sourceListId === destinationListId) {
-                const list = goalLists[sourceListId];
-                if (!list)
-                    return;
-                const reorderedInstanceIds = Array.from(list.itemInstanceIds);
-                const [movedItem] = reorderedInstanceIds.splice(source.index, 1);
-                reorderedInstanceIds.splice(destination.index, 0, movedItem);
+                // 1. Знаходимо всі екземпляри для цього списку
+                const instancesInList = Object.values(goalInstances)
+                    .filter(inst => inst.listId === sourceListId)
+                    .sort((a, b) => a.order - b.order);
+                // 2. Створюємо масив їх ID у поточному порядку
+                const orderedInstanceIds = instancesInList.map(inst => inst.instanceId);
+                // 3. Виконуємо сортування
+                const [movedItem] = orderedInstanceIds.splice(source.index, 1);
+                orderedInstanceIds.splice(destination.index, 0, movedItem);
+                // 4. Відправляємо екшен з новим порядком ID
                 dispatch((0, listsSlice_1.goalOrderUpdated)({
                     listId: sourceListId,
-                    orderedInstanceIds: reorderedInstanceIds,
+                    orderedInstanceIds: orderedInstanceIds,
                 }));
             }
             else {
+                // Логіка переміщення між списками залишається через DropActionMenu
                 dispatch((0, uiSlice_1.openDropActionMenu)(result));
             }
         }
-    }, [dispatch, goalLists, allLists]);
+    }, [dispatch, goalLists, allLists, goalInstances]);
     const [userPreference, setUserPreference] = (0, react_1.useState)('system');
     const handleThemePreferenceChange = (pref) => setUserPreference(pref);
     const [obsidianVaultPath, setObsidianVaultPath] = (0, react_1.useState)('');
     const handleObsidianVaultChange = (path) => setObsidianVaultPath(path);
-    (0, react_1.useEffect)(() => {
-    }, []);
     return ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)(dnd_1.DragDropContext, { onDragEnd: handleDragEnd, children: (0, jsx_runtime_1.jsx)(Layout_1.default, { sidebar: (0, jsx_runtime_1.jsx)(Sidebar_1.default, {}), mainPanel: (0, jsx_runtime_1.jsx)(MainPanel_1.default, { currentThemePreference: userPreference, onChangeThemePreference: handleThemePreferenceChange, obsidianVaultPath: obsidianVaultPath, onObsidianVaultChange: handleObsidianVaultChange }) }) }), (0, jsx_runtime_1.jsx)(DropActionMenu_1.default, {}), (0, jsx_runtime_1.jsx)(WifiSyncModal_1.default, {})] }));
 };
 exports["default"] = App;
@@ -138298,14 +138298,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
-// ВИПРАВЛЕНО: Замінюємо стандартні хуки на наші типізовані
 const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/hooks.ts");
 const toolkit_1 = __webpack_require__(/*! @reduxjs/toolkit */ "./node_modules/@reduxjs/toolkit/dist/redux-toolkit.modern.mjs");
 const uiSlice_1 = __webpack_require__(/*! ../store/uiSlice */ "./src/renderer/store/uiSlice.ts");
 const GoalItem_1 = __importDefault(__webpack_require__(/*! ./GoalItem */ "./src/renderer/components/GoalItem.tsx"));
 const Sidebar_1 = __webpack_require__(/*! ./Sidebar */ "./src/renderer/components/Sidebar.tsx");
-// Визначення селекторів поза компонентом є правильною практикою.
-// Вони все ще потребують RootState для визначення типу вхідних даних.
 const selectFilteredGoals = (0, toolkit_1.createSelector)((state) => state.lists.goals, (state) => state.ui.globalFilterTerm, (allGoals, filterTerm) => {
     if (!filterTerm)
         return [];
@@ -138314,21 +138311,18 @@ const selectFilteredGoals = (0, toolkit_1.createSelector)((state) => state.lists
 });
 const selectAllLists = (state) => state.lists.goalLists;
 const GlobalSearchResults = ({ obsidianVaultName }) => {
-    // ВИПРАВЛЕНО: Використовуємо типізовані хуки.
     const dispatch = (0, hooks_1.useAppDispatch)();
     const filteredGoals = (0, hooks_1.useAppSelector)(selectFilteredGoals);
     const filterTerm = (0, hooks_1.useAppSelector)((state) => state.ui.globalFilterTerm);
     const allLists = (0, hooks_1.useAppSelector)(selectAllLists);
     const goalInstances = (0, hooks_1.useAppSelector)((state) => state.lists.goalInstances);
+    // ✨ ВИПРАВЛЕННЯ: Повністю оновлена логіка пошуку батьківського списку
     const findParentList = (goalId) => {
-        // Тут `allLists` вже має правильний тип, тому Object.values безпечний
-        for (const list of Object.values(allLists)) {
-            const instanceFound = list.itemInstanceIds.some(instanceId => {
-                const instance = goalInstances[instanceId];
-                return instance && instance.goalId === goalId;
-            });
-            if (instanceFound)
-                return list;
+        // 1. Знаходимо перший-ліпший екземпляр цієї цілі
+        const instance = Object.values(goalInstances).find(inst => inst.goalId === goalId);
+        // 2. Якщо екземпляр знайдено, використовуємо його listId, щоб знайти список
+        if (instance) {
+            return allLists[instance.listId] || null;
         }
         return null;
     };
@@ -138489,10 +138483,9 @@ const GoalEditModal_1 = __importDefault(__webpack_require__(/*! ./GoalEditModal 
 function GoalListPage({ listId, filterText, obsidianVaultName, onTagClickForFilter, }) {
     // ВИПРАВЛЕНО: Використовуємо useAppDispatch
     const dispatch = (0, hooks_1.useAppDispatch)();
-    // Мемоізація селекторів залишається без змін, це правильна оптимізація
     const selectListInfo = (0, react_1.useMemo)(selectors_1.makeSelectListInfo, []);
     const selectEnrichedInstances = (0, react_1.useMemo)(selectors_1.makeSelectEnrichedGoalInstances, []);
-    // ВИПРАВЛЕНО: Використовуємо useAppSelector, `state` тепер типізований автоматично
+    // ВИПРАВЛЕНО: Використовуємо useAppSelector
     const listInfo = (0, hooks_1.useAppSelector)((state) => selectListInfo(state, listId));
     const allEnrichedGoals = (0, hooks_1.useAppSelector)((state) => selectEnrichedInstances(state, listId));
     const [activeFilteredGoals, setActiveFilteredGoals] = (0, react_1.useState)([]);
@@ -138510,7 +138503,9 @@ function GoalListPage({ listId, filterText, obsidianVaultName, onTagClickForFilt
         dispatch((0, listsSlice_1.goalToggled)(goalId));
     }, [dispatch]);
     const handleDeleteGoal = (0, react_1.useCallback)((instanceId) => {
-        const goalInstanceToDelete = allEnrichedGoals.find(({ instance }) => instance.id === instanceId);
+        const goalInstanceToDelete = allEnrichedGoals.find(
+        // ВИПРАВЛЕНО: Звертаємось до instance.instanceId
+        ({ instance }) => instance.instanceId === instanceId);
         if (goalInstanceToDelete &&
             window.confirm(`Видалити ціль "${goalInstanceToDelete.goal.text}" зі списку?`)) {
             dispatch((0, listsSlice_1.instanceRemovedFromList)({ listId, instanceId }));
@@ -138532,7 +138527,9 @@ function GoalListPage({ listId, filterText, obsidianVaultName, onTagClickForFilt
     }
     return ((0, jsx_runtime_1.jsxs)("div", { className: "pt-3 pl-1.5 pr-4 pb-4 min-h-full flex flex-col", children: [(0, jsx_runtime_1.jsxs)("div", { className: "flex-grow pr-1 overflow-y-auto", children: [activeFilteredGoals.length === 0 && !editingGoal && ((0, jsx_runtime_1.jsxs)("div", { className: "text-center py-8 px-2 flex flex-col items-center justify-center h-full", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.SearchX, { size: 40, className: "text-slate-400 dark:text-slate-500 mb-3", strokeWidth: 1.5 }), (0, jsx_runtime_1.jsx)("p", { className: "text-slate-500 dark:text-slate-400 text-sm", children: filterText.trim()
                                     ? `Цілей за фільтром "${filterText}" не знайдено у списку "${listInfo.name}".`
-                                    : `У списку "${listInfo.name}" ще немає цілей.` }), !filterText.trim() && ((0, jsx_runtime_1.jsx)("p", { className: "text-xs text-slate-400 dark:text-slate-500 mt-1", children: "\u0414\u043E\u0434\u0430\u0439\u0442\u0435 \u043F\u0435\u0440\u0448\u0443 \u0446\u0456\u043B\u044C, \u0432\u0438\u043A\u043E\u0440\u0438\u0441\u0442\u043E\u0432\u0443\u044E\u0447\u0438 \u043A\u043E\u043C\u0430\u043D\u0434\u043D\u0438\u0439 \u0440\u044F\u0434\u043E\u043A \u0432\u043D\u0438\u0437\u0443 \u0435\u043A\u0440\u0430\u043D\u0430." }))] })), activeFilteredGoals.length > 0 && ((0, jsx_runtime_1.jsx)("ul", { className: "space-y-1.5", children: activeFilteredGoals.map(({ instance, goal, associatedLists }, itemIndex) => ((0, jsx_runtime_1.jsx)(SortableGoalItem_1.default, { instanceId: instance.id, goal: goal, associatedLists: associatedLists, index: itemIndex, onToggle: handleToggleGoal, onDelete: handleDeleteGoal, onStartEdit: handleStartEditGoal, obsidianVaultName: obsidianVaultName, onTagClickForFilter: onTagClickForFilter }, instance.id))) }))] }), editingGoal && ((0, jsx_runtime_1.jsx)(GoalEditModal_1.default, { goal: editingGoal, onClose: handleCancelEditGoal }))] }));
+                                    : `У списку "${listInfo.name}" ще немає цілей.` }), !filterText.trim() && ((0, jsx_runtime_1.jsx)("p", { className: "text-xs text-slate-400 dark:text-slate-500 mt-1", children: "\u0414\u043E\u0434\u0430\u0439\u0442\u0435 \u043F\u0435\u0440\u0448\u0443 \u0446\u0456\u043B\u044C, \u0432\u0438\u043A\u043E\u0440\u0438\u0441\u0442\u043E\u0432\u0443\u044E\u0447\u0438 \u043A\u043E\u043C\u0430\u043D\u0434\u043D\u0438\u0439 \u0440\u044F\u0434\u043E\u043A \u0432\u043D\u0438\u0437\u0443 \u0435\u043A\u0440\u0430\u043D\u0430." }))] })), activeFilteredGoals.length > 0 && ((0, jsx_runtime_1.jsx)("ul", { className: "space-y-1.5", children: activeFilteredGoals.map(({ instance, goal, associatedLists }, itemIndex) => ((0, jsx_runtime_1.jsx)(SortableGoalItem_1.default
+                        // ВИПРАВЛЕНО: Використовуємо instance.instanceId
+                        , { instanceId: instance.instanceId, goal: goal, associatedLists: associatedLists, index: itemIndex, onToggle: handleToggleGoal, onDelete: handleDeleteGoal, onStartEdit: handleStartEditGoal, obsidianVaultName: obsidianVaultName, onTagClickForFilter: onTagClickForFilter }, instance.instanceId))) }))] }), editingGoal && ((0, jsx_runtime_1.jsx)(GoalEditModal_1.default, { goal: editingGoal, onClose: handleCancelEditGoal }))] }));
 }
 exports["default"] = react_1.default.memo(GoalListPage);
 
@@ -139623,27 +139620,21 @@ exports["default"] = NoListSelected;
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
-// src/renderer/components/SettingsPage.tsx
-const react_1 = __webpack_require__(/*! react */ "./node_modules/react/index.js");
-// ВИПРАВЛЕНО: Імпортуємо типізовані хуки
 const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/hooks.ts");
 const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts");
+const syncLogic_1 = __webpack_require__(/*! ../logic/syncLogic */ "./src/renderer/logic/syncLogic.ts");
 function SettingsPage({ currentTheme, onChangeTheme, initialObsidianVault, onObsidianVaultChange, onDataImported, }) {
-    // ВИПРАВЛЕНО: Використовуємо типізовані хуки
     const dispatch = (0, hooks_1.useAppDispatch)();
-    const listsStateForExport = (0, hooks_1.useAppSelector)((state) => state.lists);
-    const [obsidianVaultPath, setObsidianVaultPath] = (0, react_1.useState)(initialObsidianVault);
-    (0, react_1.useEffect)(() => {
-        setObsidianVaultPath(initialObsidianVault);
-    }, [initialObsidianVault]);
+    const listsState = (0, hooks_1.useAppSelector)((state) => state.lists);
     const handleExportData = async () => {
         if (!window.electronAPI?.showSaveDialog || !window.electronAPI.writeFile)
             return;
         try {
-            const exportData = {
-                version: 3,
+            const dataForExport = (0, syncLogic_1.formatStateForExport)(listsState);
+            const exportFileContent = {
+                version: 4,
                 exportedAt: new Date().toISOString(),
-                data: listsStateForExport,
+                data: dataForExport,
             };
             const result = await window.electronAPI.showSaveDialog({
                 title: "Експорт всіх даних",
@@ -139651,7 +139642,7 @@ function SettingsPage({ currentTheme, onChangeTheme, initialObsidianVault, onObs
                 filters: [{ name: "JSON Files", extensions: ["json"] }],
             });
             if (!result.canceled && result.filePath) {
-                const jsonContent = JSON.stringify(exportData, null, 2);
+                const jsonContent = JSON.stringify(exportFileContent, null, 2);
                 await window.electronAPI.writeFile(result.filePath, jsonContent);
                 alert("Дані успішно експортовано!");
             }
@@ -139679,21 +139670,7 @@ function SettingsPage({ currentTheme, onChangeTheme, initialObsidianVault, onObs
             const importedObject = JSON.parse(readResult.content);
             if (!importedObject.data)
                 throw new Error("Файл має невірний формат.");
-            let finalState;
-            const importedState = importedObject.data;
-            finalState = {
-                goals: importedState.goals || {},
-                goalInstances: importedState.goalInstances || {},
-                goalLists: importedState.goalLists || {},
-            };
-            Object.values(finalState.goalLists).forEach((list, index) => {
-                if (list.order === undefined) {
-                    list.order = index;
-                }
-                if (list.parentId === undefined) {
-                    list.parentId = null;
-                }
-            });
+            const finalState = (0, syncLogic_1.transformImportedData)(importedObject.data);
             dispatch((0, listsSlice_1.stateReplaced)(finalState));
             alert("Дані успішно імпортовано!");
             if (onDataImported)
@@ -139703,7 +139680,7 @@ function SettingsPage({ currentTheme, onChangeTheme, initialObsidianVault, onObs
             alert(`Сталася помилка імпорту: ${error instanceof Error ? error.message : String(error)}.`);
         }
     };
-    return ((0, jsx_runtime_1.jsxs)("div", { className: "p-6 min-h-full text-slate-800 dark:text-slate-200", children: [(0, jsx_runtime_1.jsx)("h1", { className: "text-2xl font-semibold mb-8 text-slate-900 dark:text-slate-100", children: "\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F" }), (0, jsx_runtime_1.jsx)("div", { className: "space-y-10 max-w-3xl mx-auto", children: (0, jsx_runtime_1.jsxs)("section", { children: [(0, jsx_runtime_1.jsx)("h2", { className: "text-xl font-medium mb-4", children: "\u0420\u0435\u0437\u0435\u0440\u0432\u043D\u0435 \u043A\u043E\u043F\u0456\u044E\u0432\u0430\u043D\u043D\u044F" }), (0, jsx_runtime_1.jsx)("div", { className: "bg-white dark:bg-slate-700/30 shadow-md sm:rounded-lg p-6", children: (0, jsx_runtime_1.jsx)("div", { className: "space-y-6", children: (0, jsx_runtime_1.jsxs)("div", { children: [(0, jsx_runtime_1.jsx)("p", { className: "text-sm text-slate-600 dark:text-slate-400", children: "\u0417\u0431\u0435\u0440\u0435\u0436\u0456\u0442\u044C \u0432\u0441\u0456 \u0432\u0430\u0448\u0456 \u0434\u0430\u043D\u0456 \u0432 \u043E\u0434\u0438\u043D \u0444\u0430\u0439\u043B \u0430\u0431\u043E \u0432\u0456\u0434\u043D\u043E\u0432\u0456\u0442\u044C \u0457\u0445 \u0437 \u0440\u0435\u0437\u0435\u0440\u0432\u043D\u043E\u0457 \u043A\u043E\u043F\u0456\u0457." }), (0, jsx_runtime_1.jsxs)("div", { className: "flex space-x-3 mt-2", children: [(0, jsx_runtime_1.jsx)("button", { onClick: handleExportData, className: "px-4 py-2 text-sm bg-blue-600 text-white rounded-md", children: "\u0415\u043A\u0441\u043F\u043E\u0440\u0442" }), (0, jsx_runtime_1.jsx)("button", { onClick: handleImportData, className: "px-4 py-2 text-sm bg-orange-500 text-white rounded-md", children: "\u0406\u043C\u043F\u043E\u0440\u0442" })] })] }) }) })] }) })] }));
+    return ((0, jsx_runtime_1.jsxs)("div", { className: "p-6 min-h-full text-slate-800 dark:text-slate-200", children: [(0, jsx_runtime_1.jsx)("h1", { className: "text-2xl font-semibold mb-8 text-slate-900 dark:text-slate-100", children: "\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F" }), (0, jsx_runtime_1.jsx)("div", { className: "space-y-10 max-w-3xl mx-auto", children: (0, jsx_runtime_1.jsxs)("section", { children: [(0, jsx_runtime_1.jsx)("h2", { className: "text-xl font-medium mb-4", children: "\u0420\u0435\u0437\u0435\u0440\u0432\u043D\u0435 \u043A\u043E\u043F\u0456\u044E\u0432\u0430\u043D\u043D\u044F" }), (0, jsx_runtime_1.jsx)("div", { className: "bg-white dark:bg-slate-700/30 shadow-md sm:rounded-lg p-6", children: (0, jsx_runtime_1.jsx)("div", { className: "space-y-6", children: (0, jsx_runtime_1.jsxs)("div", { children: [(0, jsx_runtime_1.jsx)("p", { className: "text-sm text-slate-600 dark:text-slate-400", children: "\u0417\u0431\u0435\u0440\u0435\u0436\u0456\u0442\u044C \u0432\u0441\u0456 \u0432\u0430\u0448\u0456 \u0434\u0430\u043D\u0456 \u0432 \u043E\u0434\u0438\u043D \u0444\u0430\u0439\u043B \u0430\u0431\u043E \u0432\u0456\u0434\u043D\u043E\u0432\u0456\u0442\u044C \u0457\u0445 \u0437 \u0440\u0435\u0437\u0435\u0440\u0432\u043D\u043E\u0457 \u043A\u043E\u043F\u0456\u0457." }), (0, jsx_runtime_1.jsxs)("div", { className: "flex space-x-3 mt-2", children: [(0, jsx_runtime_1.jsx)("button", { onClick: handleExportData, className: "px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700", children: "\u0415\u043A\u0441\u043F\u043E\u0440\u0442" }), (0, jsx_runtime_1.jsx)("button", { onClick: handleImportData, className: "px-4 py-2 text-sm bg-orange-500 text-white rounded-md hover:bg-orange-600", children: "\u0406\u043C\u043F\u043E\u0440\u0442" })] })] }) }) })] }) })] }));
 }
 exports["default"] = SettingsPage;
 
@@ -140048,14 +140025,12 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
 // src/renderer/components/WifiSyncModal.tsx
 const react_1 = __webpack_require__(/*! react */ "./node_modules/react/index.js");
-// ВИПРАВЛЕНО: Імпортуємо типізовані хуки
 const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/hooks.ts");
 const syncSlice_1 = __webpack_require__(/*! ../store/syncSlice */ "./src/renderer/store/syncSlice.ts");
 const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts");
 const lucide_react_1 = __webpack_require__(/*! lucide-react */ "./node_modules/lucide-react/dist/esm/lucide-react.js");
 const syncLogic_1 = __webpack_require__(/*! ../logic/syncLogic */ "./src/renderer/logic/syncLogic.ts");
 const WifiSyncModal = () => {
-    // ВИПРАВЛЕНО: Використовуємо типізовані хуки
     const dispatch = (0, hooks_1.useAppDispatch)();
     const { isModalOpen, modalMode, syncStatus, deviceAddress, errorMessage, syncReport, originalBackup, } = (0, hooks_1.useAppSelector)((state) => state.sync);
     const listsState = (0, hooks_1.useAppSelector)((state) => state.lists);
@@ -140065,18 +140040,13 @@ const WifiSyncModal = () => {
         const handleServer = async () => {
             if (isModalOpen && modalMode === 'server') {
                 setLocalError(null);
-                const { goals, goalLists, goalInstances } = listsState;
-                const desktopBackupData = {
-                    goals,
-                    goalLists,
-                    goalInstances,
-                };
-                const exportData = {
-                    version: 3,
+                const dataForExport = (0, syncLogic_1.formatStateForExport)(listsState);
+                const exportFileContent = {
+                    version: 4,
                     exportedAt: new Date().toISOString(),
-                    data: desktopBackupData,
+                    data: dataForExport,
                 };
-                const result = await window.electronAPI.startWifiServer(exportData);
+                const result = await window.electronAPI.startWifiServer(exportFileContent);
                 if (result.success && result.address) {
                     setLocalServerAddress(result.address);
                 }
@@ -140101,7 +140071,7 @@ const WifiSyncModal = () => {
         const result = await window.electronAPI.fetchFromDevice(deviceAddress);
         if (result.success && result.data) {
             try {
-                const report = (0, syncLogic_1.createSyncReport)(listsState, result.data);
+                const report = (0, syncLogic_1.createSyncReportForDesktop)(listsState, result.data);
                 if (report.changes.length === 0) {
                     dispatch((0, syncSlice_1.setSyncStatus)('success'));
                     setTimeout(() => dispatch((0, syncSlice_1.closeSyncModal)()), 2000);
@@ -140122,27 +140092,8 @@ const WifiSyncModal = () => {
         if (!originalBackup)
             return;
         dispatch((0, syncSlice_1.setSyncStatus)('applying'));
-        const remoteData = originalBackup.data;
-        if (remoteData) {
-            const goalListsFromRemote = remoteData.goalLists || {};
-            const normalizedGoalLists = {};
-            Object.keys(goalListsFromRemote).forEach(listId => {
-                const originalList = goalListsFromRemote[listId];
-                const newList = { ...originalList };
-                if (newList.parentId === undefined) {
-                    newList.parentId = null;
-                }
-                if (newList.order === undefined) {
-                    newList.order = 0;
-                }
-                normalizedGoalLists[listId] = newList;
-            });
-            dispatch((0, listsSlice_1.stateReplaced)({
-                goals: remoteData.goals || {},
-                goalLists: normalizedGoalLists,
-                goalInstances: remoteData.goalInstances || {},
-            }));
-        }
+        const finalState = (0, syncLogic_1.transformImportedData)(originalBackup.data);
+        dispatch((0, listsSlice_1.stateReplaced)(finalState));
         dispatch((0, syncSlice_1.setSyncStatus)('success'));
         setTimeout(() => dispatch((0, syncSlice_1.closeSyncModal)()), 2000);
     };
@@ -140266,65 +140217,114 @@ function calculateScores(goal) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.createSyncReport = createSyncReport;
+exports.formatStateForExport = formatStateForExport;
+exports.transformImportedData = transformImportedData;
+exports.createSyncReportForDesktop = createSyncReportForDesktop;
+// --- Функції-трансформери ---
 /**
- * Створює звіт про зміни, порівнюючи локальні дані з даними з бекапу.
+ * Конвертує внутрішній стан Redux у формат, сумісний з Android, для експорту.
  */
-function createSyncReport(localState, remoteBackup) {
+function formatStateForExport(state) {
+    const desktopGoals = {};
+    for (const goal of Object.values(state.goals)) {
+        desktopGoals[goal.id] = {
+            ...goal,
+            createdAt: new Date(goal.createdAt).toISOString(),
+            updatedAt: goal.updatedAt ? new Date(goal.updatedAt).toISOString() : undefined,
+        };
+    }
+    const desktopGoalLists = {};
+    for (const list of Object.values(state.goalLists)) {
+        const itemInstanceIds = Object.values(state.goalInstances)
+            .filter(inst => inst.listId === list.id)
+            .sort((a, b) => a.order - b.order)
+            .map(inst => inst.instanceId);
+        desktopGoalLists[list.id] = {
+            ...list,
+            itemInstanceIds,
+            createdAt: new Date(list.createdAt).toISOString(),
+            updatedAt: list.updatedAt ? new Date(list.updatedAt).toISOString() : undefined,
+        };
+    }
+    const desktopGoalInstances = {};
+    for (const instance of Object.values(state.goalInstances)) {
+        desktopGoalInstances[instance.instanceId] = {
+            id: instance.instanceId,
+            goalId: instance.goalId,
+        };
+    }
+    return {
+        goals: desktopGoals,
+        goalLists: desktopGoalLists,
+        goalInstances: desktopGoalInstances,
+    };
+}
+/**
+ * Конвертує імпортовані дані з Android-сумісного формату у внутрішній стан Redux.
+ */
+function transformImportedData(data) {
+    const newGoals = {};
+    for (const goal of Object.values(data.goals)) {
+        newGoals[goal.id] = {
+            ...goal,
+            createdAt: new Date(goal.createdAt).getTime(),
+            updatedAt: goal.updatedAt ? new Date(goal.updatedAt).getTime() : undefined,
+        };
+    }
+    const newGoalLists = {};
+    for (const list of Object.values(data.goalLists)) {
+        const { itemInstanceIds, ...restOfList } = list;
+        newGoalLists[list.id] = {
+            ...restOfList,
+            createdAt: new Date(list.createdAt).getTime(),
+            updatedAt: list.updatedAt ? new Date(list.updatedAt).getTime() : undefined,
+        };
+    }
+    const newGoalInstances = {};
+    for (const list of Object.values(data.goalLists)) {
+        list.itemInstanceIds.forEach((instanceId, index) => {
+            const originalInstance = data.goalInstances[instanceId];
+            if (originalInstance) {
+                newGoalInstances[instanceId] = {
+                    instanceId: originalInstance.id,
+                    goalId: originalInstance.goalId,
+                    listId: list.id,
+                    order: index,
+                };
+            }
+        });
+    }
+    return {
+        goals: newGoals,
+        goalLists: newGoalLists,
+        goalInstances: newGoalInstances,
+    };
+}
+/**
+ * Створює звіт про зміни, порівнюючи поточний стан з отриманим ззовні.
+ */
+function createSyncReportForDesktop(currentState, remoteBackup) {
+    const remoteState = transformImportedData(remoteBackup.data);
     const changes = [];
-    const remoteData = remoteBackup.data;
-    if (!remoteData) {
-        throw new Error("Формат бекапу некоректний: поле 'data' відсутнє.");
-    }
-    const remoteLists = remoteData.goalLists || {};
-    const remoteGoals = remoteData.goals || {};
-    // 1. Порівняння списків (GoalList)
-    for (const listId in remoteLists) {
-        const remoteList = remoteLists[listId];
-        const localList = localState.goalLists[listId];
+    // Порівняння списків
+    for (const remoteList of Object.values(remoteState.goalLists)) {
+        const localList = currentState.goalLists[remoteList.id];
         if (!localList) {
-            changes.push({
-                type: 'Add', entityType: 'Список', id: remoteList.id,
-                description: remoteList.name, entity: remoteList,
-            });
+            changes.push({ type: 'Add', entityType: 'Список', id: remoteList.id, description: remoteList.name, entity: remoteList });
         }
-        else {
-            const remoteDate = remoteList.updatedAt ? Date.parse(remoteList.updatedAt) : 0;
-            const localDate = localList.updatedAt ? Date.parse(localList.updatedAt) : 0;
-            // ✨ ЗМІНА: Додано порівняння по order. Зміна буде, якщо новіша дата АБО змінився порядок.
-            const isOrderDifferent = remoteList.order !== localList.order;
-            if (remoteDate > localDate || (remoteDate === localDate && isOrderDifferent)) {
-                // Проста перевірка, чи об'єкти не ідентичні, щоб не додавати зайвих оновлень
-                if (JSON.stringify(remoteList) !== JSON.stringify(localList)) {
-                    changes.push({
-                        type: 'Update', entityType: 'Список', id: remoteList.id,
-                        description: remoteList.name, entity: remoteList,
-                    });
-                }
-            }
+        else if ((remoteList.updatedAt ?? 0) > (localList.updatedAt ?? 0)) {
+            // Тут можна додати більш детальне порівняння полів, якщо потрібно
+            changes.push({ type: 'Update', entityType: 'Список', id: remoteList.id, description: remoteList.name, entity: remoteList });
         }
     }
-    // 2. Порівняння цілей (Goal)
-    for (const goalId in remoteGoals) {
-        const remoteGoal = remoteGoals[goalId];
-        const localGoal = localState.goals[goalId];
+    // Порівняння цілей
+    for (const remoteGoal of Object.values(remoteState.goals)) {
+        const localGoal = currentState.goals[remoteGoal.id];
         if (!localGoal) {
-            changes.push({
-                type: 'Add', entityType: 'Ціль', id: remoteGoal.id,
-                description: remoteGoal.text, entity: remoteGoal,
-            });
+            changes.push({ type: 'Add', entityType: 'Ціль', id: remoteGoal.id, description: remoteGoal.text, entity: remoteGoal });
         }
-        else {
-            const remoteDate = remoteGoal.updatedAt ? Date.parse(remoteGoal.updatedAt) : 0;
-            const localDate = localGoal.updatedAt ? Date.parse(localGoal.updatedAt) : 0;
-            if (remoteDate > localDate) {
-                if (JSON.stringify(remoteGoal) !== JSON.stringify(localGoal)) {
-                    changes.push({
-                        type: 'Update', entityType: 'Ціль', id: remoteGoal.id,
-                        description: remoteGoal.text, entity: remoteGoal,
-                    });
-                }
-            }
+        else if ((remoteGoal.updatedAt ?? 0) > (localGoal.updatedAt ?? 0)) {
+            changes.push({ type: 'Update', entityType: 'Ціль', id: remoteGoal.id, description: remoteGoal.text, entity: remoteGoal });
         }
     }
     return { changes };
@@ -140432,7 +140432,7 @@ exports.useAppSelector = react_redux_1.useSelector;
 
 var _a;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.listExpansionToggled = exports.stateReplaced = exports.goalsImported = exports.goalDisassociated = exports.goalAssociated = exports.goalCopied = exports.goalReferenceAdded = exports.goalOrderUpdated = exports.goalMoved = exports.instanceRemovedFromList = exports.goalUpdated = exports.goalToggled = exports.goalAdded = exports.listsReordered = exports.listMoved = exports.listRemoved = exports.listUpdated = exports.listAdded = void 0;
+exports.listExpansionToggled = exports.stateReplaced = exports.goalDisassociated = exports.goalAssociated = exports.goalCopied = exports.goalReferenceAdded = exports.goalOrderUpdated = exports.goalMoved = exports.instanceRemovedFromList = exports.goalUpdated = exports.goalToggled = exports.goalAdded = exports.listsReordered = exports.listMoved = exports.listRemoved = exports.listUpdated = exports.listAdded = void 0;
 // src/renderer/store/listsSlice.ts
 const toolkit_1 = __webpack_require__(/*! @reduxjs/toolkit */ "./node_modules/@reduxjs/toolkit/dist/redux-toolkit.modern.mjs");
 const initialState = {
@@ -140440,27 +140440,34 @@ const initialState = {
     goalLists: {},
     goalInstances: {},
 };
+// ✨ ЗМІНА: Логіка рекурсивного видалення тепер базується на `listId` в екземплярах, а не на `itemInstanceIds`.
 const recursivelyDeleteList = (state, listId) => {
     const listToDelete = state.goalLists[listId];
     if (!listToDelete)
         return;
+    // Знаходимо дочірні списки та видаляємо їх рекурсивно
     const childIds = Object.values(state.goalLists)
         .filter(l => l.parentId === listId)
         .map(l => l.id);
     childIds.forEach(childId => {
         recursivelyDeleteList(state, childId);
     });
-    const instanceIds = [...(listToDelete.itemInstanceIds || [])];
-    instanceIds.forEach(instanceId => {
+    // Знаходимо всі екземпляри, що належать цьому списку
+    const instanceIdsToDelete = Object.values(state.goalInstances)
+        .filter(instance => instance.listId === listId)
+        .map(instance => instance.instanceId);
+    instanceIdsToDelete.forEach(instanceId => {
         const instance = state.goalInstances[instanceId];
         if (instance) {
-            const isOrphaned = !Object.values(state.goalInstances).some(i => i.id !== instanceId && i.goalId === instance.goalId);
+            // Перевіряємо, чи не осиротіла ціль (чи є інші екземпляри цієї ж цілі)
+            const isOrphaned = !Object.values(state.goalInstances).some(i => i.instanceId !== instanceId && i.goalId === instance.goalId);
             if (isOrphaned) {
                 delete state.goals[instance.goalId];
             }
         }
         delete state.goalInstances[instanceId];
     });
+    // Нарешті видаляємо сам список
     delete state.goalLists[listId];
 };
 const listsSlice = (0, toolkit_1.createSlice)({
@@ -140471,25 +140478,26 @@ const listsSlice = (0, toolkit_1.createSlice)({
         listAdded: {
             reducer: (state, action) => {
                 const newList = action.payload;
-                // ✨ ВИПРАВЛЕННЯ: Логіка визначення порядку перенесена сюди, де є доступ до стану
                 const siblingLists = Object.values(state.goalLists).filter(list => list.parentId === newList.parentId);
                 newList.order = siblingLists.length;
                 state.goalLists[newList.id] = newList;
             },
             prepare: (payload) => {
                 const id = (0, toolkit_1.nanoid)();
-                const createdAt = new Date().toISOString();
+                // ✨ ЗМІНА: Дати тепер є числами
+                const now = Date.now();
                 return {
                     payload: {
                         id,
                         name: payload.name,
                         description: payload.description || "",
-                        itemInstanceIds: [],
-                        createdAt,
-                        updatedAt: createdAt,
+                        // itemInstanceIds більше не існує
+                        createdAt: now,
+                        updatedAt: now,
                         parentId: payload.parentId || null,
                         isExpanded: true,
-                        order: 0, // Порядок буде перевизначено в редьюсері
+                        order: 0,
+                        tags: [],
                     },
                 };
             },
@@ -140502,7 +140510,8 @@ const listsSlice = (0, toolkit_1.createSlice)({
                 if (description !== undefined) {
                     list.description = description;
                 }
-                list.updatedAt = new Date().toISOString();
+                // ✨ ЗМІНА: Дати тепер є числами
+                list.updatedAt = Date.now();
             }
         },
         listRemoved(state, action) {
@@ -140512,11 +140521,10 @@ const listsSlice = (0, toolkit_1.createSlice)({
             const { listId, newParentId } = action.payload;
             const list = state.goalLists[listId];
             if (list) {
-                // Призначаємо максимально можливий порядок, щоб він опинився в кінці нового списку
                 const newSiblings = Object.values(state.goalLists).filter(l => l.parentId === newParentId);
                 list.parentId = newParentId;
                 list.order = newSiblings.length;
-                list.updatedAt = new Date().toISOString();
+                list.updatedAt = Date.now();
             }
         },
         listsReordered(state, action) {
@@ -140525,162 +140533,162 @@ const listsSlice = (0, toolkit_1.createSlice)({
                 const list = state.goalLists[listId];
                 if (list) {
                     list.order = index;
-                    list.updatedAt = new Date().toISOString();
+                    list.updatedAt = Date.now();
                 }
             });
         },
         // --- GOAL & INSTANCE ACTIONS ---
+        // ✨ КАРДИНАЛЬНА ЗМІНА: Логіка додавання цілі
         goalAdded: (state, action) => {
             const { listId, text } = action.payload;
-            const list = state.goalLists[listId];
-            if (!list)
+            if (!state.goalLists[listId])
                 return;
             const goalId = (0, toolkit_1.nanoid)();
             const instanceId = (0, toolkit_1.nanoid)();
-            const now = new Date().toISOString();
+            const now = Date.now();
+            // Створюємо нову ціль
             state.goals[goalId] = {
                 id: goalId,
                 text,
-                description: "",
                 completed: false,
                 createdAt: now,
                 updatedAt: now,
-                associatedListIds: []
+                scoringStatus: "NOT_ASSESSED",
+                // Ініціалізуємо інші поля за замовчуванням
+                associatedListIds: [],
+                description: "",
             };
-            state.goalInstances[instanceId] = { id: instanceId, goalId };
-            list.itemInstanceIds.unshift(instanceId);
+            // ✨ ЗМІНА: Порядок тепер зберігається в екземплярі.
+            // Використовуємо негативний timestamp, щоб нові цілі з'являлися зверху (як в Android).
+            state.goalInstances[instanceId] = {
+                instanceId: instanceId,
+                goalId,
+                listId,
+                order: -now, // Негативний timestamp для сортування від нових до старих
+            };
         },
         goalToggled(state, action) {
             const goalId = action.payload;
             const goal = state.goals[goalId];
             if (goal) {
                 goal.completed = !goal.completed;
-                goal.updatedAt = new Date().toISOString();
+                goal.updatedAt = Date.now();
             }
         },
         goalUpdated(state, action) {
-            const { id, text, description, associatedListIds } = action.payload;
+            const { id, ...updates } = action.payload;
             const goal = state.goals[id];
             if (goal) {
-                goal.text = text;
-                if (description !== undefined) {
-                    goal.description = description;
-                }
-                if (associatedListIds !== undefined) {
-                    goal.associatedListIds = associatedListIds;
-                }
-                goal.updatedAt = new Date().toISOString();
+                Object.assign(goal, updates);
+                goal.updatedAt = Date.now();
             }
         },
+        // ✨ КАРДИНАЛЬНА ЗМІНА: Логіка видалення екземпляру
         instanceRemovedFromList(state, action) {
-            const { listId, instanceId } = action.payload;
+            // listId більше не є строго необхідним, але залишаємо для сумісності
+            const { instanceId } = action.payload;
             const instanceToRemove = state.goalInstances[instanceId];
             if (!instanceToRemove)
                 return;
             const goalId = instanceToRemove.goalId;
-            const list = state.goalLists[listId];
-            if (list) {
-                list.itemInstanceIds = list.itemInstanceIds.filter(id => id !== instanceId);
-            }
             delete state.goalInstances[instanceId];
             const isOrphaned = !Object.values(state.goalInstances).some(instance => instance.goalId === goalId);
             if (isOrphaned) {
                 delete state.goals[goalId];
             }
         },
+        // ✨ КАРДИНАЛЬНА ЗМІНА: Логіка переміщення цілі
         goalMoved: (state, action) => {
-            const { instanceId, sourceListId, destinationListId, destinationIndex } = action.payload;
-            const sourceList = state.goalLists[sourceListId];
-            if (sourceList) {
-                sourceList.itemInstanceIds = sourceList.itemInstanceIds.filter(id => id !== instanceId);
-            }
-            const destinationList = state.goalLists[destinationListId];
-            if (destinationList && !destinationList.itemInstanceIds.includes(instanceId)) {
-                destinationList.itemInstanceIds.splice(destinationIndex, 0, instanceId);
-            }
+            const { instanceId, destinationListId, destinationIndex } = action.payload;
+            const instance = state.goalInstances[instanceId];
+            if (!instance)
+                return;
+            // 1. Оновлюємо listId екземпляра
+            instance.listId = destinationListId;
+            // 2. Оновлюємо порядок у новому списку
+            const destinationSiblings = Object.values(state.goalInstances)
+                .filter(i => i.listId === destinationListId && i.instanceId !== instanceId)
+                .sort((a, b) => a.order - b.order)
+                .map(i => i.instanceId);
+            destinationSiblings.splice(destinationIndex, 0, instanceId);
+            destinationSiblings.forEach((id, index) => {
+                if (state.goalInstances[id]) {
+                    state.goalInstances[id].order = index;
+                }
+            });
         },
+        // ✨ КАРДИНАЛЬНА ЗМІНА: Логіка оновлення порядку
         goalOrderUpdated: (state, action) => {
-            const list = state.goalLists[action.payload.listId];
-            if (list) {
-                list.itemInstanceIds = action.payload.orderedInstanceIds;
+            const { listId, orderedInstanceIds } = action.payload;
+            // Перевіряємо, чи всі екземпляри належать до вказаного списку
+            const instancesInList = Object.values(state.goalInstances).filter(i => i.listId === listId);
+            if (instancesInList.length !== orderedInstanceIds.length) {
+                console.warn("Mismatch in goalOrderUpdated instance count.");
             }
+            orderedInstanceIds.forEach((instanceId, index) => {
+                const instance = state.goalInstances[instanceId];
+                if (instance && instance.listId === listId) {
+                    instance.order = index;
+                }
+            });
         },
-        // ✨ ПОВЕРНУТО: Екшени, що були випадково видалені
         goalReferenceAdded: (state, action) => {
             const { listId, goalId } = action.payload;
-            const list = state.goalLists[listId];
-            if (list && state.goals[goalId]) {
+            if (state.goalLists[listId] && state.goals[goalId]) {
                 const instanceId = (0, toolkit_1.nanoid)();
-                state.goalInstances[instanceId] = { id: instanceId, goalId: goalId };
-                list.itemInstanceIds.push(instanceId);
+                const now = Date.now();
+                state.goalInstances[instanceId] = {
+                    instanceId,
+                    goalId,
+                    listId,
+                    order: -now,
+                };
             }
         },
         goalCopied: (state, action) => {
-            const { sourceGoalId, destinationListId, destinationIndex } = action.payload;
+            const { sourceGoalId, destinationListId } = action.payload;
             const originalGoal = state.goals[sourceGoalId];
             const destinationList = state.goalLists[destinationListId];
             if (originalGoal && destinationList) {
                 const newGoalId = (0, toolkit_1.nanoid)();
                 const newInstanceId = (0, toolkit_1.nanoid)();
-                const now = new Date().toISOString();
+                const now = Date.now();
                 const newGoal = {
                     ...originalGoal,
                     id: newGoalId,
                     createdAt: now,
                     updatedAt: now,
-                    associatedListIds: [...(originalGoal.associatedListIds || [])]
                 };
                 state.goals[newGoalId] = newGoal;
-                state.goalInstances[newInstanceId] = { id: newInstanceId, goalId: newGoalId };
-                destinationList.itemInstanceIds.splice(destinationIndex, 0, newInstanceId);
+                state.goalInstances[newInstanceId] = {
+                    instanceId: newInstanceId,
+                    goalId: newGoalId,
+                    listId: destinationListId,
+                    order: -now,
+                };
             }
         },
         goalAssociated(state, action) {
             const { goalId, listId } = action.payload;
             const goal = state.goals[goalId];
             if (goal) {
-                if (!goal.associatedListIds) {
+                if (!goal.associatedListIds)
                     goal.associatedListIds = [];
-                }
                 if (!goal.associatedListIds.includes(listId)) {
                     goal.associatedListIds.push(listId);
-                    goal.updatedAt = new Date().toISOString();
+                    goal.updatedAt = Date.now();
                 }
             }
         },
         goalDisassociated(state, action) {
             const { goalId, listId } = action.payload;
             const goal = state.goals[goalId];
-            if (goal && goal.associatedListIds) {
+            if (goal?.associatedListIds) {
                 goal.associatedListIds = goal.associatedListIds.filter(id => id !== listId);
-                goal.updatedAt = new Date().toISOString();
+                goal.updatedAt = Date.now();
             }
         },
-        goalsImported(state, action) {
-            const { listId, goalsData } = action.payload;
-            const list = state.goalLists[listId];
-            if (list) {
-                const newInstanceIds = [];
-                const now = new Date().toISOString();
-                goalsData.forEach((goalData) => {
-                    const newGoalId = (0, toolkit_1.nanoid)();
-                    state.goals[newGoalId] = {
-                        id: newGoalId,
-                        text: goalData.text.trim(),
-                        description: "",
-                        completed: goalData.completed || false,
-                        createdAt: now,
-                        updatedAt: now,
-                        associatedListIds: [],
-                    };
-                    const newInstanceId = (0, toolkit_1.nanoid)();
-                    state.goalInstances[newInstanceId] = { id: newInstanceId, goalId: newGoalId };
-                    newInstanceIds.push(newInstanceId);
-                });
-                list.itemInstanceIds.push(...newInstanceIds);
-                list.updatedAt = now;
-            }
-        },
+        // `goalsImported` може потребувати оновлення залежно від формату імпорту
         listExpansionToggled(state, action) {
             const { listId } = action.payload;
             const list = state.goalLists[listId];
@@ -140699,7 +140707,7 @@ const listsSlice = (0, toolkit_1.createSlice)({
         },
     },
 });
-_a = listsSlice.actions, exports.listAdded = _a.listAdded, exports.listUpdated = _a.listUpdated, exports.listRemoved = _a.listRemoved, exports.listMoved = _a.listMoved, exports.listsReordered = _a.listsReordered, exports.goalAdded = _a.goalAdded, exports.goalToggled = _a.goalToggled, exports.goalUpdated = _a.goalUpdated, exports.instanceRemovedFromList = _a.instanceRemovedFromList, exports.goalMoved = _a.goalMoved, exports.goalOrderUpdated = _a.goalOrderUpdated, exports.goalReferenceAdded = _a.goalReferenceAdded, exports.goalCopied = _a.goalCopied, exports.goalAssociated = _a.goalAssociated, exports.goalDisassociated = _a.goalDisassociated, exports.goalsImported = _a.goalsImported, exports.stateReplaced = _a.stateReplaced, exports.listExpansionToggled = _a.listExpansionToggled;
+_a = listsSlice.actions, exports.listAdded = _a.listAdded, exports.listUpdated = _a.listUpdated, exports.listRemoved = _a.listRemoved, exports.listMoved = _a.listMoved, exports.listsReordered = _a.listsReordered, exports.goalAdded = _a.goalAdded, exports.goalToggled = _a.goalToggled, exports.goalUpdated = _a.goalUpdated, exports.instanceRemovedFromList = _a.instanceRemovedFromList, exports.goalMoved = _a.goalMoved, exports.goalOrderUpdated = _a.goalOrderUpdated, exports.goalReferenceAdded = _a.goalReferenceAdded, exports.goalCopied = _a.goalCopied, exports.goalAssociated = _a.goalAssociated, exports.goalDisassociated = _a.goalDisassociated, exports.stateReplaced = _a.stateReplaced, exports.listExpansionToggled = _a.listExpansionToggled;
 exports["default"] = listsSlice.reducer;
 
 
@@ -140727,7 +140735,9 @@ const selectParentId = (_state, parentId) => parentId;
 // --- HIERARCHY SELECTORS ---
 exports.selectTopLevelLists = (0, reselect_1.createSelector)([selectAllGoalLists], (allLists) => {
     return Object.values(allLists)
-        .filter(list => list.parentId === null)
+        // ✨ ВИПРАВЛЕННЯ: Змінено `list.parentId === null` на `!list.parentId`.
+        // Ця перевірка коректно обробляє і `null`, і `undefined`.
+        .filter(list => !list.parentId)
         .sort((a, b) => a.order - b.order);
 });
 const makeSelectChildLists = () => (0, reselect_1.createSelector)([selectAllGoalLists, selectParentId], (allLists, parentId) => {
@@ -140742,24 +140752,23 @@ const makeSelectListInfo = () => (0, reselect_1.createSelector)([selectAllGoalLi
     const list = goalLists[listId];
     if (!list)
         return null;
-    const { itemInstanceIds, ...listInfo } = list;
-    return listInfo;
+    return list;
 });
 exports.makeSelectListInfo = makeSelectListInfo;
-const makeSelectGoalInstancesForList = () => (0, reselect_1.createSelector)([selectGoals, selectAllGoalLists, selectGoalInstances, selectListId], (goals, goalLists, goalInstances, listId) => {
-    const list = goalLists[listId];
-    if (!list)
+const makeSelectGoalInstancesForList = () => (0, reselect_1.createSelector)([selectGoals, selectGoalInstances, selectListId], (goals, allGoalInstances, listId) => {
+    if (!listId)
         return [];
-    return list.itemInstanceIds
-        .map((instanceId) => {
-        const instance = goalInstances[instanceId];
+    const instancesArray = Object.values(allGoalInstances);
+    const filteredInstances = instancesArray.filter(instance => instance.listId === listId);
+    const sortedInstances = filteredInstances.sort((a, b) => a.order - b.order);
+    return sortedInstances
+        .map((instance) => {
         const goal = instance ? goals[instance.goalId] : null;
         return (instance && goal) ? { instance, goal } : null;
     })
         .filter(Boolean);
 });
 exports.makeSelectGoalInstancesForList = makeSelectGoalInstancesForList;
-// ✨ ПОВЕРНУТО: Цей селектор потрібен для GoalListPage
 const makeSelectEnrichedGoalInstances = () => (0, reselect_1.createSelector)([(0, exports.makeSelectGoalInstancesForList)(), selectAllGoalLists], (goalInstancesForList, allGoalLists) => {
     return goalInstancesForList.map(({ instance, goal }) => ({
         instance,
@@ -140781,7 +140790,6 @@ const extractMatchesFromText = (text, regex) => {
     }
     return Array.from(matches);
 };
-// ✨ ПОВЕРНУТО: Селектори для тегів та контекстів
 exports.selectAllUniqueTags = (0, reselect_1.createSelector)([selectAllGoalsArray], (allGoals) => {
     const allTags = new Set();
     const tagRegex = /(?:\B|^)#[a-zA-Z0-9_а-яА-ЯіІїЇєЄ'-]+\b/g;

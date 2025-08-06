@@ -1,16 +1,13 @@
 // src/renderer/components/GlobalSearchResults.tsx
 import React from 'react';
-// ВИПРАВЛЕНО: Замінюємо стандартні хуки на наші типізовані
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { createSelector } from '@reduxjs/toolkit';
-import { RootState } from '../store/store'; // RootState тут потрібен для createSelector
+import { RootState } from '../store/store';
 import { setGlobalFilterTerm, setGoalToHighlight } from '../store/uiSlice';
 import type { Goal } from '../types';
 import GoalItem from './GoalItem';
 import { dispatchOpenGoalListEvent } from './Sidebar';
 
-// Визначення селекторів поза компонентом є правильною практикою.
-// Вони все ще потребують RootState для визначення типу вхідних даних.
 const selectFilteredGoals = createSelector(
   (state: RootState) => state.lists.goals,
   (state: RootState) => state.ui.globalFilterTerm,
@@ -29,21 +26,19 @@ interface GlobalSearchResultsProps {
 }
 
 const GlobalSearchResults: React.FC<GlobalSearchResultsProps> = ({ obsidianVaultName }) => {
-  // ВИПРАВЛЕНО: Використовуємо типізовані хуки.
   const dispatch = useAppDispatch();
   const filteredGoals = useAppSelector(selectFilteredGoals);
   const filterTerm = useAppSelector((state) => state.ui.globalFilterTerm);
   const allLists = useAppSelector(selectAllLists);
   const goalInstances = useAppSelector((state) => state.lists.goalInstances);
 
+  // ✨ ВИПРАВЛЕННЯ: Повністю оновлена логіка пошуку батьківського списку
   const findParentList = (goalId: string) => {
-    // Тут `allLists` вже має правильний тип, тому Object.values безпечний
-    for (const list of Object.values(allLists)) {
-      const instanceFound = list.itemInstanceIds.some(instanceId => {
-        const instance = goalInstances[instanceId];
-        return instance && instance.goalId === goalId;
-      });
-      if (instanceFound) return list;
+    // 1. Знаходимо перший-ліпший екземпляр цієї цілі
+    const instance = Object.values(goalInstances).find(inst => inst.goalId === goalId);
+    // 2. Якщо екземпляр знайдено, використовуємо його listId, щоб знайти список
+    if (instance) {
+      return allLists[instance.listId] || null;
     }
     return null;
   };

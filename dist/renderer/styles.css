@@ -1624,6 +1624,13 @@
       }
     }
   }
+  .hover\:bg-orange-600 {
+    &:hover {
+      @media (hover: hover) {
+        background-color: var(--color-orange-600);
+      }
+    }
+  }
   .hover\:bg-purple-100 {
     &:hover {
       @media (hover: hover) {

@@ -1,7 +1,8 @@
 // src/renderer/store/listsSlice.ts
 import { createSlice, PayloadAction, nanoid } from "@reduxjs/toolkit";
 import type { Draft } from "immer";
-import type { Goal, GoalInstance, GoalList } from "../types";
+// ✨ ВИКОРИСТОВУЄМО ОНОВЛЕНІ ТИПИ
+import type { Goal, GoalInstance, GoalList, ScoringStatus } from "../types";
 
 export interface ListsState {
   goals: Record<string, Goal>;
@@ -15,10 +16,12 @@ const initialState: ListsState = {
   goalInstances: {},
 };
 
+// ✨ ЗМІНА: Логіка рекурсивного видалення тепер базується на `listId` в екземплярах, а не на `itemInstanceIds`.
 const recursivelyDeleteList = (state: Draft<ListsState>, listId: string) => {
   const listToDelete = state.goalLists[listId];
   if (!listToDelete) return;
 
+  // Знаходимо дочірні списки та видаляємо їх рекурсивно
   const childIds = Object.values(state.goalLists)
     .filter(l => l.parentId === listId)
     .map(l => l.id);
@@ -26,12 +29,17 @@ const recursivelyDeleteList = (state: Draft<ListsState>, listId: string) => {
     recursivelyDeleteList(state, childId);
   });
 
-  const instanceIds = [...(listToDelete.itemInstanceIds || [])];
-  instanceIds.forEach(instanceId => {
+  // Знаходимо всі екземпляри, що належать цьому списку
+  const instanceIdsToDelete = Object.values(state.goalInstances)
+    .filter(instance => instance.listId === listId)
+    .map(instance => instance.instanceId);
+
+  instanceIdsToDelete.forEach(instanceId => {
     const instance = state.goalInstances[instanceId];
     if (instance) {
+      // Перевіряємо, чи не осиротіла ціль (чи є інші екземпляри цієї ж цілі)
       const isOrphaned = !Object.values(state.goalInstances).some(
-        i => i.id !== instanceId && i.goalId === instance.goalId
+        i => i.instanceId !== instanceId && i.goalId === instance.goalId
       );
       if (isOrphaned) {
         delete state.goals[instance.goalId];
@@ -40,6 +48,7 @@ const recursivelyDeleteList = (state: Draft<ListsState>, listId: string) => {
     delete state.goalInstances[instanceId];
   });
 
+  // Нарешті видаляємо сам список
   delete state.goalLists[listId];
 };
 
@@ -52,7 +61,6 @@ const listsSlice = createSlice({
     listAdded: {
       reducer: (state, action: PayloadAction<GoalList>) => {
         const newList = action.payload;
-        // ✨ ВИПРАВЛЕННЯ: Логіка визначення порядку перенесена сюди, де є доступ до стану
         const siblingLists = Object.values(state.goalLists).filter(
           list => list.parentId === newList.parentId
         );
@@ -61,18 +69,20 @@ const listsSlice = createSlice({
       },
       prepare: (payload: { name: string; description?: string, parentId?: string | null }) => {
         const id = nanoid();
-        const createdAt = new Date().toISOString();
+        // ✨ ЗМІНА: Дати тепер є числами
+        const now = Date.now();
         return {
           payload: {
             id,
             name: payload.name,
             description: payload.description || "",
-            itemInstanceIds: [],
-            createdAt,
-            updatedAt: createdAt,
+            // itemInstanceIds більше не існує
+            createdAt: now,
+            updatedAt: now,
             parentId: payload.parentId || null,
             isExpanded: true,
-            order: 0, // Порядок буде перевизначено в редьюсері
+            order: 0,
+            tags: [],
           },
         };
       },
@@ -88,7 +98,8 @@ const listsSlice = createSlice({
         if (description !== undefined) {
           list.description = description;
         }
-        list.updatedAt = new Date().toISOString();
+        // ✨ ЗМІНА: Дати тепер є числами
+        list.updatedAt = Date.now();
       }
     },
     listRemoved(state, action: PayloadAction<string>) {
@@ -98,11 +109,10 @@ const listsSlice = createSlice({
       const { listId, newParentId } = action.payload;
       const list = state.goalLists[listId];
       if (list) {
-        // Призначаємо максимально можливий порядок, щоб він опинився в кінці нового списку
         const newSiblings = Object.values(state.goalLists).filter(l => l.parentId === newParentId);
         list.parentId = newParentId;
         list.order = newSiblings.length;
-        list.updatedAt = new Date().toISOString();
+        list.updatedAt = Date.now();
       }
     },
     listsReordered(state, action: PayloadAction<{ parentId: string | null; orderedListIds: string[] }>) {
@@ -111,161 +121,170 @@ const listsSlice = createSlice({
             const list = state.goalLists[listId];
             if (list) {
                 list.order = index;
-                list.updatedAt = new Date().toISOString();
+                list.updatedAt = Date.now();
             }
         });
     },
 
     // --- GOAL & INSTANCE ACTIONS ---
+    // ✨ КАРДИНАЛЬНА ЗМІНА: Логіка додавання цілі
     goalAdded: (state, action: PayloadAction<{ listId: string; text: string }>) => {
       const { listId, text } = action.payload;
-      const list = state.goalLists[listId];
-      if (!list) return;
+      if (!state.goalLists[listId]) return;
+
       const goalId = nanoid();
       const instanceId = nanoid();
-      const now = new Date().toISOString();
+      const now = Date.now();
+      
+      // Створюємо нову ціль
       state.goals[goalId] = {
         id: goalId,
         text,
-        description: "",
         completed: false,
         createdAt: now,
         updatedAt: now,
-        associatedListIds: []
+        scoringStatus: "NOT_ASSESSED" as ScoringStatus,
+        // Ініціалізуємо інші поля за замовчуванням
+        associatedListIds: [],
+        description: "",
       };
-      state.goalInstances[instanceId] = { id: instanceId, goalId };
-      list.itemInstanceIds.unshift(instanceId);
+
+      // ✨ ЗМІНА: Порядок тепер зберігається в екземплярі.
+      // Використовуємо негативний timestamp, щоб нові цілі з'являлися зверху (як в Android).
+      state.goalInstances[instanceId] = {
+        instanceId: instanceId,
+        goalId,
+        listId,
+        order: -now, // Негативний timestamp для сортування від нових до старих
+      };
     },
     goalToggled(state, action: PayloadAction<string>) {
       const goalId = action.payload;
       const goal = state.goals[goalId];
       if (goal) {
         goal.completed = !goal.completed;
-        goal.updatedAt = new Date().toISOString();
+        goal.updatedAt = Date.now();
       }
     },
-    goalUpdated(state, action: PayloadAction<{ id: string; text: string; description?: string, associatedListIds?: string[] }>) {
-      const { id, text, description, associatedListIds } = action.payload;
+    goalUpdated(state, action: PayloadAction<Partial<Goal> & { id: string }>) {
+      const { id, ...updates } = action.payload;
       const goal = state.goals[id];
       if (goal) {
-        goal.text = text;
-        if (description !== undefined) {
-          goal.description = description;
-        }
-        if (associatedListIds !== undefined) {
-          goal.associatedListIds = associatedListIds;
-        }
-        goal.updatedAt = new Date().toISOString();
+        Object.assign(goal, updates);
+        goal.updatedAt = Date.now();
       }
     },
+    // ✨ КАРДИНАЛЬНА ЗМІНА: Логіка видалення екземпляру
     instanceRemovedFromList(state, action: PayloadAction<{ listId: string; instanceId: string }>) {
-      const { listId, instanceId } = action.payload;
+      // listId більше не є строго необхідним, але залишаємо для сумісності
+      const { instanceId } = action.payload;
       const instanceToRemove = state.goalInstances[instanceId];
       if (!instanceToRemove) return;
+
       const goalId = instanceToRemove.goalId;
-      const list = state.goalLists[listId];
-      if (list) {
-        list.itemInstanceIds = list.itemInstanceIds.filter(id => id !== instanceId);
-      }
       delete state.goalInstances[instanceId];
+
       const isOrphaned = !Object.values(state.goalInstances).some(instance => instance.goalId === goalId);
       if (isOrphaned) {
         delete state.goals[goalId];
       }
     },
+    // ✨ КАРДИНАЛЬНА ЗМІНА: Логіка переміщення цілі
     goalMoved: (state, action: PayloadAction<{ instanceId: string; sourceListId: string; destinationListId: string; destinationIndex: number; }>) => {
-      const { instanceId, sourceListId, destinationListId, destinationIndex } = action.payload;
-      const sourceList = state.goalLists[sourceListId];
-      if (sourceList) {
-        sourceList.itemInstanceIds = sourceList.itemInstanceIds.filter(id => id !== instanceId);
-      }
-      const destinationList = state.goalLists[destinationListId];
-      if (destinationList && !destinationList.itemInstanceIds.includes(instanceId)) {
-        destinationList.itemInstanceIds.splice(destinationIndex, 0, instanceId);
-      }
+      const { instanceId, destinationListId, destinationIndex } = action.payload;
+      const instance = state.goalInstances[instanceId];
+      if (!instance) return;
+      
+      // 1. Оновлюємо listId екземпляра
+      instance.listId = destinationListId;
+
+      // 2. Оновлюємо порядок у новому списку
+      const destinationSiblings = Object.values(state.goalInstances)
+        .filter(i => i.listId === destinationListId && i.instanceId !== instanceId)
+        .sort((a, b) => a.order - b.order)
+        .map(i => i.instanceId);
+      
+      destinationSiblings.splice(destinationIndex, 0, instanceId);
+
+      destinationSiblings.forEach((id, index) => {
+        if (state.goalInstances[id]) {
+          state.goalInstances[id].order = index;
+        }
+      });
     },
+    // ✨ КАРДИНАЛЬНА ЗМІНА: Логіка оновлення порядку
     goalOrderUpdated: (state, action: PayloadAction<{ listId: string; orderedInstanceIds: string[] }>) => {
-      const list = state.goalLists[action.payload.listId];
-      if (list) {
-        list.itemInstanceIds = action.payload.orderedInstanceIds;
+      const { listId, orderedInstanceIds } = action.payload;
+      
+      // Перевіряємо, чи всі екземпляри належать до вказаного списку
+      const instancesInList = Object.values(state.goalInstances).filter(i => i.listId === listId);
+      if (instancesInList.length !== orderedInstanceIds.length) {
+          console.warn("Mismatch in goalOrderUpdated instance count.");
       }
+
+      orderedInstanceIds.forEach((instanceId, index) => {
+        const instance = state.goalInstances[instanceId];
+        if (instance && instance.listId === listId) {
+          instance.order = index;
+        }
+      });
     },
-    // ✨ ПОВЕРНУТО: Екшени, що були випадково видалені
     goalReferenceAdded: (state, action: PayloadAction<{ listId: string; goalId: string }>) => {
       const { listId, goalId } = action.payload;
-      const list = state.goalLists[listId];
-      if (list && state.goals[goalId]) {
+      if (state.goalLists[listId] && state.goals[goalId]) {
         const instanceId = nanoid();
-        state.goalInstances[instanceId] = { id: instanceId, goalId: goalId };
-        list.itemInstanceIds.push(instanceId);
+        const now = Date.now();
+        state.goalInstances[instanceId] = {
+          instanceId,
+          goalId,
+          listId,
+          order: -now,
+        };
       }
     },
     goalCopied: (state, action: PayloadAction<{ sourceGoalId: string; destinationListId: string; destinationIndex: number; }>) => {
-      const { sourceGoalId, destinationListId, destinationIndex } = action.payload;
+      const { sourceGoalId, destinationListId } = action.payload;
       const originalGoal = state.goals[sourceGoalId];
       const destinationList = state.goalLists[destinationListId];
       if (originalGoal && destinationList) {
         const newGoalId = nanoid();
         const newInstanceId = nanoid();
-        const now = new Date().toISOString();
+        const now = Date.now();
         const newGoal: Goal = {
           ...originalGoal,
           id: newGoalId,
           createdAt: now,
           updatedAt: now,
-          associatedListIds: [...(originalGoal.associatedListIds || [])]
         };
         state.goals[newGoalId] = newGoal;
-        state.goalInstances[newInstanceId] = { id: newInstanceId, goalId: newGoalId };
-        destinationList.itemInstanceIds.splice(destinationIndex, 0, newInstanceId);
+        state.goalInstances[newInstanceId] = {
+          instanceId: newInstanceId,
+          goalId: newGoalId,
+          listId: destinationListId,
+          order: -now,
+        };
       }
     },
     goalAssociated(state, action: PayloadAction<{ goalId: string; listId: string }>) {
       const { goalId, listId } = action.payload;
       const goal = state.goals[goalId];
       if (goal) {
-        if (!goal.associatedListIds) {
-          goal.associatedListIds = [];
-        }
+        if (!goal.associatedListIds) goal.associatedListIds = [];
         if (!goal.associatedListIds.includes(listId)) {
           goal.associatedListIds.push(listId);
-          goal.updatedAt = new Date().toISOString();
+          goal.updatedAt = Date.now();
         }
       }
     },
     goalDisassociated(state, action: PayloadAction<{ goalId: string; listId: string }>) {
       const { goalId, listId } = action.payload;
       const goal = state.goals[goalId];
-      if (goal && goal.associatedListIds) {
+      if (goal?.associatedListIds) {
         goal.associatedListIds = goal.associatedListIds.filter(id => id !== listId);
-        goal.updatedAt = new Date().toISOString();
+        goal.updatedAt = Date.now();
       }
     },
-    goalsImported(state, action: PayloadAction<{ listId: string; goalsData: { text: string; completed?: boolean }[] }>) {
-      const { listId, goalsData } = action.payload;
-      const list = state.goalLists[listId];
-      if (list) {
-        const newInstanceIds: string[] = [];
-        const now = new Date().toISOString();
-        goalsData.forEach((goalData) => {
-          const newGoalId = nanoid();
-          state.goals[newGoalId] = {
-            id: newGoalId,
-            text: goalData.text.trim(),
-            description: "",
-            completed: goalData.completed || false,
-            createdAt: now,
-            updatedAt: now,
-            associatedListIds: [],
-          };
-          const newInstanceId = nanoid();
-          state.goalInstances[newInstanceId] = { id: newInstanceId, goalId: newGoalId };
-          newInstanceIds.push(newInstanceId);
-        });
-        list.itemInstanceIds.push(...newInstanceIds);
-        list.updatedAt = now;
-      }
-    },
+    // `goalsImported` може потребувати оновлення залежно від формату імпорту
     listExpansionToggled(state, action: PayloadAction<{ listId: string }>) {
       const { listId } = action.payload;
       const list = state.goalLists[listId];
@@ -297,11 +316,10 @@ export const {
   instanceRemovedFromList,
   goalMoved,
   goalOrderUpdated,
-  goalReferenceAdded, // ✨ Повернуто
-  goalCopied,         // ✨ Повернуто
-  goalAssociated,     // ✨ Повернуто
-  goalDisassociated,  // ✨ Повернуто
-  goalsImported,      // ✨ Повернуто
+  goalReferenceAdded,
+  goalCopied,
+  goalAssociated,
+  goalDisassociated,
   stateReplaced,
   listExpansionToggled,
 } = listsSlice.actions;

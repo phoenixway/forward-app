@@ -1,30 +1,8 @@
 // src/renderer/components/SettingsPage.tsx
-import React, { useState, useEffect } from "react";
-// ВИПРАВЛЕНО: Імпортуємо типізовані хуки
+import React from "react";
 import { useAppSelector, useAppDispatch } from "../store/hooks";
-import { ListsState, stateReplaced } from "../store/listsSlice";
-
-// Типи для розбору старих і нових форматів бекапу
-interface OldGoalListFormat {
-  id: string;
-  name: string;
-  itemGoalIds?: string[];
-  itemInstanceIds?: string[];
-  createdAt?: string;
-  updatedAt?: string;
-  [key: string]: any;
-}
-
-interface OldBackupData {
-  goalLists: OldGoalListFormat[];
-  goals: any[]; // Використовуємо any для гнучкості старих форматів
-}
-
-interface AppBackupDataFormat {
-  version: number;
-  exportedAt: string;
-  data: OldBackupData | ListsState;
-}
+import { stateReplaced } from "../store/listsSlice";
+import { formatStateForExport, transformImportedData, DesktopBackupFile } from '../logic/syncLogic';
 
 interface SettingsPageProps {
   currentTheme: string;
@@ -41,23 +19,20 @@ function SettingsPage({
   onObsidianVaultChange,
   onDataImported,
 }: SettingsPageProps) {
-  // ВИПРАВЛЕНО: Використовуємо типізовані хуки
   const dispatch = useAppDispatch();
-  const listsStateForExport = useAppSelector((state) => state.lists);
-  const [obsidianVaultPath, setObsidianVaultPath] = useState(initialObsidianVault);
-
-  useEffect(() => {
-    setObsidianVaultPath(initialObsidianVault);
-  }, [initialObsidianVault]);
-
+  const listsState = useAppSelector((state) => state.lists);
+  
   const handleExportData = async () => {
     if (!window.electronAPI?.showSaveDialog || !window.electronAPI.writeFile) return;
     try {
-      const exportData = {
-        version: 3,
+      const dataForExport = formatStateForExport(listsState);
+      
+      const exportFileContent: DesktopBackupFile = {
+        version: 4,
         exportedAt: new Date().toISOString(),
-        data: listsStateForExport,
+        data: dataForExport,
       };
+
       const result = await window.electronAPI.showSaveDialog({
         title: "Експорт всіх даних",
         defaultPath: `forward-app-backup-${new Date().toISOString().split("T")[0]}.json`,
@@ -65,7 +40,7 @@ function SettingsPage({
       });
 
       if (!result.canceled && result.filePath) {
-        const jsonContent = JSON.stringify(exportData, null, 2);
+        const jsonContent = JSON.stringify(exportFileContent, null, 2);
         await window.electronAPI.writeFile(result.filePath, jsonContent);
         alert("Дані успішно експортовано!");
       }
@@ -90,27 +65,11 @@ function SettingsPage({
       const readResult = await window.electronAPI.readFile(result.filePaths[0]);
       if (!readResult.success || typeof readResult.content !== "string") throw new Error("Не вдалося прочитати файл.");
 
-      const importedObject: AppBackupDataFormat = JSON.parse(readResult.content);
+      const importedObject: DesktopBackupFile = JSON.parse(readResult.content);
       if (!importedObject.data) throw new Error("Файл має невірний формат.");
 
-      let finalState: ListsState;
+      const finalState = transformImportedData(importedObject.data);
       
-      const importedState = importedObject.data as ListsState;
-      finalState = {
-          goals: importedState.goals || {},
-          goalInstances: importedState.goalInstances || {},
-          goalLists: importedState.goalLists || {},
-      };
-
-      Object.values(finalState.goalLists).forEach((list, index) => {
-          if (list.order === undefined) {
-              list.order = index;
-          }
-          if (list.parentId === undefined) {
-              list.parentId = null;
-          }
-      });
-
       dispatch(stateReplaced(finalState));
       alert("Дані успішно імпортовано!");
       if (onDataImported) onDataImported();
@@ -133,10 +92,10 @@ function SettingsPage({
               <div>
                 <p className="text-sm text-slate-600 dark:text-slate-400">Збережіть всі ваші дані в один файл або відновіть їх з резервної копії.</p>
                 <div className="flex space-x-3 mt-2">
-                  <button onClick={handleExportData} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md">
+                  <button onClick={handleExportData} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700">
                     Експорт
                   </button>
-                  <button onClick={handleImportData} className="px-4 py-2 text-sm bg-orange-500 text-white rounded-md">
+                  <button onClick={handleImportData} className="px-4 py-2 text-sm bg-orange-500 text-white rounded-md hover:bg-orange-600">
                     Імпорт
                   </button>
                 </div>

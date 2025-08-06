@@ -1,78 +1,180 @@
 // src/renderer/logic/syncLogic.ts
-import type { RootState } from '../store/store';
-import type { SyncChange, SyncReport } from '../store/syncSlice';
-import type { Goal, GoalList } from '../types';
+import { ListsState } from "../store/listsSlice";
+import { SyncChange, SyncReport } from "../store/syncSlice";
+import { Goal, GoalInstance, GoalList, ScoringStatus } from "../types";
+
+// --- Інтерфейси для JSON-формату, сумісного з Android ---
+
+interface DesktopGoal {
+  id: string;
+  text: string;
+  description?: string;
+  completed: boolean;
+  createdAt: string; // ISO String
+  updatedAt?: string; // ISO String
+  tags?: string[];
+  associatedListIds?: string[];
+  valueImportance?: number;
+  valueImpact?: number;
+  effort?: number;
+  cost?: number;
+  risk?: number;
+  weightEffort?: number;
+  weightCost?: number;
+  weightRisk?: number;
+  rawScore?: number;
+  displayScore?: number;
+  scoringStatus?: ScoringStatus;
+}
+
+interface DesktopGoalInstance {
+  id: string;
+  goalId: string;
+}
+
+interface DesktopGoalList {
+  id: string;
+  name: string;
+  description?: string;
+  parentId: string | null;
+  createdAt: string; // ISO String
+  updatedAt?: string; // ISO String
+  tags?: string[];
+  isExpanded?: boolean;
+  order: number;
+  itemInstanceIds: string[]; // Android очікує цей масив
+}
+
+export interface DesktopBackupData {
+  goals: Record<string, DesktopGoal>;
+  goalLists: Record<string, DesktopGoalList>;
+  goalInstances: Record<string, DesktopGoalInstance>;
+}
+
+export interface DesktopBackupFile {
+    version: number;
+    exportedAt: string;
+    data: DesktopBackupData;
+}
+
+// --- Функції-трансформери ---
 
 /**
- * Створює звіт про зміни, порівнюючи локальні дані з даними з бекапу.
+ * Конвертує внутрішній стан Redux у формат, сумісний з Android, для експорту.
  */
-export function createSyncReport(
-  localState: RootState['lists'],
-  remoteBackup: any,
-): SyncReport {
-  const changes: SyncChange[] = [];
-  const remoteData = remoteBackup.data;
-
-  if (!remoteData) {
-    throw new Error("Формат бекапу некоректний: поле 'data' відсутнє.");
+export function formatStateForExport(state: ListsState): DesktopBackupData {
+  const desktopGoals: Record<string, DesktopGoal> = {};
+  for (const goal of Object.values(state.goals)) {
+    desktopGoals[goal.id] = {
+      ...goal,
+      createdAt: new Date(goal.createdAt).toISOString(),
+      updatedAt: goal.updatedAt ? new Date(goal.updatedAt).toISOString() : undefined,
+    };
   }
 
-  const remoteLists: Record<string, GoalList> = remoteData.goalLists || {};
-  const remoteGoals: Record<string, Goal> = remoteData.goals || {};
+  const desktopGoalLists: Record<string, DesktopGoalList> = {};
+  for (const list of Object.values(state.goalLists)) {
+    const itemInstanceIds = Object.values(state.goalInstances)
+      .filter(inst => inst.listId === list.id)
+      .sort((a, b) => a.order - b.order)
+      .map(inst => inst.instanceId);
+      
+    desktopGoalLists[list.id] = {
+      ...list,
+      itemInstanceIds,
+      createdAt: new Date(list.createdAt).toISOString(),
+      updatedAt: list.updatedAt ? new Date(list.updatedAt).toISOString() : undefined,
+    };
+  }
 
-  // 1. Порівняння списків (GoalList)
-  for (const listId in remoteLists) {
-    const remoteList = remoteLists[listId];
-    const localList = localState.goalLists[listId];
+  const desktopGoalInstances: Record<string, DesktopGoalInstance> = {};
+  for (const instance of Object.values(state.goalInstances)) {
+    desktopGoalInstances[instance.instanceId] = {
+      id: instance.instanceId,
+      goalId: instance.goalId,
+    };
+  }
 
-    if (!localList) {
-      changes.push({
-        type: 'Add', entityType: 'Список', id: remoteList.id,
-        description: remoteList.name, entity: remoteList,
-      });
-    } else {
-      const remoteDate = remoteList.updatedAt ? Date.parse(remoteList.updatedAt) : 0;
-      const localDate = localList.updatedAt ? Date.parse(localList.updatedAt) : 0;
+  return {
+    goals: desktopGoals,
+    goalLists: desktopGoalLists,
+    goalInstances: desktopGoalInstances,
+  };
+}
 
-      // ✨ ЗМІНА: Додано порівняння по order. Зміна буде, якщо новіша дата АБО змінився порядок.
-      const isOrderDifferent = remoteList.order !== localList.order;
+/**
+ * Конвертує імпортовані дані з Android-сумісного формату у внутрішній стан Redux.
+ */
+export function transformImportedData(data: DesktopBackupData): ListsState {
+  const newGoals: Record<string, Goal> = {};
+  for (const goal of Object.values(data.goals)) {
+    newGoals[goal.id] = {
+      ...goal,
+      createdAt: new Date(goal.createdAt).getTime(),
+      updatedAt: goal.updatedAt ? new Date(goal.updatedAt).getTime() : undefined,
+    };
+  }
 
-      if (remoteDate > localDate || (remoteDate === localDate && isOrderDifferent)) {
-         // Проста перевірка, чи об'єкти не ідентичні, щоб не додавати зайвих оновлень
-         if (JSON.stringify(remoteList) !== JSON.stringify(localList)) {
-            changes.push({
-                type: 'Update', entityType: 'Список', id: remoteList.id,
-                description: remoteList.name, entity: remoteList,
-            });
-         }
+  const newGoalLists: Record<string, GoalList> = {};
+  for (const list of Object.values(data.goalLists)) {
+    const { itemInstanceIds, ...restOfList } = list;
+    newGoalLists[list.id] = {
+      ...restOfList,
+      createdAt: new Date(list.createdAt).getTime(),
+      updatedAt: list.updatedAt ? new Date(list.updatedAt).getTime() : undefined,
+    };
+  }
+  
+  const newGoalInstances: Record<string, GoalInstance> = {};
+  for (const list of Object.values(data.goalLists)) {
+    list.itemInstanceIds.forEach((instanceId, index) => {
+      const originalInstance = data.goalInstances[instanceId];
+      if (originalInstance) {
+        newGoalInstances[instanceId] = {
+          instanceId: originalInstance.id,
+          goalId: originalInstance.goalId,
+          listId: list.id,
+          order: index,
+        };
       }
-    }
+    });
   }
 
-  // 2. Порівняння цілей (Goal)
-  for (const goalId in remoteGoals) {
-    const remoteGoal = remoteGoals[goalId];
-    const localGoal = localState.goals[goalId];
+  return {
+    goals: newGoals,
+    goalLists: newGoalLists,
+    goalInstances: newGoalInstances,
+  };
+}
 
-    if (!localGoal) {
-      changes.push({
-        type: 'Add', entityType: 'Ціль', id: remoteGoal.id,
-        description: remoteGoal.text, entity: remoteGoal,
-      });
-    } else {
-      const remoteDate = remoteGoal.updatedAt ? Date.parse(remoteGoal.updatedAt) : 0;
-      const localDate = localGoal.updatedAt ? Date.parse(localGoal.updatedAt) : 0;
 
-      if (remoteDate > localDate) {
-        if (JSON.stringify(remoteGoal) !== JSON.stringify(localGoal)) {
-            changes.push({
-                type: 'Update', entityType: 'Ціль', id: remoteGoal.id,
-                description: remoteGoal.text, entity: remoteGoal,
-            });
+/**
+ * Створює звіт про зміни, порівнюючи поточний стан з отриманим ззовні.
+ */
+export function createSyncReportForDesktop(currentState: ListsState, remoteBackup: DesktopBackupFile): SyncReport {
+    const remoteState = transformImportedData(remoteBackup.data);
+    const changes: SyncChange[] = [];
+
+    // Порівняння списків
+    for (const remoteList of Object.values(remoteState.goalLists)) {
+        const localList = currentState.goalLists[remoteList.id];
+        if (!localList) {
+            changes.push({ type: 'Add', entityType: 'Список', id: remoteList.id, description: remoteList.name, entity: remoteList });
+        } else if ((remoteList.updatedAt ?? 0) > (localList.updatedAt ?? 0)) {
+            // Тут можна додати більш детальне порівняння полів, якщо потрібно
+            changes.push({ type: 'Update', entityType: 'Список', id: remoteList.id, description: remoteList.name, entity: remoteList });
         }
-      }
     }
-  }
 
-  return { changes };
+    // Порівняння цілей
+    for (const remoteGoal of Object.values(remoteState.goals)) {
+        const localGoal = currentState.goals[remoteGoal.id];
+        if (!localGoal) {
+            changes.push({ type: 'Add', entityType: 'Ціль', id: remoteGoal.id, description: remoteGoal.text, entity: remoteGoal });
+        } else if ((remoteGoal.updatedAt ?? 0) > (localGoal.updatedAt ?? 0)) {
+            changes.push({ type: 'Update', entityType: 'Ціль', id: remoteGoal.id, description: remoteGoal.text, entity: remoteGoal });
+        }
+    }
+
+    return { changes };
 }

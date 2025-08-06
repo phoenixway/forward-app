@@ -1,6 +1,5 @@
 // src/renderer/components/WifiSyncModal.tsx
 import React, { useEffect, useState } from 'react';
-// ВИПРАВЛЕНО: Імпортуємо типізовані хуки
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
     closeSyncModal,
@@ -11,11 +10,9 @@ import {
 } from '../store/syncSlice';
 import { stateReplaced } from '../store/listsSlice';
 import { Wifi, LoaderCircle, CircleCheck, CircleAlert, X, FileDiff } from 'lucide-react';
-import { createSyncReport } from '../logic/syncLogic';
-import { GoalList } from '../types';
+import { formatStateForExport, transformImportedData, createSyncReportForDesktop, DesktopBackupFile } from '../logic/syncLogic';
 
 const WifiSyncModal: React.FC = () => {
-    // ВИПРАВЛЕНО: Використовуємо типізовані хуки
     const dispatch = useAppDispatch();
     const {
         isModalOpen,
@@ -35,22 +32,15 @@ const WifiSyncModal: React.FC = () => {
         const handleServer = async () => {
             if (isModalOpen && modalMode === 'server') {
                 setLocalError(null);
-
-                const { goals, goalLists, goalInstances } = listsState;
-
-                const desktopBackupData = {
-                    goals,
-                    goalLists,
-                    goalInstances,
-                };
-
-                const exportData = {
-                    version: 3,
+                
+                const dataForExport = formatStateForExport(listsState);
+                const exportFileContent: DesktopBackupFile = {
+                    version: 4,
                     exportedAt: new Date().toISOString(),
-                    data: desktopBackupData,
+                    data: dataForExport,
                 };
 
-                const result = await window.electronAPI.startWifiServer(exportData);
+                const result = await window.electronAPI.startWifiServer(exportFileContent);
 
                 if (result.success && result.address) {
                     setLocalServerAddress(result.address);
@@ -79,7 +69,7 @@ const WifiSyncModal: React.FC = () => {
 
         if (result.success && result.data) {
             try {
-                const report = createSyncReport(listsState, result.data);
+                const report = createSyncReportForDesktop(listsState, result.data);
                 if (report.changes.length === 0) {
                     dispatch(setSyncStatus('success'));
                     setTimeout(() => dispatch(closeSyncModal()), 2000);
@@ -98,32 +88,9 @@ const WifiSyncModal: React.FC = () => {
         if (!originalBackup) return;
         dispatch(setSyncStatus('applying'));
 
-        const remoteData = originalBackup.data;
-        if (remoteData) {
-            const goalListsFromRemote: Record<string, GoalList> = remoteData.goalLists || {};
-            const normalizedGoalLists: Record<string, GoalList> = {};
-
-            Object.keys(goalListsFromRemote).forEach(listId => {
-                const originalList = goalListsFromRemote[listId];
-                const newList = { ...originalList };
-
-                if (newList.parentId === undefined) {
-                    newList.parentId = null;
-                }
-                if (newList.order === undefined) {
-                    newList.order = 0;
-                }
-                
-                normalizedGoalLists[listId] = newList;
-            });
-
-            dispatch(stateReplaced({
-                goals: remoteData.goals || {},
-                goalLists: normalizedGoalLists,
-                goalInstances: remoteData.goalInstances || {},
-            }));
-        }
-
+        const finalState = transformImportedData(originalBackup.data);
+        dispatch(stateReplaced(finalState));
+        
         dispatch(setSyncStatus('success'));
         setTimeout(() => dispatch(closeSyncModal()), 2000);
     };

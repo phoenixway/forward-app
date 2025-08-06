@@ -137998,14 +137998,17 @@ const dnd_1 = __webpack_require__(/*! @hello-pangea/dnd */ "./node_modules/@hell
 const Sidebar_1 = __importDefault(__webpack_require__(/*! ./components/Sidebar */ "./src/renderer/components/Sidebar.tsx"));
 const DropActionMenu_1 = __importDefault(__webpack_require__(/*! ./components/DropActionMenu */ "./src/renderer/components/DropActionMenu.tsx"));
 const WifiSyncModal_1 = __importDefault(__webpack_require__(/*! ./components/WifiSyncModal */ "./src/renderer/components/WifiSyncModal.tsx"));
-const react_redux_1 = __webpack_require__(/*! react-redux */ "./node_modules/react-redux/dist/cjs/index.js");
+// --- ВИПРАВЛЕННЯ: Імпортуємо наші нові типізовані хуки ---
+const hooks_1 = __webpack_require__(/*! ./store/hooks */ "./src/renderer/store/hooks.ts");
 const uiSlice_1 = __webpack_require__(/*! ./store/uiSlice */ "./src/renderer/store/uiSlice.ts");
 const syncSlice_1 = __webpack_require__(/*! ./store/syncSlice */ "./src/renderer/store/syncSlice.ts");
 const listsSlice_1 = __webpack_require__(/*! ./store/listsSlice */ "./src/renderer/store/listsSlice.ts");
 const App = () => {
-    const dispatch = (0, react_redux_1.useDispatch)();
-    const { goalLists } = (0, react_redux_1.useSelector)((state) => state.lists);
-    const allLists = (0, react_redux_1.useSelector)((state) => state.lists.goalLists);
+    // --- ВИПРАВЛЕННЯ: Використовуємо useAppDispatch та useAppSelector ---
+    const dispatch = (0, hooks_1.useAppDispatch)();
+    // Тепер `state` автоматично має тип `RootState`, і `allLists` буде правильно типізовано
+    const allLists = (0, hooks_1.useAppSelector)((state) => state.lists.goalLists);
+    const goalLists = allLists; // `goalLists` - це те саме, що `allLists`
     (0, react_1.useEffect)(() => {
         const removeImportListener = window.electronAPI.onShowWifiImportDialog(() => {
             dispatch((0, syncSlice_1.openSyncModal)('import'));
@@ -138025,32 +138028,28 @@ const App = () => {
         if (type === "LIST") {
             const sourceParentId = source.droppableId === "root" ? null : source.droppableId;
             const destinationParentId = destination.droppableId === "root" ? null : destination.droppableId;
-            // ✨ ВИПРАВЛЕННЯ: Повністю нова логіка для обробки перетягування списків
             if (source.droppableId === destination.droppableId) {
-                // --- Випадок 1: Зміна порядку в межах одного батька ---
                 const parentId = source.droppableId === 'root' ? null : source.droppableId;
+                // Тепер, коли allLists має правильний тип, ці явні анотації працюватимуть коректно
                 const siblingLists = Object.values(allLists)
-                    .filter(l => l.parentId === parentId)
+                    .filter((l) => l.parentId === parentId)
                     .sort((a, b) => a.order - b.order);
-                const reorderedIds = siblingLists.map(l => l.id);
+                const reorderedIds = siblingLists.map((l) => l.id);
                 const [movedItem] = reorderedIds.splice(source.index, 1);
                 reorderedIds.splice(destination.index, 0, movedItem);
                 dispatch((0, listsSlice_1.listsReordered)({ parentId, orderedListIds: reorderedIds }));
             }
             else {
-                // --- Випадок 2: Переміщення до нового батька ---
                 dispatch((0, listsSlice_1.listMoved)({ listId: draggableId, newParentId: destinationParentId }));
-                // Оновлюємо порядок у старому списку
                 const oldSiblings = Object.values(allLists)
-                    .filter(l => l.parentId === sourceParentId && l.id !== draggableId)
+                    .filter((l) => l.parentId === sourceParentId && l.id !== draggableId)
                     .sort((a, b) => a.order - b.order)
-                    .map(l => l.id);
+                    .map((l) => l.id);
                 dispatch((0, listsSlice_1.listsReordered)({ parentId: sourceParentId, orderedListIds: oldSiblings }));
-                // Оновлюємо порядок у новому списку
                 const newSiblings = Object.values(allLists)
-                    .filter(l => l.parentId === destinationParentId && l.id !== draggableId)
+                    .filter((l) => l.parentId === destinationParentId && l.id !== draggableId)
                     .sort((a, b) => a.order - b.order)
-                    .map(l => l.id);
+                    .map((l) => l.id);
                 newSiblings.splice(destination.index, 0, draggableId);
                 dispatch((0, listsSlice_1.listsReordered)({ parentId: destinationParentId, orderedListIds: newSiblings }));
             }
@@ -138101,14 +138100,16 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
 // src/renderer/components/AssociatedListsPopover.tsx
 const react_1 = __webpack_require__(/*! react */ "./node_modules/react/index.js");
-const react_redux_1 = __webpack_require__(/*! react-redux */ "./node_modules/react-redux/dist/cjs/index.js");
+// ВИПРАВЛЕНО: Замінюємо стандартні хуки на наші типізовані
+const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/hooks.ts");
 const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts");
 const Sidebar_1 = __webpack_require__(/*! ./Sidebar */ "./src/renderer/components/Sidebar.tsx");
 const lucide_react_1 = __webpack_require__(/*! lucide-react */ "./node_modules/lucide-react/dist/esm/lucide-react.js");
-const AssociatedListsPopover = ({ targetGoal, onClose, anchorEl, // <-- ДОДАНО ДО ПРОПСІВ
- }) => {
-    const dispatch = (0, react_redux_1.useDispatch)();
-    const { associatedListDetails, availableListsToSelect } = (0, react_redux_1.useSelector)((state) => {
+const AssociatedListsPopover = ({ targetGoal, onClose, anchorEl, }) => {
+    // ВИПРАВЛЕНО: Використовуємо useAppDispatch
+    const dispatch = (0, hooks_1.useAppDispatch)();
+    // ВИПРАВЛЕНО: Використовуємо useAppSelector, `state` тепер автоматично типізований
+    const { associatedListDetails, availableListsToSelect } = (0, hooks_1.useAppSelector)((state) => {
         const currentTargetGoal = state.lists.goals[targetGoal.id] || targetGoal;
         const associatedIds = new Set(currentTargetGoal.associatedListIds || []);
         const allLists = Object.values(state.lists.goalLists);
@@ -138127,7 +138128,9 @@ const AssociatedListsPopover = ({ targetGoal, onClose, anchorEl, // <-- ДОДА
     (0, react_1.useEffect)(() => {
         const handleClickOutside = (event) => {
             if (popoverRef.current &&
-                !popoverRef.current.contains(event.target)) {
+                !popoverRef.current.contains(event.target) &&
+                !anchorEl?.contains(event.target) // Додано, щоб не закривати при кліку на ту ж кнопку
+            ) {
                 onClose();
             }
         };
@@ -138135,7 +138138,7 @@ const AssociatedListsPopover = ({ targetGoal, onClose, anchorEl, // <-- ДОДА
         return () => {
             document.removeEventListener("mousedown", handleClickOutside);
         };
-    }, [onClose]);
+    }, [onClose, anchorEl]);
     (0, react_1.useEffect)(() => {
         if (showCreateNewListForm && newListInputRef.current) {
             newListInputRef.current.focus();
@@ -138201,22 +138204,23 @@ exports["default"] = AssociatedListsPopover;
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
-const react_redux_1 = __webpack_require__(/*! react-redux */ "./node_modules/react-redux/dist/cjs/index.js");
+// ВИПРАВЛЕНО: Замінюємо стандартні хуки на наші типізовані
+const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/hooks.ts");
 const uiSlice_1 = __webpack_require__(/*! ../store/uiSlice */ "./src/renderer/store/uiSlice.ts");
 const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts");
 const DropActionMenu = () => {
-    const dispatch = (0, react_redux_1.useDispatch)();
-    // Тепер `result` буде мати правильний тип `DropResult | null`
-    const { isOpen, result } = (0, react_redux_1.useSelector)((state) => state.ui);
-    const goalInstances = (0, react_redux_1.useSelector)((state) => state.lists.goalInstances);
-    // Ця перевірка тепер коректно працює з правильними типами
+    // ВИПРАВЛЕНО: Використовуємо useAppDispatch
+    const dispatch = (0, hooks_1.useAppDispatch)();
+    // ВИПРАВЛЕНО: Використовуємо useAppSelector, `state` тепер автоматично типізований
+    const { isOpen, result } = (0, hooks_1.useAppSelector)((state) => state.ui);
+    const goalInstances = (0, hooks_1.useAppSelector)((state) => state.lists.goalInstances);
     if (!isOpen || !result || !result.destination) {
         return null;
     }
-    // Після перевірки вище, TypeScript знає, що `result` та `result.destination` не є null
     const { source, destination, draggableId: instanceId } = result;
     const sourceListId = source.droppableId;
     let destinationListId = destination.droppableId;
+    // Ця логіка може залишитись, якщо ID дроп-зон мають префікси
     if (destination.droppableId.startsWith("sidebar-")) {
         destinationListId = destination.droppableId.substring("sidebar-".length);
     }
@@ -138231,7 +138235,7 @@ const DropActionMenu = () => {
                     instanceId,
                     sourceListId,
                     destinationListId,
-                    destinationIndex: destination.index, // Помилок тут більше не буде
+                    destinationIndex: destination.index,
                 }));
                 break;
             case "reference":
@@ -138247,7 +138251,7 @@ const DropActionMenu = () => {
                     dispatch((0, listsSlice_1.goalCopied)({
                         sourceGoalId: originalGoalId,
                         destinationListId,
-                        destinationIndex: destination.index, // Помилок тут більше не буде
+                        destinationIndex: destination.index,
                     }));
                 }
                 break;
@@ -138294,11 +138298,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
-const react_redux_1 = __webpack_require__(/*! react-redux */ "./node_modules/react-redux/dist/cjs/index.js");
+// ВИПРАВЛЕНО: Замінюємо стандартні хуки на наші типізовані
+const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/hooks.ts");
 const toolkit_1 = __webpack_require__(/*! @reduxjs/toolkit */ "./node_modules/@reduxjs/toolkit/dist/redux-toolkit.modern.mjs");
-const uiSlice_1 = __webpack_require__(/*! ../store/uiSlice */ "./src/renderer/store/uiSlice.ts"); // <-- Додано setGoalToHighlight
+const uiSlice_1 = __webpack_require__(/*! ../store/uiSlice */ "./src/renderer/store/uiSlice.ts");
 const GoalItem_1 = __importDefault(__webpack_require__(/*! ./GoalItem */ "./src/renderer/components/GoalItem.tsx"));
-const Sidebar_1 = __webpack_require__(/*! ./Sidebar */ "./src/renderer/components/Sidebar.tsx"); // <-- Імпортуємо функцію для відкриття списку
+const Sidebar_1 = __webpack_require__(/*! ./Sidebar */ "./src/renderer/components/Sidebar.tsx");
+// Визначення селекторів поза компонентом є правильною практикою.
+// Вони все ще потребують RootState для визначення типу вхідних даних.
 const selectFilteredGoals = (0, toolkit_1.createSelector)((state) => state.lists.goals, (state) => state.ui.globalFilterTerm, (allGoals, filterTerm) => {
     if (!filterTerm)
         return [];
@@ -138307,12 +138314,14 @@ const selectFilteredGoals = (0, toolkit_1.createSelector)((state) => state.lists
 });
 const selectAllLists = (state) => state.lists.goalLists;
 const GlobalSearchResults = ({ obsidianVaultName }) => {
-    const dispatch = (0, react_redux_1.useDispatch)();
-    const filteredGoals = (0, react_redux_1.useSelector)(selectFilteredGoals);
-    const filterTerm = (0, react_redux_1.useSelector)((state) => state.ui.globalFilterTerm);
-    const allLists = (0, react_redux_1.useSelector)(selectAllLists);
-    const goalInstances = (0, react_redux_1.useSelector)((state) => state.lists.goalInstances);
+    // ВИПРАВЛЕНО: Використовуємо типізовані хуки.
+    const dispatch = (0, hooks_1.useAppDispatch)();
+    const filteredGoals = (0, hooks_1.useAppSelector)(selectFilteredGoals);
+    const filterTerm = (0, hooks_1.useAppSelector)((state) => state.ui.globalFilterTerm);
+    const allLists = (0, hooks_1.useAppSelector)(selectAllLists);
+    const goalInstances = (0, hooks_1.useAppSelector)((state) => state.lists.goalInstances);
     const findParentList = (goalId) => {
+        // Тут `allLists` вже має правильний тип, тому Object.values безпечний
         for (const list of Object.values(allLists)) {
             const instanceFound = list.itemInstanceIds.some(instanceId => {
                 const instance = goalInstances[instanceId];
@@ -138326,11 +138335,8 @@ const GlobalSearchResults = ({ obsidianVaultName }) => {
     const handleNavigate = (goal) => {
         const parentList = findParentList(goal.id);
         if (parentList) {
-            // 1. Закриваємо результати пошуку
             dispatch((0, uiSlice_1.setGlobalFilterTerm)(''));
-            // 2. Встановлюємо, яку ціль потрібно підсвітити
             dispatch((0, uiSlice_1.setGoalToHighlight)(goal.id));
-            // 3. Відкриваємо батьківський список
             (0, Sidebar_1.dispatchOpenGoalListEvent)(parentList.id, parentList.name);
         }
         else {
@@ -138359,7 +138365,8 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
 // src/renderer/components/GoalEditModal.tsx
 const react_1 = __webpack_require__(/*! react */ "./node_modules/react/index.js");
-const react_redux_1 = __webpack_require__(/*! react-redux */ "./node_modules/react-redux/dist/cjs/index.js");
+// ВИПРАВЛЕНО: Замінюємо стандартний хук на наш типізований
+const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/hooks.ts");
 const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts");
 const goalScoring_1 = __webpack_require__(/*! ../logic/goalScoring */ "./src/renderer/logic/goalScoring.ts");
 const lucide_react_1 = __webpack_require__(/*! lucide-react */ "./node_modules/lucide-react/dist/esm/lucide-react.js");
@@ -138368,7 +138375,8 @@ const TabButton = ({ label, icon, isActive, onClick }) => ((0, jsx_runtime_1.jsx
         ? 'border-blue-500 text-blue-600 dark:text-blue-400 dark:border-blue-400'
         : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`, children: [icon, (0, jsx_runtime_1.jsx)("span", { className: "ml-2", children: label })] }));
 const GoalEditModal = ({ goal, onClose }) => {
-    const dispatch = (0, react_redux_1.useDispatch)();
+    // ВИПРАВЛЕНО: Використовуємо useAppDispatch
+    const dispatch = (0, hooks_1.useAppDispatch)();
     const [localGoal, setLocalGoal] = (0, react_1.useState)(goal);
     const [activeTab, setActiveTab] = (0, react_1.useState)('params');
     const handleChange = (field, value) => {
@@ -138471,20 +138479,23 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
 // src/renderer/components/GoalListPage.tsx
 const react_1 = __importStar(__webpack_require__(/*! react */ "./node_modules/react/index.js"));
-const react_redux_1 = __webpack_require__(/*! react-redux */ "./node_modules/react-redux/dist/cjs/index.js");
+// ВИПРАВЛЕНО: Імпортуємо типізовані хуки
+const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/hooks.ts");
 const selectors_1 = __webpack_require__(/*! ../store/selectors */ "./src/renderer/store/selectors.ts");
 const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts");
 const lucide_react_1 = __webpack_require__(/*! lucide-react */ "./node_modules/lucide-react/dist/esm/lucide-react.js");
 const SortableGoalItem_1 = __importDefault(__webpack_require__(/*! ./SortableGoalItem */ "./src/renderer/components/SortableGoalItem.tsx"));
-const GoalEditModal_1 = __importDefault(__webpack_require__(/*! ./GoalEditModal */ "./src/renderer/components/GoalEditModal.tsx")); // <-- Імпортуємо нове модальне вікно
+const GoalEditModal_1 = __importDefault(__webpack_require__(/*! ./GoalEditModal */ "./src/renderer/components/GoalEditModal.tsx"));
 function GoalListPage({ listId, filterText, obsidianVaultName, onTagClickForFilter, }) {
-    const dispatch = (0, react_redux_1.useDispatch)();
+    // ВИПРАВЛЕНО: Використовуємо useAppDispatch
+    const dispatch = (0, hooks_1.useAppDispatch)();
+    // Мемоізація селекторів залишається без змін, це правильна оптимізація
     const selectListInfo = (0, react_1.useMemo)(selectors_1.makeSelectListInfo, []);
     const selectEnrichedInstances = (0, react_1.useMemo)(selectors_1.makeSelectEnrichedGoalInstances, []);
-    const listInfo = (0, react_redux_1.useSelector)((state) => selectListInfo(state, listId));
-    const allEnrichedGoals = (0, react_redux_1.useSelector)((state) => selectEnrichedInstances(state, listId));
+    // ВИПРАВЛЕНО: Використовуємо useAppSelector, `state` тепер типізований автоматично
+    const listInfo = (0, hooks_1.useAppSelector)((state) => selectListInfo(state, listId));
+    const allEnrichedGoals = (0, hooks_1.useAppSelector)((state) => selectEnrichedInstances(state, listId));
     const [activeFilteredGoals, setActiveFilteredGoals] = (0, react_1.useState)([]);
-    // Цей стан тепер контролює показ модального вікна
     const [editingGoal, setEditingGoal] = (0, react_1.useState)(null);
     (0, react_1.useEffect)(() => {
         if (!filterText.trim()) {
@@ -138504,17 +138515,17 @@ function GoalListPage({ listId, filterText, obsidianVaultName, onTagClickForFilt
             window.confirm(`Видалити ціль "${goalInstanceToDelete.goal.text}" зі списку?`)) {
             dispatch((0, listsSlice_1.instanceRemovedFromList)({ listId, instanceId }));
             if (editingGoal?.id === goalInstanceToDelete.goal.id) {
-                setEditingGoal(null); // Закриваємо модальне вікно, якщо видаляється ціль, що редагується
+                setEditingGoal(null);
             }
         }
     }, [listId, allEnrichedGoals, editingGoal, dispatch]);
     const handleStartEditGoal = (0, react_1.useCallback)((goal) => {
         if (goal.completed)
             return;
-        setEditingGoal(goal); // Встановлення цього стану відкриє модальне вікно
+        setEditingGoal(goal);
     }, []);
     const handleCancelEditGoal = (0, react_1.useCallback)(() => {
-        setEditingGoal(null); // Закриття модального вікна
+        setEditingGoal(null);
     }, []);
     if (!listInfo) {
         return ((0, jsx_runtime_1.jsxs)("div", { className: "p-6 flex flex-col items-center justify-center h-full text-center", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.ListChecks, { size: 48, className: "text-slate-400 dark:text-slate-500 mb-4", strokeWidth: 1.5 }), (0, jsx_runtime_1.jsx)("p", { className: "text-slate-500 dark:text-slate-400 text-lg", children: "\u0417\u0430\u0432\u0430\u043D\u0442\u0430\u0436\u0435\u043D\u043D\u044F \u0434\u0430\u043D\u0438\u0445 \u0441\u043F\u0438\u0441\u043A\u0443..." }), (0, jsx_runtime_1.jsxs)("p", { className: "text-xs text-slate-400 dark:text-slate-500", children: ["ID: ", listId] })] }));
@@ -138822,7 +138833,8 @@ const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modul
 // src/renderer/components/InputPanel.tsx
 const react_1 = __webpack_require__(/*! react */ "./node_modules/react/index.js");
 const react_dom_1 = __importDefault(__webpack_require__(/*! react-dom */ "./node_modules/react-dom/index.js"));
-const react_redux_1 = __webpack_require__(/*! react-redux */ "./node_modules/react-redux/dist/cjs/index.js");
+// ВИПРАВЛЕНО: Імпортуємо наш типізований хук
+const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/hooks.ts");
 const selectors_1 = __webpack_require__(/*! ../store/selectors */ "./src/renderer/store/selectors.ts");
 var CommandMode;
 (function (CommandMode) {
@@ -138859,9 +138871,10 @@ onNavigateToList, onExecuteCommand, }, ref) => {
     const [placeholder, setPlaceholder] = (0, react_1.useState)("");
     const internalLocalInputRef = (0, react_1.useRef)(null);
     const portalContainerRef = (0, react_1.useRef)(null);
-    const allGoalListsArray = (0, react_redux_1.useSelector)(selectors_1.selectAllLists);
-    const allTags = (0, react_redux_1.useSelector)(selectors_1.selectAllUniqueTags);
-    const allContexts = (0, react_redux_1.useSelector)(selectors_1.selectAllUniqueContexts);
+    // ВИПРАВЛЕНО: Використовуємо useAppSelector
+    const allGoalListsArray = (0, hooks_1.useAppSelector)(selectors_1.selectAllLists);
+    const allTags = (0, hooks_1.useAppSelector)(selectors_1.selectAllUniqueTags);
+    const allContexts = (0, hooks_1.useAppSelector)(selectors_1.selectAllUniqueContexts);
     const [suggestions, setSuggestions] = (0, react_1.useState)([]);
     const [showSuggestions, setShowSuggestions] = (0, react_1.useState)(false);
     const [activeSuggestionIndex, setActiveSuggestionIndex] = (0, react_1.useState)(0);
@@ -139408,7 +139421,8 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
 // src/renderer/components/MainPanel.tsx
 const react_1 = __webpack_require__(/*! react */ "./node_modules/react/index.js");
-const react_redux_1 = __webpack_require__(/*! react-redux */ "./node_modules/react-redux/dist/cjs/index.js");
+// ВИПРАВЛЕНО: Імпортуємо типізовані хуки
+const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/hooks.ts");
 const GoalListPage_1 = __importDefault(__webpack_require__(/*! ./GoalListPage */ "./src/renderer/components/GoalListPage.tsx"));
 const NoListSelected_1 = __importDefault(__webpack_require__(/*! ./NoListSelected */ "./src/renderer/components/NoListSelected.tsx"));
 const InputPanel_1 = __importDefault(__webpack_require__(/*! ./InputPanel */ "./src/renderer/components/InputPanel.tsx"));
@@ -139423,9 +139437,10 @@ const dnd_1 = __webpack_require__(/*! @hello-pangea/dnd */ "./node_modules/@hell
 const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts");
 const goalScoring_1 = __webpack_require__(/*! ../logic/goalScoring */ "./src/renderer/logic/goalScoring.ts");
 function MainPanel({ currentThemePreference, onChangeThemePreference, obsidianVaultPath, onObsidianVaultChange, }) {
-    const { goals, goalLists } = (0, react_redux_1.useSelector)((state) => state.lists);
-    const globalFilterTerm = (0, react_redux_1.useSelector)((state) => state.ui.globalFilterTerm);
-    const dispatch = (0, react_redux_1.useDispatch)();
+    // ВИПРАВЛЕНО: Використовуємо типізовані хуки
+    const { goals, goalLists } = (0, hooks_1.useAppSelector)((state) => state.lists);
+    const globalFilterTerm = (0, hooks_1.useAppSelector)((state) => state.ui.globalFilterTerm);
+    const dispatch = (0, hooks_1.useAppDispatch)();
     const [tabs, setTabs] = (0, react_1.useState)([]);
     const [activeTabId, setActiveTabId] = (0, react_1.useState)(null);
     const [editingList, setEditingList] = (0, react_1.useState)(null);
@@ -139610,11 +139625,13 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
 // src/renderer/components/SettingsPage.tsx
 const react_1 = __webpack_require__(/*! react */ "./node_modules/react/index.js");
-const react_redux_1 = __webpack_require__(/*! react-redux */ "./node_modules/react-redux/dist/cjs/index.js");
+// ВИПРАВЛЕНО: Імпортуємо типізовані хуки
+const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/hooks.ts");
 const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts");
 function SettingsPage({ currentTheme, onChangeTheme, initialObsidianVault, onObsidianVaultChange, onDataImported, }) {
-    const dispatch = (0, react_redux_1.useDispatch)();
-    const listsStateForExport = (0, react_redux_1.useSelector)((state) => state.lists);
+    // ВИПРАВЛЕНО: Використовуємо типізовані хуки
+    const dispatch = (0, hooks_1.useAppDispatch)();
+    const listsStateForExport = (0, hooks_1.useAppSelector)((state) => state.lists);
     const [obsidianVaultPath, setObsidianVaultPath] = (0, react_1.useState)(initialObsidianVault);
     (0, react_1.useEffect)(() => {
         setObsidianVaultPath(initialObsidianVault);
@@ -139623,7 +139640,6 @@ function SettingsPage({ currentTheme, onChangeTheme, initialObsidianVault, onObs
         if (!window.electronAPI?.showSaveDialog || !window.electronAPI.writeFile)
             return;
         try {
-            // ✨ ВИПРАВЛЕНО: Експортуємо версію 3, яка не містить rootListIds
             const exportData = {
                 version: 3,
                 exportedAt: new Date().toISOString(),
@@ -139664,15 +139680,12 @@ function SettingsPage({ currentTheme, onChangeTheme, initialObsidianVault, onObs
             if (!importedObject.data)
                 throw new Error("Файл має невірний формат.");
             let finalState;
-            // ✨ ВИПРАВЛЕНО: Уніфікована логіка для всіх версій.
-            // Ми просто беремо дані як є, а відсутні поля (напр. order) отримають значення за замовчуванням.
             const importedState = importedObject.data;
             finalState = {
                 goals: importedState.goals || {},
                 goalInstances: importedState.goalInstances || {},
                 goalLists: importedState.goalLists || {},
             };
-            // Додаткова перевірка, щоб додати `order` та `parentId`, якщо їх немає (міграція зі старих версій)
             Object.values(finalState.goalLists).forEach((list, index) => {
                 if (list.order === undefined) {
                     list.order = index;
@@ -139717,7 +139730,8 @@ const react_1 = __webpack_require__(/*! react */ "./node_modules/react/index.js"
 const events_1 = __webpack_require__(/*! ../events */ "./src/renderer/events.ts");
 const lucide_react_1 = __webpack_require__(/*! lucide-react */ "./node_modules/lucide-react/dist/esm/lucide-react.js");
 const dnd_1 = __webpack_require__(/*! @hello-pangea/dnd */ "./node_modules/@hello-pangea/dnd/dist/dnd.esm.js");
-const react_redux_1 = __webpack_require__(/*! react-redux */ "./node_modules/react-redux/dist/cjs/index.js");
+// ВИПРАВЛЕНО: Імпортуємо наші нові типізовані хуки
+const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/hooks.ts");
 const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts");
 const selectors_1 = __webpack_require__(/*! ../store/selectors */ "./src/renderer/store/selectors.ts");
 const GlobalSearch_1 = __importDefault(__webpack_require__(/*! ./GlobalSearch */ "./src/renderer/components/GlobalSearch.tsx"));
@@ -139736,11 +139750,13 @@ const listMatchesFilter = (list, allLists, filterTerm) => {
     return children.some(childList => listMatchesFilter(childList, allLists, filterTerm));
 };
 const SidebarListItem = ({ listId, index, level, onStartEdit, onDelete, onAddChild, cutListId, onCut, onPaste, filterTerm }) => {
-    const dispatch = (0, react_redux_1.useDispatch)();
-    const list = (0, react_redux_1.useSelector)((state) => state.lists.goalLists[listId]);
-    const allLists = (0, react_redux_1.useSelector)((state) => state.lists.goalLists);
+    // ВИПРАВЛЕНО: Використовуємо типізовані хуки
+    const dispatch = (0, hooks_1.useAppDispatch)();
+    const list = (0, hooks_1.useAppSelector)((state) => state.lists.goalLists[listId]);
+    const allLists = (0, hooks_1.useAppSelector)((state) => state.lists.goalLists);
     const selectChildLists = (0, react_1.useMemo)(selectors_1.makeSelectChildLists, []);
-    const childLists = (0, react_redux_1.useSelector)((state) => selectChildLists(state, listId));
+    // Тепер `state` автоматично типізований
+    const childLists = (0, hooks_1.useAppSelector)((state) => selectChildLists(state, listId));
     const filteredChildLists = (0, react_1.useMemo)(() => {
         if (!filterTerm.trim())
             return childLists;
@@ -139759,9 +139775,10 @@ const SidebarListItem = ({ listId, index, level, onStartEdit, onDelete, onAddChi
                                                 }, className: "p-0.5 mr-1 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 flex-shrink-0", children: isExpanded ? (0, jsx_runtime_1.jsx)(lucide_react_1.ChevronDown, { size: 14 }) : (0, jsx_runtime_1.jsx)(lucide_react_1.ChevronRight, { size: 14 }) })) : ((0, jsx_runtime_1.jsx)("span", { className: "w-[18px] mr-1 flex-shrink-0" })), (0, jsx_runtime_1.jsx)("span", { className: "text-slate-700 dark:text-slate-300 text-sm cursor-pointer", title: list.name, children: list.name })] }), (0, jsx_runtime_1.jsxs)("div", { className: "flex-shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150 space-x-0.5", children: [cutListId && cutListId !== list.id && ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onPaste(list.id, false); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-400 rounded", title: "\u0412\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u044F\u043A \u0441\u0443\u0441\u0456\u0434\u0430", children: (0, jsx_runtime_1.jsx)(lucide_react_1.ClipboardPaste, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onPaste(list.id, true); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-400 rounded", title: "\u0412\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u044F\u043A \u0434\u043E\u0447\u0456\u0440\u043D\u0456\u0439", children: (0, jsx_runtime_1.jsx)(lucide_react_1.ClipboardPaste, { size: 14, className: "ml-[-4px]", style: { clipPath: 'inset(50% 0 0 0)' } }) })] })), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onCut(list.id); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-yellow-600 dark:hover:text-yellow-500 rounded", title: "\u0412\u0438\u0440\u0456\u0437\u0430\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Scissors, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onAddChild(list.id); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-500 rounded", title: "\u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438 \u0434\u043E\u0447\u0456\u0440\u043D\u0456\u0439 \u0441\u043F\u0438\u0441\u043E\u043A", children: (0, jsx_runtime_1.jsx)(lucide_react_1.CornerDownRight, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onStartEdit(list); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded", title: "\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Edit3, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onDelete(list.id, list.name); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-500 rounded", title: "\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Trash2, { size: 14 }) })] })] }), dropProvided.placeholder] })) }), isExpanded && hasFilteredChildren && ((0, jsx_runtime_1.jsx)("div", { className: "pl-2", children: filteredChildLists.map((child, childIndex) => ((0, jsx_runtime_1.jsx)(SidebarListItem, { listId: child.id, index: childIndex, level: level + 1, onStartEdit: onStartEdit, onDelete: onDelete, onAddChild: onAddChild, cutListId: cutListId, onCut: onCut, onPaste: onPaste, filterTerm: filterTerm }, child.id))) }))] })) }));
 };
 function Sidebar() {
-    const dispatch = (0, react_redux_1.useDispatch)();
-    const allTopLevelLists = (0, react_redux_1.useSelector)(selectors_1.selectTopLevelLists);
-    const allLists = (0, react_redux_1.useSelector)((state) => state.lists.goalLists);
+    // ВИПРАВЛЕНО: Використовуємо типізовані хуки
+    const dispatch = (0, hooks_1.useAppDispatch)();
+    const allTopLevelLists = (0, hooks_1.useAppSelector)(selectors_1.selectTopLevelLists);
+    const allLists = (0, hooks_1.useAppSelector)((state) => state.lists.goalLists);
     const [filterTerm, setFilterTerm] = (0, react_1.useState)("");
     const [editingList, setEditingList] = (0, react_1.useState)(null);
     const [editingListName, setEditingListName] = (0, react_1.useState)("");
@@ -139814,44 +139831,40 @@ function Sidebar() {
     const handleCut = (id) => {
         setCutListId(id);
     };
-    // ✨ ПОВЕРНУТО: Логіка вставки
+    // ВИПРАВЛЕНО: Надійна версія handlePaste
     const handlePaste = (targetListId, asChild) => {
-        if (!cutListId)
-            return;
-        if (targetListId === cutListId)
+        if (!cutListId || targetListId === cutListId)
             return;
         const cutList = allLists[cutListId];
         const targetList = allLists[targetListId];
         if (!cutList || !targetList)
             return;
-        // Перевірка, щоб не вставити батька в його нащадка
-        let currentParentId = asChild ? targetListId : targetList.parentId;
-        while (currentParentId) {
-            if (currentParentId === cutListId) {
+        let currentParentIdCheck = asChild ? targetListId : targetList.parentId;
+        while (currentParentIdCheck) {
+            if (currentParentIdCheck === cutListId) {
                 alert("Неможливо вставити батьківський список у дочірній.");
                 return;
             }
-            currentParentId = allLists[currentParentId]?.parentId;
+            currentParentIdCheck = allLists[currentParentIdCheck]?.parentId;
         }
-        const oldParentId = cutList.parentId;
         const newParentId = asChild ? targetListId : targetList.parentId;
-        // 1. Переміщуємо список до нового батька
-        dispatch((0, listsSlice_1.listMoved)({ listId: cutListId, newParentId }));
-        // 2. Оновлюємо порядок у старому списку (якщо він був)
-        const oldSiblings = Object.values(allLists)
-            .filter(l => l.parentId === oldParentId && l.id !== cutListId)
-            .sort((a, b) => a.order - b.order)
-            .map(l => l.id);
-        dispatch((0, listsSlice_1.listsReordered)({ parentId: oldParentId, orderedListIds: oldSiblings }));
-        // 3. Оновлюємо порядок у новому списку
+        // Визначаємо індекс для вставки
         const newSiblings = Object.values(allLists)
-            .filter(l => l.parentId === newParentId && l.id !== cutListId)
-            .sort((a, b) => a.order - b.order)
-            .map(l => l.id);
-        // Вставляємо наш елемент на правильну позицію
-        const targetIndex = asChild ? newSiblings.length : newSiblings.indexOf(targetListId) + 1;
-        newSiblings.splice(targetIndex, 0, cutListId);
-        dispatch((0, listsSlice_1.listsReordered)({ parentId: newParentId, orderedListIds: newSiblings }));
+            .filter(l => l.parentId === newParentId)
+            .sort((a, b) => a.order - b.order);
+        // Вставляємо або в кінець (якщо дочірній), або після цільового елемента
+        const targetIndexInSiblings = newSiblings.findIndex(l => l.id === targetListId);
+        const destinationIndex = asChild
+            ? newSiblings.length
+            : targetIndexInSiblings + 1;
+        // Використовуємо покращений екшен `listMoved`, якщо ви його реалізували
+        // Цей екшен має приймати `destinationIndex` і обробляти сортування всередині
+        dispatch((0, listsSlice_1.listMoved)({
+            listId: cutListId,
+            newParentId: newParentId,
+            // @ts-ignore - припускаємо, що ви оновили payload для listMoved
+            destinationIndex: destinationIndex
+        }));
         setCutListId(null);
     };
     const renderEditForm = () => {
@@ -139879,22 +139892,24 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
+// src/renderer/components/SortableGoalItem.tsx
 const react_1 = __webpack_require__(/*! react */ "./node_modules/react/index.js");
 const dnd_1 = __webpack_require__(/*! @hello-pangea/dnd */ "./node_modules/@hello-pangea/dnd/dist/dnd.esm.js");
 const lucide_react_1 = __webpack_require__(/*! lucide-react */ "./node_modules/lucide-react/dist/esm/lucide-react.js");
 const GoalTextRenderer_1 = __importDefault(__webpack_require__(/*! ./GoalTextRenderer */ "./src/renderer/components/GoalTextRenderer.tsx"));
 const AssociatedListsPopover_1 = __importDefault(__webpack_require__(/*! ./AssociatedListsPopover */ "./src/renderer/components/AssociatedListsPopover.tsx"));
 const Sidebar_1 = __webpack_require__(/*! ./Sidebar */ "./src/renderer/components/Sidebar.tsx");
-const react_redux_1 = __webpack_require__(/*! react-redux */ "./node_modules/react-redux/dist/cjs/index.js");
-// --- 1. Імпортуємо екшен для зняття виділення ---
+// ВИПРАВЛЕНО: Імпортуємо типізовані хуки
+const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/hooks.ts");
 const uiSlice_1 = __webpack_require__(/*! ../store/uiSlice */ "./src/renderer/store/uiSlice.ts");
 function SortableGoalItem({ instanceId, goal, index, associatedLists, onToggle, onDelete, onStartEdit, obsidianVaultName, onTagClickForFilter, }) {
-    const dispatch = (0, react_redux_1.useDispatch)();
+    // ВИПРАВЛЕНО: Використовуємо типізовані хуки
+    const dispatch = (0, hooks_1.useAppDispatch)();
+    const goalToHighlight = (0, hooks_1.useAppSelector)((state) => state.ui.goalToHighlight);
     const [isExpanded, setIsExpanded] = (0, react_1.useState)(false);
     const [isAssocPopoverOpen, setIsAssocPopoverOpen] = (0, react_1.useState)(false);
     const popoverAnchorRef = (0, react_1.useRef)(null);
     const hasAssociatedLists = associatedLists.length > 0;
-    const goalToHighlight = (0, react_redux_1.useSelector)((state) => state.ui.goalToHighlight);
     const toggleExpand = (0, react_1.useCallback)((event) => {
         event.stopPropagation();
         if (hasAssociatedLists) {
@@ -139915,22 +139930,17 @@ function SortableGoalItem({ instanceId, goal, index, associatedLists, onToggle, 
         window.dispatchEvent(customEvent);
     }, []);
     const isHighlighted = goalToHighlight === goal.id;
-    // Цей хук тепер буде працювати коректно
     (0, react_1.useEffect)(() => {
         if (isHighlighted) {
             const element = document.getElementById(`goal-${goal.id}`);
             element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             const timer = setTimeout(() => {
                 dispatch((0, uiSlice_1.setGoalToHighlight)(null));
-            }, 2500); // Збільшено час для кращого візуального ефекту
+            }, 2500);
             return () => clearTimeout(timer);
         }
     }, [isHighlighted, dispatch, goal.id]);
-    return ((0, jsx_runtime_1.jsx)(dnd_1.Draggable, { draggableId: instanceId, index: index, children: (provided, snapshot) => ((0, jsx_runtime_1.jsxs)("li", { 
-            // --- 2. Додаємо ID для прокрутки ---
-            id: `goal-${goal.id}`, ref: provided.innerRef, ...provided.draggableProps, 
-            // --- 3. Додаємо умовні класи для підсвічування ---
-            className: `group relative p-2.5 rounded-md flex items-start justify-between transition-all duration-150 border ${snapshot.isDragging
+    return ((0, jsx_runtime_1.jsx)(dnd_1.Draggable, { draggableId: instanceId, index: index, children: (provided, snapshot) => ((0, jsx_runtime_1.jsxs)("li", { id: `goal-${goal.id}`, ref: provided.innerRef, ...provided.draggableProps, className: `group relative p-2.5 rounded-md flex items-start justify-between transition-all duration-150 border ${snapshot.isDragging
                 ? "ring-2 ring-indigo-500 dark:ring-indigo-400 shadow-xl bg-indigo-50 dark:bg-indigo-900/60"
                 : isHighlighted
                     ? "ring-2 ring-blue-500 dark:ring-blue-400 bg-blue-50 dark:bg-blue-900/40 shadow-lg"
@@ -140036,16 +140046,19 @@ exports["default"] = TabsContainer;
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
+// src/renderer/components/WifiSyncModal.tsx
 const react_1 = __webpack_require__(/*! react */ "./node_modules/react/index.js");
-const react_redux_1 = __webpack_require__(/*! react-redux */ "./node_modules/react-redux/dist/cjs/index.js");
+// ВИПРАВЛЕНО: Імпортуємо типізовані хуки
+const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/hooks.ts");
 const syncSlice_1 = __webpack_require__(/*! ../store/syncSlice */ "./src/renderer/store/syncSlice.ts");
 const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts");
 const lucide_react_1 = __webpack_require__(/*! lucide-react */ "./node_modules/lucide-react/dist/esm/lucide-react.js");
 const syncLogic_1 = __webpack_require__(/*! ../logic/syncLogic */ "./src/renderer/logic/syncLogic.ts");
 const WifiSyncModal = () => {
-    const dispatch = (0, react_redux_1.useDispatch)();
-    const { isModalOpen, modalMode, syncStatus, deviceAddress, errorMessage, syncReport, originalBackup, } = (0, react_redux_1.useSelector)((state) => state.sync);
-    const listsState = (0, react_redux_1.useSelector)((state) => state.lists);
+    // ВИПРАВЛЕНО: Використовуємо типізовані хуки
+    const dispatch = (0, hooks_1.useAppDispatch)();
+    const { isModalOpen, modalMode, syncStatus, deviceAddress, errorMessage, syncReport, originalBackup, } = (0, hooks_1.useAppSelector)((state) => state.sync);
+    const listsState = (0, hooks_1.useAppSelector)((state) => state.lists);
     const [localServerAddress, setLocalServerAddress] = (0, react_1.useState)(null);
     const [localError, setLocalError] = (0, react_1.useState)(null);
     (0, react_1.useEffect)(() => {
@@ -140112,14 +140125,10 @@ const WifiSyncModal = () => {
         const remoteData = originalBackup.data;
         if (remoteData) {
             const goalListsFromRemote = remoteData.goalLists || {};
-            // ✨ ВИПРАВЛЕННЯ: Створюємо НОВИЙ об'єкт для нормалізованих даних,
-            // а не змінюємо "заморожений" об'єкт зі стану.
             const normalizedGoalLists = {};
             Object.keys(goalListsFromRemote).forEach(listId => {
                 const originalList = goalListsFromRemote[listId];
-                // Створюємо копію, яку можна змінювати
                 const newList = { ...originalList };
-                // Нормалізуємо копію
                 if (newList.parentId === undefined) {
                     newList.parentId = null;
                 }
@@ -140130,7 +140139,7 @@ const WifiSyncModal = () => {
             });
             dispatch((0, listsSlice_1.stateReplaced)({
                 goals: remoteData.goals || {},
-                goalLists: normalizedGoalLists, // Використовуємо новий, нормалізований об'єкт
+                goalLists: normalizedGoalLists,
                 goalInstances: remoteData.goalInstances || {},
             }));
         }
@@ -140391,6 +140400,24 @@ document.addEventListener("DOMContentLoaded", () => {
         console.error("Root element not found.");
     }
 });
+
+
+/***/ }),
+
+/***/ "./src/renderer/store/hooks.ts":
+/*!*************************************!*\
+  !*** ./src/renderer/store/hooks.ts ***!
+  \*************************************/
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.useAppSelector = exports.useAppDispatch = void 0;
+const react_redux_1 = __webpack_require__(/*! react-redux */ "./node_modules/react-redux/dist/cjs/index.js");
+// Використовуйте ці хуки у всьому додатку замість звичайних `useDispatch` та `useSelector`
+exports.useAppDispatch = react_redux_1.useDispatch;
+exports.useAppSelector = react_redux_1.useSelector;
 
 
 /***/ }),

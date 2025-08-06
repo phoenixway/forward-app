@@ -5,8 +5,8 @@ import React, {
   useCallback,
   useMemo,
 } from "react";
-import { useSelector, useDispatch } from "react-redux";
-import { RootState, AppDispatch } from "../store/store";
+// ВИПРАВЛЕНО: Імпортуємо типізовані хуки
+import { useAppDispatch, useAppSelector } from "../store/hooks";
 import {
   makeSelectListInfo,
   makeSelectEnrichedGoalInstances,
@@ -14,12 +14,11 @@ import {
 import {
   goalToggled,
   instanceRemovedFromList,
-  goalUpdated,
 } from "../store/listsSlice";
 import type { Goal, GoalInstance, GoalList } from "../types";
 import { SearchX, ListChecks } from "lucide-react";
 import SortableGoalItem from "./SortableGoalItem";
-import GoalEditModal from './GoalEditModal'; // <-- Імпортуємо нове модальне вікно
+import GoalEditModal from './GoalEditModal';
 
 interface GoalListPageProps {
   listId: string;
@@ -34,15 +33,18 @@ function GoalListPage({
   obsidianVaultName,
   onTagClickForFilter,
 }: GoalListPageProps) {
-  const dispatch = useDispatch<AppDispatch>();
+  // ВИПРАВЛЕНО: Використовуємо useAppDispatch
+  const dispatch = useAppDispatch();
 
+  // Мемоізація селекторів залишається без змін, це правильна оптимізація
   const selectListInfo = useMemo(makeSelectListInfo, []);
   const selectEnrichedInstances = useMemo(makeSelectEnrichedGoalInstances, []);
 
-  const listInfo = useSelector((state: RootState) =>
+  // ВИПРАВЛЕНО: Використовуємо useAppSelector, `state` тепер типізований автоматично
+  const listInfo = useAppSelector((state) =>
     selectListInfo(state, listId),
   );
-  const allEnrichedGoals = useSelector((state: RootState) =>
+  const allEnrichedGoals = useAppSelector((state) =>
     selectEnrichedInstances(state, listId),
   );
 
@@ -54,7 +56,6 @@ function GoalListPage({
     }>
   >([]);
   
-  // Цей стан тепер контролює показ модального вікна
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
 
   useEffect(() => {
@@ -90,7 +91,7 @@ function GoalListPage({
       ) {
         dispatch(instanceRemovedFromList({ listId, instanceId }));
         if (editingGoal?.id === goalInstanceToDelete.goal.id) {
-          setEditingGoal(null); // Закриваємо модальне вікно, якщо видаляється ціль, що редагується
+          setEditingGoal(null);
         }
       }
     },
@@ -99,11 +100,11 @@ function GoalListPage({
 
   const handleStartEditGoal = useCallback((goal: Goal) => {
     if (goal.completed) return;
-    setEditingGoal(goal); // Встановлення цього стану відкриє модальне вікно
+    setEditingGoal(goal);
   }, []);
 
   const handleCancelEditGoal = useCallback(() => {
-    setEditingGoal(null); // Закриття модального вікна
+    setEditingGoal(null);
   }, []);
 
 
@@ -155,7 +156,6 @@ function GoalListPage({
         )}
       </div>
 
-      {/* Рендеримо модальне вікно, якщо `editingGoal` не null */}
       {editingGoal && (
         <GoalEditModal 
           goal={editingGoal} 

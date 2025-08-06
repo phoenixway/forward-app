@@ -1,10 +1,8 @@
 // src/renderer/components/SettingsPage.tsx
-import React, { useState, useEffect, useCallback } from "react";
-import { useSelector, useDispatch } from "react-redux";
-import { nanoid } from "@reduxjs/toolkit";
-import { RootState, AppDispatch } from "../store/store";
+import React, { useState, useEffect } from "react";
+// ВИПРАВЛЕНО: Імпортуємо типізовані хуки
+import { useAppSelector, useAppDispatch } from "../store/hooks";
 import { ListsState, stateReplaced } from "../store/listsSlice";
-import type { Goal, GoalList, GoalInstance } from "../types";
 
 // Типи для розбору старих і нових форматів бекапу
 interface OldGoalListFormat {
@@ -19,7 +17,7 @@ interface OldGoalListFormat {
 
 interface OldBackupData {
   goalLists: OldGoalListFormat[];
-  goals: Goal[];
+  goals: any[]; // Використовуємо any для гнучкості старих форматів
 }
 
 interface AppBackupDataFormat {
@@ -43,8 +41,9 @@ function SettingsPage({
   onObsidianVaultChange,
   onDataImported,
 }: SettingsPageProps) {
-  const dispatch = useDispatch<AppDispatch>();
-  const listsStateForExport = useSelector((state: RootState) => state.lists);
+  // ВИПРАВЛЕНО: Використовуємо типізовані хуки
+  const dispatch = useAppDispatch();
+  const listsStateForExport = useAppSelector((state) => state.lists);
   const [obsidianVaultPath, setObsidianVaultPath] = useState(initialObsidianVault);
 
   useEffect(() => {
@@ -54,7 +53,6 @@ function SettingsPage({
   const handleExportData = async () => {
     if (!window.electronAPI?.showSaveDialog || !window.electronAPI.writeFile) return;
     try {
-      // ✨ ВИПРАВЛЕНО: Експортуємо версію 3, яка не містить rootListIds
       const exportData = {
         version: 3,
         exportedAt: new Date().toISOString(),
@@ -96,9 +94,7 @@ function SettingsPage({
       if (!importedObject.data) throw new Error("Файл має невірний формат.");
 
       let finalState: ListsState;
-
-      // ✨ ВИПРАВЛЕНО: Уніфікована логіка для всіх версій.
-      // Ми просто беремо дані як є, а відсутні поля (напр. order) отримають значення за замовчуванням.
+      
       const importedState = importedObject.data as ListsState;
       finalState = {
           goals: importedState.goals || {},
@@ -106,7 +102,6 @@ function SettingsPage({
           goalLists: importedState.goalLists || {},
       };
 
-      // Додаткова перевірка, щоб додати `order` та `parentId`, якщо їх немає (міграція зі старих версій)
       Object.values(finalState.goalLists).forEach((list, index) => {
           if (list.order === undefined) {
               list.order = index;
@@ -115,7 +110,6 @@ function SettingsPage({
               list.parentId = null;
           }
       });
-
 
       dispatch(stateReplaced(finalState));
       alert("Дані успішно імпортовано!");

@@ -1,6 +1,7 @@
+// src/renderer/components/WifiSyncModal.tsx
 import React, { useEffect, useState } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { AppDispatch, RootState } from '../store/store';
+// ВИПРАВЛЕНО: Імпортуємо типізовані хуки
+import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
     closeSyncModal,
     setDeviceAddress,
@@ -14,7 +15,8 @@ import { createSyncReport } from '../logic/syncLogic';
 import { GoalList } from '../types';
 
 const WifiSyncModal: React.FC = () => {
-    const dispatch = useDispatch<AppDispatch>();
+    // ВИПРАВЛЕНО: Використовуємо типізовані хуки
+    const dispatch = useAppDispatch();
     const {
         isModalOpen,
         modalMode,
@@ -23,9 +25,9 @@ const WifiSyncModal: React.FC = () => {
         errorMessage,
         syncReport,
         originalBackup,
-    } = useSelector((state: RootState) => state.sync);
+    } = useAppSelector((state) => state.sync);
 
-    const listsState = useSelector((state: RootState) => state.lists);
+    const listsState = useAppSelector((state) => state.lists);
     const [localServerAddress, setLocalServerAddress] = useState<string | null>(null);
     const [localError, setLocalError] = useState<string | null>(null);
 
@@ -99,17 +101,12 @@ const WifiSyncModal: React.FC = () => {
         const remoteData = originalBackup.data;
         if (remoteData) {
             const goalListsFromRemote: Record<string, GoalList> = remoteData.goalLists || {};
-
-            // ✨ ВИПРАВЛЕННЯ: Створюємо НОВИЙ об'єкт для нормалізованих даних,
-            // а не змінюємо "заморожений" об'єкт зі стану.
             const normalizedGoalLists: Record<string, GoalList> = {};
 
             Object.keys(goalListsFromRemote).forEach(listId => {
                 const originalList = goalListsFromRemote[listId];
-                // Створюємо копію, яку можна змінювати
                 const newList = { ...originalList };
 
-                // Нормалізуємо копію
                 if (newList.parentId === undefined) {
                     newList.parentId = null;
                 }
@@ -122,7 +119,7 @@ const WifiSyncModal: React.FC = () => {
 
             dispatch(stateReplaced({
                 goals: remoteData.goals || {},
-                goalLists: normalizedGoalLists, // Використовуємо новий, нормалізований об'єкт
+                goalLists: normalizedGoalLists,
                 goalInstances: remoteData.goalInstances || {},
             }));
         }

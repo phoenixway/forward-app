@@ -1,7 +1,7 @@
 // src/renderer/components/AssociatedListsPopover.tsx
 import React, { useState, useEffect, useRef } from "react";
-import { useSelector, useDispatch } from "react-redux";
-import { RootState, AppDispatch } from "../store/store";
+// ВИПРАВЛЕНО: Замінюємо стандартні хуки на наші типізовані
+import { useAppDispatch, useAppSelector } from "../store/hooks";
 import {
   listAdded,
   goalAssociated,
@@ -11,22 +11,23 @@ import type { Goal, GoalList } from "../types";
 import { dispatchOpenGoalListEvent } from "./Sidebar";
 import { X, Plus, Link2 as LinkIcon, Link2Off, Eye } from "lucide-react";
 
-// --- ЗМІНА ТУТ ---
 interface AssociatedListsPopoverProps {
   targetGoal: Goal;
   onClose: () => void;
-  anchorEl: HTMLButtonElement | null; // <-- ДОДАНО ЦЕЙ РЯДОК
+  anchorEl: HTMLButtonElement | null;
 }
 
 const AssociatedListsPopover: React.FC<AssociatedListsPopoverProps> = ({
   targetGoal,
   onClose,
-  anchorEl, // <-- ДОДАНО ДО ПРОПСІВ
+  anchorEl,
 }) => {
-  const dispatch = useDispatch<AppDispatch>();
+  // ВИПРАВЛЕНО: Використовуємо useAppDispatch
+  const dispatch = useAppDispatch();
 
-  const { associatedListDetails, availableListsToSelect } = useSelector(
-    (state: RootState) => {
+  // ВИПРАВЛЕНО: Використовуємо useAppSelector, `state` тепер автоматично типізований
+  const { associatedListDetails, availableListsToSelect } = useAppSelector(
+    (state) => {
       const currentTargetGoal = state.lists.goals[targetGoal.id] || targetGoal;
       const associatedIds = new Set(currentTargetGoal.associatedListIds || []);
 
@@ -57,7 +58,8 @@ const AssociatedListsPopover: React.FC<AssociatedListsPopoverProps> = ({
     const handleClickOutside = (event: MouseEvent) => {
       if (
         popoverRef.current &&
-        !popoverRef.current.contains(event.target as Node)
+        !popoverRef.current.contains(event.target as Node) &&
+        !anchorEl?.contains(event.target as Node) // Додано, щоб не закривати при кліку на ту ж кнопку
       ) {
         onClose();
       }
@@ -66,7 +68,7 @@ const AssociatedListsPopover: React.FC<AssociatedListsPopoverProps> = ({
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [onClose]);
+  }, [onClose, anchorEl]);
 
   useEffect(() => {
     if (showCreateNewListForm && newListInputRef.current) {

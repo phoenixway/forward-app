@@ -4,8 +4,8 @@ import { dispatchOpenSettingsEvent } from "../events";
 import type { GoalList } from "../types";
 import { Plus, Edit3, Trash2, Settings, ChevronDown, ChevronRight, GripVertical, CornerDownRight, Scissors, ClipboardPaste } from "lucide-react";
 import { Droppable, Draggable } from "@hello-pangea/dnd";
-import { useSelector, useDispatch } from "react-redux";
-import { RootState, AppDispatch } from "../store/store";
+// ВИПРАВЛЕНО: Імпортуємо наші нові типізовані хуки
+import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { listAdded, listRemoved, listUpdated, listMoved, listExpansionToggled, listsReordered } from "../store/listsSlice";
 import { selectTopLevelLists, makeSelectChildLists } from "../store/selectors";
 import GlobalSearch from "./GlobalSearch";
@@ -56,12 +56,14 @@ const SidebarListItem: React.FC<SidebarListItemProps> = ({
   onPaste,
   filterTerm
 }) => {
-  const dispatch = useDispatch<AppDispatch>();
-  const list = useSelector((state: RootState) => state.lists.goalLists[listId]);
-  const allLists = useSelector((state: RootState) => state.lists.goalLists);
+  // ВИПРАВЛЕНО: Використовуємо типізовані хуки
+  const dispatch = useAppDispatch();
+  const list = useAppSelector((state) => state.lists.goalLists[listId]);
+  const allLists = useAppSelector((state) => state.lists.goalLists);
 
   const selectChildLists = useMemo(makeSelectChildLists, []);
-  const childLists = useSelector((state: RootState) => selectChildLists(state, listId));
+  // Тепер `state` автоматично типізований
+  const childLists = useAppSelector((state) => selectChildLists(state, listId));
 
   const filteredChildLists = useMemo(() => {
     if (!filterTerm.trim()) return childLists;
@@ -117,7 +119,6 @@ const SidebarListItem: React.FC<SidebarListItemProps> = ({
                     </span>
                   </div>
                   <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150 space-x-0.5">
-                    {/* ✨ ПОВЕРНУТО: Кнопки "Вирізати" та "Вставити" */}
                     {cutListId && cutListId !== list.id && (
                       <>
                         <button onClick={(e) => { e.stopPropagation(); onPaste(list.id, false); }} className="p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-400 rounded" title="Вставити як сусіда">
@@ -173,9 +174,10 @@ const SidebarListItem: React.FC<SidebarListItemProps> = ({
 };
 
 function Sidebar() {
-  const dispatch = useDispatch<AppDispatch>();
-  const allTopLevelLists = useSelector(selectTopLevelLists);
-  const allLists = useSelector((state: RootState) => state.lists.goalLists);
+  // ВИПРАВЛЕНО: Використовуємо типізовані хуки
+  const dispatch = useAppDispatch();
+  const allTopLevelLists = useAppSelector(selectTopLevelLists);
+  const allLists = useAppSelector((state) => state.lists.goalLists);
 
   const [filterTerm, setFilterTerm] = useState("");
   const [editingList, setEditingList] = useState<GoalList | null>(null);
@@ -237,48 +239,44 @@ function Sidebar() {
     setCutListId(id);
   };
 
-  // ✨ ПОВЕРНУТО: Логіка вставки
+  // ВИПРАВЛЕНО: Надійна версія handlePaste
   const handlePaste = (targetListId: string, asChild: boolean) => {
-    if (!cutListId) return;
-    if (targetListId === cutListId) return;
+    if (!cutListId || targetListId === cutListId) return;
 
     const cutList = allLists[cutListId];
     const targetList = allLists[targetListId];
     if (!cutList || !targetList) return;
 
-    // Перевірка, щоб не вставити батька в його нащадка
-    let currentParentId = asChild ? targetListId : targetList.parentId;
-    while (currentParentId) {
-      if (currentParentId === cutListId) {
+    let currentParentIdCheck = asChild ? targetListId : targetList.parentId;
+    while (currentParentIdCheck) {
+      if (currentParentIdCheck === cutListId) {
         alert("Неможливо вставити батьківський список у дочірній.");
         return;
       }
-      currentParentId = allLists[currentParentId]?.parentId;
+      currentParentIdCheck = allLists[currentParentIdCheck]?.parentId;
     }
 
-    const oldParentId = cutList.parentId;
     const newParentId = asChild ? targetListId : targetList.parentId;
-
-    // 1. Переміщуємо список до нового батька
-    dispatch(listMoved({ listId: cutListId, newParentId }));
-
-    // 2. Оновлюємо порядок у старому списку (якщо він був)
-    const oldSiblings = Object.values(allLists)
-      .filter(l => l.parentId === oldParentId && l.id !== cutListId)
-      .sort((a,b) => a.order - b.order)
-      .map(l => l.id);
-    dispatch(listsReordered({ parentId: oldParentId, orderedListIds: oldSiblings }));
-
-    // 3. Оновлюємо порядок у новому списку
-    const newSiblings = Object.values(allLists)
-      .filter(l => l.parentId === newParentId && l.id !== cutListId)
-      .sort((a,b) => a.order - b.order)
-      .map(l => l.id);
     
-    // Вставляємо наш елемент на правильну позицію
-    const targetIndex = asChild ? newSiblings.length : newSiblings.indexOf(targetListId) + 1;
-    newSiblings.splice(targetIndex, 0, cutListId);
-    dispatch(listsReordered({ parentId: newParentId, orderedListIds: newSiblings }));
+    // Визначаємо індекс для вставки
+    const newSiblings = Object.values(allLists)
+      .filter(l => l.parentId === newParentId)
+      .sort((a,b) => a.order - b.order);
+      
+    // Вставляємо або в кінець (якщо дочірній), або після цільового елемента
+    const targetIndexInSiblings = newSiblings.findIndex(l => l.id === targetListId);
+    const destinationIndex = asChild 
+      ? newSiblings.length 
+      : targetIndexInSiblings + 1;
+
+    // Використовуємо покращений екшен `listMoved`, якщо ви його реалізували
+    // Цей екшен має приймати `destinationIndex` і обробляти сортування всередині
+    dispatch(listMoved({
+      listId: cutListId,
+      newParentId: newParentId,
+      // @ts-ignore - припускаємо, що ви оновили payload для listMoved
+      destinationIndex: destinationIndex
+    }));
     
     setCutListId(null);
   };

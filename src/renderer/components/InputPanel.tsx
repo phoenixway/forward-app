@@ -9,8 +9,8 @@ import React, {
   useMemo,
 } from "react";
 import ReactDOM from "react-dom";
-import { useSelector } from "react-redux";
-import { RootState } from "../store/store";
+// ВИПРАВЛЕНО: Імпортуємо наш типізований хук
+import { useAppSelector } from "../store/hooks";
 import type { GoalList } from "../types";
 import {
   selectAllLists,
@@ -81,9 +81,10 @@ const InputPanel = forwardRef<InputPanelRef, InputPanelProps>(
     const internalLocalInputRef = useRef<HTMLInputElement>(null);
     const portalContainerRef = useRef<HTMLElement | null>(null);
 
-    const allGoalListsArray = useSelector(selectAllLists);
-    const allTags = useSelector(selectAllUniqueTags);
-    const allContexts = useSelector(selectAllUniqueContexts);
+    // ВИПРАВЛЕНО: Використовуємо useAppSelector
+    const allGoalListsArray = useAppSelector(selectAllLists);
+    const allTags = useAppSelector(selectAllUniqueTags);
+    const allContexts = useAppSelector(selectAllUniqueContexts);
 
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);

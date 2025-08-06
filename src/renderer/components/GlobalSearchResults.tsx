@@ -1,13 +1,16 @@
 // src/renderer/components/GlobalSearchResults.tsx
 import React from 'react';
-import { useSelector, useDispatch } from 'react-redux';
+// ВИПРАВЛЕНО: Замінюємо стандартні хуки на наші типізовані
+import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { createSelector } from '@reduxjs/toolkit';
-import { RootState, AppDispatch } from '../store/store';
-import { setGlobalFilterTerm, setGoalToHighlight } from '../store/uiSlice'; // <-- Додано setGoalToHighlight
+import { RootState } from '../store/store'; // RootState тут потрібен для createSelector
+import { setGlobalFilterTerm, setGoalToHighlight } from '../store/uiSlice';
 import type { Goal } from '../types';
 import GoalItem from './GoalItem';
-import { dispatchOpenGoalListEvent } from './Sidebar'; // <-- Імпортуємо функцію для відкриття списку
+import { dispatchOpenGoalListEvent } from './Sidebar';
 
+// Визначення селекторів поза компонентом є правильною практикою.
+// Вони все ще потребують RootState для визначення типу вхідних даних.
 const selectFilteredGoals = createSelector(
   (state: RootState) => state.lists.goals,
   (state: RootState) => state.ui.globalFilterTerm,
@@ -26,13 +29,15 @@ interface GlobalSearchResultsProps {
 }
 
 const GlobalSearchResults: React.FC<GlobalSearchResultsProps> = ({ obsidianVaultName }) => {
-  const dispatch = useDispatch<AppDispatch>();
-  const filteredGoals = useSelector(selectFilteredGoals);
-  const filterTerm = useSelector((state: RootState) => state.ui.globalFilterTerm);
-  const allLists = useSelector(selectAllLists);
-  const goalInstances = useSelector((state: RootState) => state.lists.goalInstances);
+  // ВИПРАВЛЕНО: Використовуємо типізовані хуки.
+  const dispatch = useAppDispatch();
+  const filteredGoals = useAppSelector(selectFilteredGoals);
+  const filterTerm = useAppSelector((state) => state.ui.globalFilterTerm);
+  const allLists = useAppSelector(selectAllLists);
+  const goalInstances = useAppSelector((state) => state.lists.goalInstances);
 
   const findParentList = (goalId: string) => {
+    // Тут `allLists` вже має правильний тип, тому Object.values безпечний
     for (const list of Object.values(allLists)) {
       const instanceFound = list.itemInstanceIds.some(instanceId => {
         const instance = goalInstances[instanceId];
@@ -46,11 +51,8 @@ const GlobalSearchResults: React.FC<GlobalSearchResultsProps> = ({ obsidianVault
   const handleNavigate = (goal: Goal) => {
     const parentList = findParentList(goal.id);
     if (parentList) {
-      // 1. Закриваємо результати пошуку
       dispatch(setGlobalFilterTerm(''));
-      // 2. Встановлюємо, яку ціль потрібно підсвітити
       dispatch(setGoalToHighlight(goal.id));
-      // 3. Відкриваємо батьківський список
       dispatchOpenGoalListEvent(parentList.id, parentList.name);
     } else {
       alert(`Не вдалося знайти батьківський список для цілі: "${goal.text}"`);

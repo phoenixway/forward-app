@@ -1,7 +1,7 @@
 // src/renderer/components/MainPanel.tsx
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useSelector, useDispatch } from "react-redux";
-import { RootState, AppDispatch } from "../store/store";
+// ВИПРАВЛЕНО: Імпортуємо типізовані хуки
+import { useAppSelector, useAppDispatch } from "../store/hooks";
 import type { Goal, GoalList } from "../types";
 import GoalListPage from "./GoalListPage";
 import NoListSelected from "./NoListSelected";
@@ -26,8 +26,6 @@ import {
   listUpdated,
   goalAdded,
   listAdded,
-  goalOrderUpdated,
-  goalsImported,
   goalUpdated,
 } from "../store/listsSlice";
 import { calculateScores } from '../logic/goalScoring';
@@ -53,9 +51,10 @@ function MainPanel({
   obsidianVaultPath,
   onObsidianVaultChange,
 }: MainPanelProps) {
-  const { goals, goalLists } = useSelector((state: RootState) => state.lists);
-  const globalFilterTerm = useSelector((state: RootState) => state.ui.globalFilterTerm);
-  const dispatch = useDispatch<AppDispatch>();
+  // ВИПРАВЛЕНО: Використовуємо типізовані хуки
+  const { goals, goalLists } = useAppSelector((state) => state.lists);
+  const globalFilterTerm = useAppSelector((state) => state.ui.globalFilterTerm);
+  const dispatch = useAppDispatch();
 
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);

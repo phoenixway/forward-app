@@ -1,6 +1,7 @@
 // src/renderer/components/GoalEditModal.tsx
 import React, { useState } from 'react';
-import { useDispatch } from 'react-redux';
+// ВИПРАВЛЕНО: Замінюємо стандартний хук на наш типізований
+import { useAppDispatch } from '../store/hooks';
 import { goalUpdated } from '../store/listsSlice';
 import { calculateScores } from '../logic/goalScoring';
 import type { Goal } from '../types';
@@ -33,7 +34,8 @@ const TabButton: React.FC<{
 
 
 const GoalEditModal: React.FC<GoalEditModalProps> = ({ goal, onClose }) => {
-  const dispatch = useDispatch();
+  // ВИПРАВЛЕНО: Використовуємо useAppDispatch
+  const dispatch = useAppDispatch();
   const [localGoal, setLocalGoal] = useState<Goal>(goal);
   const [activeTab, setActiveTab] = useState<'params' | 'weights' | 'notes'>('params');
 

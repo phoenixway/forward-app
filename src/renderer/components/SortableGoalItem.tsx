@@ -1,3 +1,4 @@
+// src/renderer/components/SortableGoalItem.tsx
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import {
@@ -12,9 +13,8 @@ import type { Goal, GoalList } from "../types";
 import GoalTextRenderer from "./GoalTextRenderer";
 import AssociatedListsPopover from "./AssociatedListsPopover";
 import { OPEN_GOAL_LIST_EVENT, OpenGoalListDetail } from "./Sidebar";
-import { useDispatch, useSelector } from "react-redux";
-import { AppDispatch, RootState } from "../store/store";
-// --- 1. Імпортуємо екшен для зняття виділення ---
+// ВИПРАВЛЕНО: Імпортуємо типізовані хуки
+import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { setGoalToHighlight } from "../store/uiSlice";
 
 export interface SortableGoalItemProps {
@@ -40,13 +40,15 @@ function SortableGoalItem({
   obsidianVaultName,
   onTagClickForFilter,
 }: SortableGoalItemProps) {
-  const dispatch = useDispatch<AppDispatch>();
+  // ВИПРАВЛЕНО: Використовуємо типізовані хуки
+  const dispatch = useAppDispatch();
+  const goalToHighlight = useAppSelector((state) => state.ui.goalToHighlight);
+
   const [isExpanded, setIsExpanded] = useState(false);
   const [isAssocPopoverOpen, setIsAssocPopoverOpen] = useState(false);
   const popoverAnchorRef = useRef<HTMLButtonElement>(null);
 
   const hasAssociatedLists = associatedLists.length > 0;
-  const goalToHighlight = useSelector((state: RootState) => state.ui.goalToHighlight);
 
   const toggleExpand = useCallback(
     (event: React.MouseEvent) => {
@@ -79,7 +81,6 @@ function SortableGoalItem({
 
   const isHighlighted = goalToHighlight === goal.id;
 
-  // Цей хук тепер буде працювати коректно
   useEffect(() => {
     if (isHighlighted) {
       const element = document.getElementById(`goal-${goal.id}`);
@@ -87,7 +88,7 @@ function SortableGoalItem({
 
       const timer = setTimeout(() => {
         dispatch(setGoalToHighlight(null));
-      }, 2500); // Збільшено час для кращого візуального ефекту
+      }, 2500);
 
       return () => clearTimeout(timer);
     }
@@ -98,11 +99,9 @@ function SortableGoalItem({
     <Draggable draggableId={instanceId} index={index}>
       {(provided, snapshot) => (
         <li
-          // --- 2. Додаємо ID для прокрутки ---
           id={`goal-${goal.id}`}
           ref={provided.innerRef}
           {...provided.draggableProps}
-          // --- 3. Додаємо умовні класи для підсвічування ---
           className={`group relative p-2.5 rounded-md flex items-start justify-between transition-all duration-150 border ${
             snapshot.isDragging
               ? "ring-2 ring-indigo-500 dark:ring-indigo-400 shadow-xl bg-indigo-50 dark:bg-indigo-900/60"

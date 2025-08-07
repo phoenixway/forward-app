@@ -4,6 +4,7 @@ import {
   webFrame,
   IpcRendererEvent,
 } from "electron";
+import type { Tab } from '../renderer/types';
 
 // Канали, які використовуються для IPC
 export const IPC_CHANNELS = {
@@ -23,22 +24,27 @@ export const IPC_CHANNELS = {
   APP_HAS_USER_DESKTOP_FILE: "app:hasUserDesktopFile",
   APP_CREATE_USER_DESKTOP_FILE: "app:createUserDesktopFile",
   
-  // --- SYNC CHANNELS ---
+  // Канали синхронізації
   WIFI_SYNC_START_SERVER: "wifi-sync:start-server",
   WIFI_SYNC_STOP_SERVER: "wifi-sync:stop-server",
   WIFI_SYNC_FETCH_FROM_DEVICE: "wifi-sync:fetch-from-device",
   WIFI_SYNC_APPLY_TO_DEVICE: "wifi-sync:apply-to-device",
+  
+  // Канали, що викликаються з меню
   SHOW_WIFI_IMPORT_DIALOG: "show-wifi-import-dialog",
   SHOW_WIFI_SERVER_STATUS: "show-wifi-server-status",
-
-  // --- MENU TRIGGER CHANNELS ---
   TRIGGER_FILE_EXPORT: "trigger-file-export",
   TRIGGER_FILE_IMPORT: "trigger-file-import",
   TRIGGER_SHOW_SETTINGS: "trigger-show-settings",
-
+  
+  // Канали для гарячих клавіш
   CLOSE_CURRENT_TAB: "close-current-tab",
   NAVIGATE_NEXT_TAB: 'navigate-next-tab',
   NAVIGATE_PREVIOUS_TAB: 'navigate-previous-tab',
+
+  // Канали для збереження сесії вкладок
+  REQUEST_TABS_FOR_SAVING: 'request-tabs-for-saving',
+  SAVE_TABS_STATE: 'save-tabs-state',
 };
 
 export interface ElectronAPI {
@@ -59,52 +65,40 @@ export interface ElectronAPI {
   hasUserDesktopFile: () => Promise<boolean>;
   createUserDesktopFile: () => Promise<{ success: boolean; error?: string; message?: string }>;
 
-  // --- WI-FI SYNC FUNCTIONS ---
+  // Функції Wi-Fi Sync
   startWifiServer: (dataForExport: any) => Promise<{ success: boolean; address?: string, error?: string }>;
-
   stopWifiServer: () => Promise<{ success: boolean; error?: string }>;
   fetchFromDevice: (deviceAddress: string) => Promise<{ success: boolean; data?: any, error?: string }>;
   applyToDevice: (options: { deviceAddress: string; payload: any }) => Promise<{ success: boolean; data?: any, error?: string }>;
-  // --- MENU TRIGGER LISTENERS ---
+  
+  // Слухачі подій з меню та гарячих клавіш
   onShowWifiImportDialog: (callback: () => void) => () => void;
   onShowWifiServerStatus: (callback: () => void) => () => void;
   onTriggerFileExport: (callback: () => void) => () => void;
   onTriggerFileImport: (callback: () => void) => () => void;
   onShowSettingsPage: (callback: () => void) => () => void;
-
   onCloseCurrentTab: (callback: () => void) => () => void;
   onNavigateNextTab: (callback: () => void) => () => void;
   onNavigatePreviousTab: (callback: () => void) => () => void;
+
+  // Збереження сесії вкладок
+  onRequestTabsForSaving: (callback: () => void) => () => void;
+  saveTabsState: (tabs: Tab[], activeTabId: string | null) => void;
 }
 
 
 let activeCustomUrlCallback: ((url: string) => void) | null = null;
 let queuedUrlFromMain: string | null = null;
 
-
 ipcRenderer.on(
   IPC_CHANNELS.HANDLE_CUSTOM_URL,
   (_event: IpcRendererEvent, url: string) => {
-    console.log(
-      `[Preload] Listener for "${IPC_CHANNELS.HANDLE_CUSTOM_URL}" received URL: "${url}"`,
-    );
     if (activeCustomUrlCallback) {
-      console.log("[Preload] Active callback exists, calling it with URL.");
       activeCustomUrlCallback(url);
       queuedUrlFromMain = null;
     } else {
-      console.log("[Preload] No active callback, queuing URL.");
       queuedUrlFromMain = url;
     }
-  },
-);
-
-ipcRenderer.on(
-  IPC_CHANNELS.TEST_IPC_MESSAGE,
-  (_event: IpcRendererEvent, message: string) => {
-    console.log(
-      `[Preload] Listener for "${IPC_CHANNELS.TEST_IPC_MESSAGE}" received: "${message}"`,
-    );
   },
 );
 
@@ -120,25 +114,16 @@ const exposedAPI: ElectronAPI = {
   reportRendererError: (error) =>
     ipcRenderer.send(IPC_CHANNELS.RENDERER_ERROR, error),
   onCustomUrl: (callback) => {
-    console.log("[Preload] onCustomUrl: Registering callback.");
     activeCustomUrlCallback = callback;
     if (queuedUrlFromMain) {
-      console.log(
-        "[Preload] onCustomUrl: Processing queued URL:",
-        queuedUrlFromMain,
-      );
       activeCustomUrlCallback(queuedUrlFromMain);
       queuedUrlFromMain = null;
     }
     return () => {
-      console.log("[Preload] onCustomUrl: Unregistering callback.");
       activeCustomUrlCallback = null;
     };
   },
   rendererReadyForUrl: () => {
-    console.log(
-      `[Preload] Sending "${IPC_CHANNELS.RENDERER_READY_FOR_URL}" to main.`,
-    );
     ipcRenderer.send(IPC_CHANNELS.RENDERER_READY_FOR_URL);
   },
   showSaveDialog: (options) =>
@@ -155,14 +140,11 @@ const exposedAPI: ElectronAPI = {
   createUserDesktopFile: () =>
     ipcRenderer.invoke(IPC_CHANNELS.APP_CREATE_USER_DESKTOP_FILE),
 
-  // --- WI-FI SYNC IMPLEMENTATIONS ---
   startWifiServer: (dataForExport) => ipcRenderer.invoke(IPC_CHANNELS.WIFI_SYNC_START_SERVER, dataForExport),
-
   stopWifiServer: () => ipcRenderer.invoke(IPC_CHANNELS.WIFI_SYNC_STOP_SERVER),
   fetchFromDevice: (deviceAddress) => ipcRenderer.invoke(IPC_CHANNELS.WIFI_SYNC_FETCH_FROM_DEVICE, deviceAddress),
   applyToDevice: (options) => ipcRenderer.invoke(IPC_CHANNELS.WIFI_SYNC_APPLY_TO_DEVICE, options),
 
-  // --- MENU TRIGGER LISTENERS IMPLEMENTATIONS ---
   onShowWifiImportDialog: (callback) => {
     const listener = () => callback();
     ipcRenderer.on(IPC_CHANNELS.SHOW_WIFI_IMPORT_DIALOG, listener);
@@ -188,13 +170,11 @@ const exposedAPI: ElectronAPI = {
     ipcRenderer.on(IPC_CHANNELS.TRIGGER_SHOW_SETTINGS, listener);
     return () => ipcRenderer.removeListener(IPC_CHANNELS.TRIGGER_SHOW_SETTINGS, listener);
   },
-
   onCloseCurrentTab: (callback) => {
     const listener = () => callback();
     ipcRenderer.on(IPC_CHANNELS.CLOSE_CURRENT_TAB, listener);
     return () => ipcRenderer.removeListener(IPC_CHANNELS.CLOSE_CURRENT_TAB, listener);
   },
-
   onNavigateNextTab: (callback) => {
     const listener = () => callback();
     ipcRenderer.on(IPC_CHANNELS.NAVIGATE_NEXT_TAB, listener);
@@ -205,6 +185,14 @@ const exposedAPI: ElectronAPI = {
     ipcRenderer.on(IPC_CHANNELS.NAVIGATE_PREVIOUS_TAB, listener);
     return () => ipcRenderer.removeListener(IPC_CHANNELS.NAVIGATE_PREVIOUS_TAB, listener);
   },
+  onRequestTabsForSaving: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on(IPC_CHANNELS.REQUEST_TABS_FOR_SAVING, listener);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.REQUEST_TABS_FOR_SAVING, listener);
+  },
+  saveTabsState: (tabs, activeTabId) => {
+    ipcRenderer.send(IPC_CHANNELS.SAVE_TABS_STATE, tabs, activeTabId);
+  }
 };
 
 contextBridge.exposeInMainWorld("electronAPI", exposedAPI);

@@ -1,10 +1,9 @@
-// src/renderer/components/MainPanel.tsx
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useAppSelector, useAppDispatch } from "../store/hooks";
-import type { Goal, GoalList } from "../types";
+import type { Goal, GoalList, Tab } from "../types";
 import GoalListPage from "./GoalListPage";
 import NoListSelected from "./NoListSelected";
-import InputPanel, { CommandMode, InputPanelRef } from "./InputPanel";
+import InputPanel from "./InputPanel";
 import TabsContainer from "./TabsContainer";
 import SettingsPage from "./SettingsPage";
 import {
@@ -13,13 +12,10 @@ import {
   dispatchOpenGoalListEvent,
   OPEN_SETTINGS_EVENT
 } from "../events";
-
 import GlobalSearchResults from "./GlobalSearchResults";
 import { setGlobalFilterTerm } from "../store/uiSlice";
-
 import ListToolbar from "./ListToolbar";
 import { Droppable } from "@hello-pangea/dnd";
-
 import {
   listRemoved,
   listUpdated,
@@ -35,14 +31,6 @@ export interface MainPanelProps {
   onChangeThemePreference: (newTheme: string) => void;
   obsidianVaultPath: string;
   onObsidianVaultChange: (newPath: string) => void;
-}
-
-export interface Tab {
-  id: string;
-  type: "goal-list" | "settings";
-  title: string;
-  isClosable?: boolean;
-  listId?: string;
 }
 
 function MainPanel({
@@ -61,6 +49,43 @@ function MainPanel({
   const [editingListName, setEditingListName] = useState("");
   const [editingListDescription, setEditingListDescription] = useState("");
   const editingListModalRef = useRef<HTMLDivElement>(null);
+
+  // Ефект для завантаження та збереження вкладок
+  useEffect(() => {
+    const loadTabs = async () => {
+      if (window.electronAPI) {
+        const settings = await window.electronAPI.getAppSettings();
+        const savedTabs = settings?.session?.openTabs;
+        const savedActiveTabId = settings?.session?.activeTabId;
+
+        if (Array.isArray(savedTabs) && savedTabs.length > 0) {
+          setTabs(savedTabs);
+          if (savedActiveTabId && savedTabs.some(t => t.id === savedActiveTabId)) {
+            setActiveTabId(savedActiveTabId);
+          } else {
+            setActiveTabId(savedTabs[0].id);
+          }
+        }
+      }
+    };
+    loadTabs();
+
+    const cleanupSaveRequestHandler = window.electronAPI.onRequestTabsForSaving(() => {
+        setTabs(currentTabs => {
+            setActiveTabId(currentActiveTabId => {
+                if (window.electronAPI) {
+                    window.electronAPI.saveTabsState(currentTabs, currentActiveTabId);
+                }
+                return currentActiveTabId;
+            });
+            return currentTabs;
+        });
+    });
+
+    return () => {
+        cleanupSaveRequestHandler();
+    };
+  }, []);
 
   const getActiveListIdFromTab = useCallback((): string | null => {
     const activeTab = tabs.find((tab) => tab.id === activeTabId);
@@ -143,6 +168,10 @@ function MainPanel({
     setTabs((prevTabs) => {
       const indexToClose = prevTabs.findIndex((tab) => tab.id === tabIdToClose);
       if (indexToClose === -1) return prevTabs;
+      
+      const tabToClose = prevTabs[indexToClose];
+      if (tabToClose.isClosable === false) return prevTabs;
+
       const newTabs = prevTabs.filter((tab) => tab.id !== tabIdToClose);
       if (activeTabId === tabIdToClose) {
         const newActiveIndex = Math.max(0, indexToClose - 1);
@@ -151,17 +180,8 @@ function MainPanel({
       return newTabs;
     });
   }, [activeTabId]);
-
-    useEffect(() => {
-    const cleanup = window.electronAPI.onCloseCurrentTab(() => {
-      if (activeTabId) {
-        handleTabClose(activeTabId);
-      }
-    });
-    return () => cleanup();
-  }, [activeTabId, handleTabClose]);
-
-    const handleNavigateNextTab = useCallback(() => {
+  
+  const handleNavigateNextTab = useCallback(() => {
     if (!activeTabId || tabs.length < 2) return;
     const currentIndex = tabs.findIndex(tab => tab.id === activeTabId);
     if (currentIndex === -1) return;
@@ -177,7 +197,6 @@ function MainPanel({
       setActiveTabId(tabs[prevIndex].id);
   }, [tabs, activeTabId]);
 
-  // Оновлено useEffect для обробки всіх гарячих клавіш
   useEffect(() => {
     const cleanupClose = window.electronAPI.onCloseCurrentTab(() => {
       if (activeTabId) {
@@ -195,8 +214,6 @@ function MainPanel({
     };
   }, [activeTabId, handleTabClose, handleNavigateNextTab, handleNavigatePreviousTab]);
 
-
-
   const handleDeleteList = useCallback((listId: string) => {
     const listToDelete = goalLists[listId];
     if (listToDelete && window.confirm(`Видалити список "${listToDelete.name}"?`)) {
@@ -212,7 +229,6 @@ function MainPanel({
   const renderActiveTabContent = () => {
     const activeTabData = tabs.find((tab) => tab.id === activeTabId);
     if (!activeTabData) {
-      // Видалено пропс onCreateList
       return <NoListSelected />;
     }
 
@@ -220,7 +236,9 @@ function MainPanel({
       case "goal-list":
         const listId = activeTabData.listId;
         if (!listId || !goalLists[listId]) {
-          return <div className="p-4 text-slate-600 dark:text-slate-400">Список видалено або не існує.</div>;
+          // Якщо списку більше не існує, закриваємо вкладку
+          setTimeout(() => handleTabClose(activeTabData.id), 0);
+          return <div className="p-4 text-slate-600 dark:text-slate-400">Список видалено або не існує. Закриття...</div>;
         }
         return (
           <Droppable droppableId={listId} type="GOAL">

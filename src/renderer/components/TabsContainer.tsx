@@ -1,7 +1,7 @@
 // src/renderer/components/TabsContainer.tsx
 import React from "react";
 import TabItem from "./TabItem"; // TabItem також має бути оновлений для dark mode
-import type { Tab } from "./MainPanel";
+import { Tab } from "../types";
 
 interface TabsContainerProps {
   tabs: Tab[];

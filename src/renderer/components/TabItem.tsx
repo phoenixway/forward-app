@@ -1,12 +1,12 @@
 // src/renderer/components/TabItem.tsx
 import React from "react";
-import type { Tab } from "./MainPanel";
 import { X } from "lucide-react";
 import {
   DragDropContext,
   Droppable,
   OnDragEndResponder,
 } from "@hello-pangea/dnd"; // <--- ІМПОРТ
+import { Tab } from "../types";
 
 interface TabItemProps {
   tab: Tab;

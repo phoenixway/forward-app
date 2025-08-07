@@ -138151,121 +138151,6 @@ exports["default"] = App;
 
 /***/ }),
 
-/***/ "./src/renderer/components/AssociatedListsPopover.tsx":
-/*!************************************************************!*\
-  !*** ./src/renderer/components/AssociatedListsPopover.tsx ***!
-  \************************************************************/
-/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
-// src/renderer/components/AssociatedListsPopover.tsx
-const react_1 = __webpack_require__(/*! react */ "./node_modules/react/index.js");
-const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/hooks.ts");
-const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts");
-const events_1 = __webpack_require__(/*! ../events */ "./src/renderer/events.ts"); // ВИПРАВЛЕНО: Шлях імпорту
-const lucide_react_1 = __webpack_require__(/*! lucide-react */ "./node_modules/lucide-react/dist/esm/lucide-react.js");
-const toolkit_1 = __webpack_require__(/*! @reduxjs/toolkit */ "./node_modules/@reduxjs/toolkit/dist/redux-toolkit.modern.mjs"); // Додано для генерації ID
-const AssociatedListsPopover = ({ targetGoal, onClose, anchorEl, }) => {
-    const dispatch = (0, hooks_1.useAppDispatch)();
-    const { associatedListDetails, availableListsToSelect } = (0, hooks_1.useAppSelector)((state) => {
-        const currentTargetGoal = state.lists.goals[targetGoal.id] || targetGoal;
-        const associatedIds = new Set(currentTargetGoal.associatedListIds || []);
-        const allLists = Object.values(state.lists.goalLists);
-        const associatedDetails = allLists.filter((list) => associatedIds.has(list.id));
-        const availableLists = allLists.filter((list) => !associatedIds.has(list.id));
-        return {
-            associatedListDetails: associatedDetails,
-            availableListsToSelect: availableLists,
-        };
-    });
-    const [showCreateNewListForm, setShowCreateNewListForm] = (0, react_1.useState)(false);
-    const [newListName, setNewListName] = (0, react_1.useState)("");
-    const [listIdToAssociateSelection, setListIdToAssociateSelection] = (0, react_1.useState)("");
-    const popoverRef = (0, react_1.useRef)(null);
-    const newListInputRef = (0, react_1.useRef)(null);
-    (0, react_1.useEffect)(() => {
-        const handleClickOutside = (event) => {
-            if (popoverRef.current &&
-                !popoverRef.current.contains(event.target) &&
-                !anchorEl?.contains(event.target)) {
-                onClose();
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
-    }, [onClose, anchorEl]);
-    (0, react_1.useEffect)(() => {
-        if (showCreateNewListForm && newListInputRef.current) {
-            newListInputRef.current.focus();
-        }
-    }, [showCreateNewListForm]);
-    const handleAssociateList = (selectedListId) => {
-        if (!selectedListId)
-            return;
-        dispatch((0, listsSlice_1.goalAssociated)({ goalId: targetGoal.id, listId: selectedListId }));
-        setListIdToAssociateSelection("");
-    };
-    const handleDisassociateList = (listIdToDisassociate) => {
-        dispatch((0, listsSlice_1.goalDisassociated)({
-            goalId: targetGoal.id,
-            listId: listIdToDisassociate,
-        }));
-    };
-    // ВИПРАВЛЕНО: Функція тепер створює повний об'єкт GoalList
-    const handleCreateAndAssociateList = () => {
-        const trimmedName = newListName.trim();
-        if (!trimmedName) {
-            alert("Назва списку не може бути порожньою.");
-            if (newListInputRef.current)
-                newListInputRef.current.focus();
-            return;
-        }
-        const newId = (0, toolkit_1.nanoid)();
-        const now = Date.now();
-        const newList = {
-            id: newId,
-            name: trimmedName,
-            parentId: null, // Створюємо як список верхнього рівня
-            createdAt: now,
-            updatedAt: now,
-            description: "",
-            isExpanded: true,
-            order: 0,
-            tags: [],
-        };
-        dispatch((0, listsSlice_1.listAdded)(newList));
-        dispatch((0, listsSlice_1.goalAssociated)({ goalId: targetGoal.id, listId: newList.id }));
-        setShowCreateNewListForm(false);
-        setNewListName("");
-    };
-    const handleOpenAssociatedList = (listId, listName) => {
-        (0, events_1.dispatchOpenGoalListEvent)(listId, listName);
-        onClose();
-    };
-    const buttonClass = "p-1 rounded text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-none";
-    const smallButtonClass = "px-2 py-1 text-xs rounded-md font-medium";
-    return ((0, jsx_runtime_1.jsxs)("div", { ref: popoverRef, className: "absolute z-20 mt-1 w-80 max-w-sm rounded-md shadow-xl bg-white dark:bg-slate-800 ring-1 ring-black dark:ring-slate-700 ring-opacity-5 focus:outline-none p-3\n                 right-0 top-full transform translate-y-1 text-sm text-slate-800 dark:text-slate-200", onClick: (e) => e.stopPropagation(), children: [(0, jsx_runtime_1.jsxs)("div", { className: "flex justify-between items-center mb-3 pb-2 border-b border-slate-200 dark:border-slate-700", children: [(0, jsx_runtime_1.jsx)("h4", { className: "font-semibold text-slate-900 dark:text-slate-100 truncate pr-2", title: `Для цілі: ${targetGoal.text}`, children: "\u0410\u0441\u043E\u0446\u0456\u0439\u043E\u0432\u0430\u043D\u0456 \u0441\u043F\u0438\u0441\u043A\u0438" }), (0, jsx_runtime_1.jsx)("button", { onClick: onClose, className: `${buttonClass} hover:text-red-500 dark:hover:text-red-400`, children: (0, jsx_runtime_1.jsx)(lucide_react_1.X, { size: 18 }) })] }), (0, jsx_runtime_1.jsxs)("div", { className: "mb-3", children: [(0, jsx_runtime_1.jsx)("h5", { className: "text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5", children: "\u041F\u0440\u0438\u0432'\u044F\u0437\u0430\u043D\u0456 \u0441\u043F\u0438\u0441\u043A\u0438:" }), (0, jsx_runtime_1.jsxs)("div", { className: "max-h-28 overflow-y-auto space-y-1 pr-1 custom-scrollbar", children: [associatedListDetails.length === 0 && ((0, jsx_runtime_1.jsx)("p", { className: "text-xs text-slate-400 dark:text-slate-500 italic px-1", children: "\u041D\u0435\u043C\u0430\u0454 \u0430\u0441\u043E\u0446\u0456\u0439\u043E\u0432\u0430\u043D\u0438\u0445 \u0441\u043F\u0438\u0441\u043A\u0456\u0432." })), associatedListDetails.map((list) => ((0, jsx_runtime_1.jsxs)("div", { className: "flex justify-between items-center py-1 group hover:bg-slate-50 dark:hover:bg-slate-700/60 px-1.5 rounded-md", children: [(0, jsx_runtime_1.jsx)("span", { className: "truncate flex-grow mr-2 cursor-pointer hover:underline", title: `Відкрити список: ${list.name}`, onClick: () => handleOpenAssociatedList(list.id, list.name), children: list.name }), (0, jsx_runtime_1.jsxs)("div", { className: "flex-shrink-0 flex items-center space-x-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity", children: [(0, jsx_runtime_1.jsx)("button", { onClick: () => handleOpenAssociatedList(list.id, list.name), title: "\u0412\u0456\u0434\u043A\u0440\u0438\u0442\u0438 \u0441\u043F\u0438\u0441\u043E\u043A", className: `${buttonClass} hover:text-blue-500 dark:hover:text-blue-400`, children: (0, jsx_runtime_1.jsx)(lucide_react_1.Eye, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: () => handleDisassociateList(list.id), title: "\u0412\u0456\u0434\u0432'\u044F\u0437\u0430\u0442\u0438 \u0446\u0435\u0439 \u0441\u043F\u0438\u0441\u043E\u043A", className: `${buttonClass} hover:text-orange-500 dark:hover:text-orange-400`, children: (0, jsx_runtime_1.jsx)(lucide_react_1.Link2Off, { size: 14 }) })] })] }, list.id)))] })] }), !showCreateNewListForm && availableListsToSelect.length > 0 && ((0, jsx_runtime_1.jsxs)("div", { className: "mb-3 pt-3 border-t border-slate-200 dark:border-slate-700", children: [(0, jsx_runtime_1.jsx)("label", { htmlFor: "associate-list-select", className: "block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1", children: "\u041F\u0440\u0438\u0432'\u044F\u0437\u0430\u0442\u0438 \u0456\u0441\u043D\u0443\u044E\u0447\u0438\u0439 \u0441\u043F\u0438\u0441\u043E\u043A:" }), (0, jsx_runtime_1.jsxs)("div", { className: "flex space-x-2", children: [(0, jsx_runtime_1.jsxs)("select", { id: "associate-list-select", value: listIdToAssociateSelection, onChange: (e) => setListIdToAssociateSelection(e.target.value), className: "flex-grow block w-full pl-2 pr-7 py-1.5 text-xs border-slate-300 dark:border-slate-600\n                         bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100\n                         focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:focus:ring-indigo-400\n                         focus:border-indigo-500 dark:focus:border-indigo-400 rounded-md", children: [(0, jsx_runtime_1.jsx)("option", { value: "", children: "\u0412\u0438\u0431\u0435\u0440\u0456\u0442\u044C \u0441\u043F\u0438\u0441\u043E\u043A..." }), availableListsToSelect.map((list) => ((0, jsx_runtime_1.jsx)("option", { value: list.id, children: list.name }, list.id)))] }), (0, jsx_runtime_1.jsxs)("button", { onClick: () => handleAssociateList(listIdToAssociateSelection), disabled: !listIdToAssociateSelection, className: `${smallButtonClass} bg-blue-500 hover:bg-blue-600 text-white dark:bg-blue-600 dark:hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center`, children: [(0, jsx_runtime_1.jsx)(lucide_react_1.Link2, { size: 14, className: "mr-1" }), " \u0417\u0432'\u044F\u0437\u0430\u0442\u0438"] })] })] })), (0, jsx_runtime_1.jsx)("div", { className: "pt-3 border-t border-slate-200 dark:border-slate-700", children: showCreateNewListForm ? ((0, jsx_runtime_1.jsxs)("div", { children: [(0, jsx_runtime_1.jsx)("label", { htmlFor: "new-associated-list-name", className: "block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1", children: "\u041D\u0430\u0437\u0432\u0430 \u043D\u043E\u0432\u043E\u0433\u043E \u0441\u043F\u0438\u0441\u043A\u0443 \u0434\u043B\u044F \u043F\u0440\u0438\u0432'\u044F\u0437\u043A\u0438:" }), (0, jsx_runtime_1.jsx)("input", { ref: newListInputRef, id: "new-associated-list-name", type: "text", value: newListName, onChange: (e) => setNewListName(e.target.value), placeholder: "\u041D\u0430\u043F\u0440\u0438\u043A\u043B\u0430\u0434, '\u041A\u0440\u043E\u043A\u0438 \u0434\u043B\u044F \u043F\u0456\u0434\u0446\u0456\u043B\u0456'", className: "w-full px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-xs mb-2\n                         bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100\n                         focus:ring-1 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 placeholder-slate-400 dark:placeholder-slate-500", onKeyDown: (e) => {
-                                if (e.key === "Enter")
-                                    handleCreateAndAssociateList();
-                                if (e.key === "Escape") {
-                                    setShowCreateNewListForm(false);
-                                    setNewListName("");
-                                }
-                            } }), (0, jsx_runtime_1.jsxs)("div", { className: "flex justify-end space-x-2", children: [(0, jsx_runtime_1.jsx)("button", { onClick: () => {
-                                        setShowCreateNewListForm(false);
-                                        setNewListName("");
-                                    }, className: `${smallButtonClass} bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-500`, children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" }), (0, jsx_runtime_1.jsxs)("button", { onClick: handleCreateAndAssociateList, className: `${smallButtonClass} bg-green-500 hover:bg-green-600 text-white dark:bg-green-600 dark:hover:bg-green-700 flex items-center`, children: [(0, jsx_runtime_1.jsx)(lucide_react_1.Plus, { size: 14, className: "mr-1" }), " \u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438 \u0456 \u0437\u0432'\u044F\u0437\u0430\u0442\u0438"] })] })] })) : ((0, jsx_runtime_1.jsxs)("button", { onClick: () => setShowCreateNewListForm(true), className: "w-full text-left px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-700/60 rounded-md text-xs text-green-600 dark:text-green-400 font-medium flex items-center", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.Plus, { size: 14, className: "mr-1.5" }), " \u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438 \u043D\u043E\u0432\u0438\u0439 \u0441\u043F\u0438\u0441\u043E\u043A \u0442\u0430 \u043F\u0440\u0438\u0432'\u044F\u0437\u0430\u0442\u0438"] })) })] }));
-};
-exports["default"] = AssociatedListsPopover;
-
-
-/***/ }),
-
 /***/ "./src/renderer/components/DropActionMenu.tsx":
 /*!****************************************************!*\
   !*** ./src/renderer/components/DropActionMenu.tsx ***!
@@ -138633,7 +138518,6 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
 // src/renderer/components/GoalListPage.tsx
 const react_1 = __importStar(__webpack_require__(/*! react */ "./node_modules/react/index.js"));
-// ВИПРАВЛЕНО: Імпортуємо типізовані хуки
 const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/hooks.ts");
 const selectors_1 = __webpack_require__(/*! ../store/selectors */ "./src/renderer/store/selectors.ts");
 const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts");
@@ -138641,11 +138525,9 @@ const lucide_react_1 = __webpack_require__(/*! lucide-react */ "./node_modules/l
 const SortableGoalItem_1 = __importDefault(__webpack_require__(/*! ./SortableGoalItem */ "./src/renderer/components/SortableGoalItem.tsx"));
 const GoalEditModal_1 = __importDefault(__webpack_require__(/*! ./GoalEditModal */ "./src/renderer/components/GoalEditModal.tsx"));
 function GoalListPage({ listId, filterText, obsidianVaultName, onTagClickForFilter, }) {
-    // ВИПРАВЛЕНО: Використовуємо useAppDispatch
     const dispatch = (0, hooks_1.useAppDispatch)();
     const selectListInfo = (0, react_1.useMemo)(selectors_1.makeSelectListInfo, []);
     const selectEnrichedInstances = (0, react_1.useMemo)(selectors_1.makeSelectEnrichedGoalInstances, []);
-    // ВИПРАВЛЕНО: Використовуємо useAppSelector
     const listInfo = (0, hooks_1.useAppSelector)((state) => selectListInfo(state, listId));
     const allEnrichedGoals = (0, hooks_1.useAppSelector)((state) => selectEnrichedInstances(state, listId));
     const [activeFilteredGoals, setActiveFilteredGoals] = (0, react_1.useState)([]);
@@ -138663,9 +138545,7 @@ function GoalListPage({ listId, filterText, obsidianVaultName, onTagClickForFilt
         dispatch((0, listsSlice_1.goalToggled)(goalId));
     }, [dispatch]);
     const handleDeleteGoal = (0, react_1.useCallback)((instanceId) => {
-        const goalInstanceToDelete = allEnrichedGoals.find(
-        // ВИПРАВЛЕНО: Звертаємось до instance.instanceId
-        ({ instance }) => instance.instanceId === instanceId);
+        const goalInstanceToDelete = allEnrichedGoals.find(({ instance }) => instance.instanceId === instanceId);
         if (goalInstanceToDelete &&
             window.confirm(`Видалити ціль "${goalInstanceToDelete.goal.text}" зі списку?`)) {
             dispatch((0, listsSlice_1.instanceRemovedFromList)({ listId, instanceId }));
@@ -138687,9 +138567,7 @@ function GoalListPage({ listId, filterText, obsidianVaultName, onTagClickForFilt
     }
     return ((0, jsx_runtime_1.jsxs)("div", { className: "pt-3 pl-1.5 pr-4 pb-4 min-h-full flex flex-col", children: [(0, jsx_runtime_1.jsxs)("div", { className: "flex-grow pr-1 overflow-y-auto", children: [activeFilteredGoals.length === 0 && !editingGoal && ((0, jsx_runtime_1.jsxs)("div", { className: "text-center py-8 px-2 flex flex-col items-center justify-center h-full", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.SearchX, { size: 40, className: "text-slate-400 dark:text-slate-500 mb-3", strokeWidth: 1.5 }), (0, jsx_runtime_1.jsx)("p", { className: "text-slate-500 dark:text-slate-400 text-sm", children: filterText.trim()
                                     ? `Цілей за фільтром "${filterText}" не знайдено у списку "${listInfo.name}".`
-                                    : `У списку "${listInfo.name}" ще немає цілей.` }), !filterText.trim() && ((0, jsx_runtime_1.jsx)("p", { className: "text-xs text-slate-400 dark:text-slate-500 mt-1", children: "\u0414\u043E\u0434\u0430\u0439\u0442\u0435 \u043F\u0435\u0440\u0448\u0443 \u0446\u0456\u043B\u044C, \u0432\u0438\u043A\u043E\u0440\u0438\u0441\u0442\u043E\u0432\u0443\u044E\u0447\u0438 \u043A\u043E\u043C\u0430\u043D\u0434\u043D\u0438\u0439 \u0440\u044F\u0434\u043E\u043A \u0432\u043D\u0438\u0437\u0443 \u0435\u043A\u0440\u0430\u043D\u0430." }))] })), activeFilteredGoals.length > 0 && ((0, jsx_runtime_1.jsx)("ul", { className: "space-y-1.5", children: activeFilteredGoals.map(({ instance, goal, associatedLists }, itemIndex) => ((0, jsx_runtime_1.jsx)(SortableGoalItem_1.default
-                        // ВИПРАВЛЕНО: Використовуємо instance.instanceId
-                        , { instanceId: instance.instanceId, goal: goal, associatedLists: associatedLists, index: itemIndex, onToggle: handleToggleGoal, onDelete: handleDeleteGoal, onStartEdit: handleStartEditGoal, obsidianVaultName: obsidianVaultName, onTagClickForFilter: onTagClickForFilter }, instance.instanceId))) }))] }), editingGoal && ((0, jsx_runtime_1.jsx)(GoalEditModal_1.default, { goal: editingGoal, onClose: handleCancelEditGoal }))] }));
+                                    : `У списку "${listInfo.name}" ще немає цілей.` }), !filterText.trim() && ((0, jsx_runtime_1.jsx)("p", { className: "text-xs text-slate-400 dark:text-slate-500 mt-1", children: "\u0414\u043E\u0434\u0430\u0439\u0442\u0435 \u043F\u0435\u0440\u0448\u0443 \u0446\u0456\u043B\u044C, \u0432\u0438\u043A\u043E\u0440\u0438\u0441\u0442\u043E\u0432\u0443\u044E\u0447\u0438 \u043A\u043E\u043C\u0430\u043D\u0434\u043D\u0438\u0439 \u0440\u044F\u0434\u043E\u043A \u0432\u043D\u0438\u0437\u0443 \u0435\u043A\u0440\u0430\u043D\u0430." }))] })), activeFilteredGoals.length > 0 && ((0, jsx_runtime_1.jsx)("ul", { className: "space-y-1.5", children: activeFilteredGoals.map(({ instance, goal, associatedLists }, itemIndex) => ((0, jsx_runtime_1.jsx)(SortableGoalItem_1.default, { instanceId: instance.instanceId, goal: goal, associatedLists: associatedLists, index: itemIndex, onToggle: handleToggleGoal, onDelete: handleDeleteGoal, onStartEdit: handleStartEditGoal, obsidianVaultName: obsidianVaultName, onTagClickForFilter: onTagClickForFilter }, instance.instanceId))) }))] }), editingGoal && ((0, jsx_runtime_1.jsx)(GoalEditModal_1.default, { goal: editingGoal, onClose: handleCancelEditGoal }))] }));
 }
 exports["default"] = react_1.default.memo(GoalListPage);
 
@@ -139507,7 +139385,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
-// src/renderer/components/MainPanel.tsx
 const react_1 = __webpack_require__(/*! react */ "./node_modules/react/index.js");
 const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/hooks.ts");
 const GoalListPage_1 = __importDefault(__webpack_require__(/*! ./GoalListPage */ "./src/renderer/components/GoalListPage.tsx"));
@@ -139533,6 +139410,40 @@ function MainPanel({ currentThemePreference, onChangeThemePreference, obsidianVa
     const [editingListName, setEditingListName] = (0, react_1.useState)("");
     const [editingListDescription, setEditingListDescription] = (0, react_1.useState)("");
     const editingListModalRef = (0, react_1.useRef)(null);
+    // Ефект для завантаження та збереження вкладок
+    (0, react_1.useEffect)(() => {
+        const loadTabs = async () => {
+            if (window.electronAPI) {
+                const settings = await window.electronAPI.getAppSettings();
+                const savedTabs = settings?.session?.openTabs;
+                const savedActiveTabId = settings?.session?.activeTabId;
+                if (Array.isArray(savedTabs) && savedTabs.length > 0) {
+                    setTabs(savedTabs);
+                    if (savedActiveTabId && savedTabs.some(t => t.id === savedActiveTabId)) {
+                        setActiveTabId(savedActiveTabId);
+                    }
+                    else {
+                        setActiveTabId(savedTabs[0].id);
+                    }
+                }
+            }
+        };
+        loadTabs();
+        const cleanupSaveRequestHandler = window.electronAPI.onRequestTabsForSaving(() => {
+            setTabs(currentTabs => {
+                setActiveTabId(currentActiveTabId => {
+                    if (window.electronAPI) {
+                        window.electronAPI.saveTabsState(currentTabs, currentActiveTabId);
+                    }
+                    return currentActiveTabId;
+                });
+                return currentTabs;
+            });
+        });
+        return () => {
+            cleanupSaveRequestHandler();
+        };
+    }, []);
     const getActiveListIdFromTab = (0, react_1.useCallback)(() => {
         const activeTab = tabs.find((tab) => tab.id === activeTabId);
         return activeTab?.type === "goal-list" ? activeTab.listId || null : null;
@@ -139609,6 +139520,9 @@ function MainPanel({ currentThemePreference, onChangeThemePreference, obsidianVa
             const indexToClose = prevTabs.findIndex((tab) => tab.id === tabIdToClose);
             if (indexToClose === -1)
                 return prevTabs;
+            const tabToClose = prevTabs[indexToClose];
+            if (tabToClose.isClosable === false)
+                return prevTabs;
             const newTabs = prevTabs.filter((tab) => tab.id !== tabIdToClose);
             if (activeTabId === tabIdToClose) {
                 const newActiveIndex = Math.max(0, indexToClose - 1);
@@ -139617,14 +139531,6 @@ function MainPanel({ currentThemePreference, onChangeThemePreference, obsidianVa
             return newTabs;
         });
     }, [activeTabId]);
-    (0, react_1.useEffect)(() => {
-        const cleanup = window.electronAPI.onCloseCurrentTab(() => {
-            if (activeTabId) {
-                handleTabClose(activeTabId);
-            }
-        });
-        return () => cleanup();
-    }, [activeTabId, handleTabClose]);
     const handleNavigateNextTab = (0, react_1.useCallback)(() => {
         if (!activeTabId || tabs.length < 2)
             return;
@@ -139643,7 +139549,6 @@ function MainPanel({ currentThemePreference, onChangeThemePreference, obsidianVa
         const prevIndex = (currentIndex - 1 + tabs.length) % tabs.length;
         setActiveTabId(tabs[prevIndex].id);
     }, [tabs, activeTabId]);
-    // Оновлено useEffect для обробки всіх гарячих клавіш
     (0, react_1.useEffect)(() => {
         const cleanupClose = window.electronAPI.onCloseCurrentTab(() => {
             if (activeTabId) {
@@ -139672,14 +139577,15 @@ function MainPanel({ currentThemePreference, onChangeThemePreference, obsidianVa
     const renderActiveTabContent = () => {
         const activeTabData = tabs.find((tab) => tab.id === activeTabId);
         if (!activeTabData) {
-            // Видалено пропс onCreateList
             return (0, jsx_runtime_1.jsx)(NoListSelected_1.default, {});
         }
         switch (activeTabData.type) {
             case "goal-list":
                 const listId = activeTabData.listId;
                 if (!listId || !goalLists[listId]) {
-                    return (0, jsx_runtime_1.jsx)("div", { className: "p-4 text-slate-600 dark:text-slate-400", children: "\u0421\u043F\u0438\u0441\u043E\u043A \u0432\u0438\u0434\u0430\u043B\u0435\u043D\u043E \u0430\u0431\u043E \u043D\u0435 \u0456\u0441\u043D\u0443\u0454." });
+                    // Якщо списку більше не існує, закриваємо вкладку
+                    setTimeout(() => handleTabClose(activeTabData.id), 0);
+                    return (0, jsx_runtime_1.jsx)("div", { className: "p-4 text-slate-600 dark:text-slate-400", children: "\u0421\u043F\u0438\u0441\u043E\u043A \u0432\u0438\u0434\u0430\u043B\u0435\u043D\u043E \u0430\u0431\u043E \u043D\u0435 \u0456\u0441\u043D\u0443\u0454. \u0417\u0430\u043A\u0440\u0438\u0442\u0442\u044F..." });
                 }
                 return ((0, jsx_runtime_1.jsx)(dnd_1.Droppable, { droppableId: listId, type: "GOAL", children: (provided) => ((0, jsx_runtime_1.jsxs)("div", { ref: provided.innerRef, ...provided.droppableProps, className: "h-full", children: [(0, jsx_runtime_1.jsx)(GoalListPage_1.default, { listId: listId, filterText: globalFilterTerm || '', obsidianVaultName: obsidianVaultPath }, listId), provided.placeholder] })) }));
             case "settings":
@@ -139957,31 +139863,33 @@ const react_1 = __webpack_require__(/*! react */ "./node_modules/react/index.js"
 const dnd_1 = __webpack_require__(/*! @hello-pangea/dnd */ "./node_modules/@hello-pangea/dnd/dist/dnd.esm.js");
 const lucide_react_1 = __webpack_require__(/*! lucide-react */ "./node_modules/lucide-react/dist/esm/lucide-react.js");
 const GoalTextRenderer_1 = __importDefault(__webpack_require__(/*! ./GoalTextRenderer */ "./src/renderer/components/GoalTextRenderer.tsx"));
-const AssociatedListsPopover_1 = __importDefault(__webpack_require__(/*! ./AssociatedListsPopover */ "./src/renderer/components/AssociatedListsPopover.tsx"));
-// ВИПРАВЛЕНО: Імпортуємо типізовані хуки
+const events_1 = __webpack_require__(/*! ../events */ "./src/renderer/events.ts");
 const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/hooks.ts");
 const uiSlice_1 = __webpack_require__(/*! ../store/uiSlice */ "./src/renderer/store/uiSlice.ts");
-const events_1 = __webpack_require__(/*! ../events */ "./src/renderer/events.ts");
+const ScoreBadge = ({ goal }) => {
+    const isAssessed = goal.scoringStatus === 'ASSESSED' && typeof goal.displayScore === 'number';
+    const isImpossibleToAssess = goal.scoringStatus === 'IMPOSSIBLE_TO_ASSESS';
+    if (isAssessed) {
+        const score = goal.rawScore ?? 0;
+        const colorClass = score > 0.05 ? 'text-green-600 dark:text-green-400'
+            : score < -0.05 ? 'text-red-600 dark:text-red-400'
+                : 'text-slate-500 dark:text-slate-400';
+        return ((0, jsx_runtime_1.jsxs)("div", { className: `flex items-center text-xs font-semibold ${colorClass}`, title: `Оцінка: ${goal.displayScore}/100`, children: [(0, jsx_runtime_1.jsx)(lucide_react_1.Zap, { size: 14, className: "mr-0.5" }), (0, jsx_runtime_1.jsxs)("span", { children: [goal.displayScore, "/100"] })] }));
+    }
+    if (isImpossibleToAssess) {
+        return ((0, jsx_runtime_1.jsx)("div", { className: "flex items-center text-slate-400 dark:text-slate-500", title: "\u041D\u0435\u043C\u043E\u0436\u043B\u0438\u0432\u043E \u043E\u0446\u0456\u043D\u0438\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.ZapOff, { size: 14 }) }));
+    }
+    return null;
+};
 function SortableGoalItem({ instanceId, goal, index, associatedLists, onToggle, onDelete, onStartEdit, obsidianVaultName, onTagClickForFilter, }) {
-    // ВИПРАВЛЕНО: Використовуємо типізовані хуки
     const dispatch = (0, hooks_1.useAppDispatch)();
     const goalToHighlight = (0, hooks_1.useAppSelector)((state) => state.ui.goalToHighlight);
     const [isExpanded, setIsExpanded] = (0, react_1.useState)(false);
-    const [isAssocPopoverOpen, setIsAssocPopoverOpen] = (0, react_1.useState)(false);
-    const popoverAnchorRef = (0, react_1.useRef)(null);
     const hasAssociatedLists = associatedLists.length > 0;
+    const shouldRenderExpandButton = hasAssociatedLists;
     const toggleExpand = (0, react_1.useCallback)((event) => {
         event.stopPropagation();
-        if (hasAssociatedLists) {
-            setIsExpanded((prev) => !prev);
-        }
-    }, [hasAssociatedLists]);
-    const toggleAssocPopover = (0, react_1.useCallback)((event) => {
-        event.stopPropagation();
-        setIsAssocPopoverOpen((prev) => !prev);
-    }, []);
-    const closeAssocPopover = (0, react_1.useCallback)(() => {
-        setIsAssocPopoverOpen(false);
+        setIsExpanded((prev) => !prev);
     }, []);
     const handleGoToList = (0, react_1.useCallback)((event, list) => {
         event.stopPropagation();
@@ -139994,25 +139902,21 @@ function SortableGoalItem({ instanceId, goal, index, associatedLists, onToggle, 
         if (isHighlighted) {
             const element = document.getElementById(`goal-${goal.id}`);
             element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            const timer = setTimeout(() => {
-                dispatch((0, uiSlice_1.setGoalToHighlight)(null));
-            }, 2500);
+            const timer = setTimeout(() => { dispatch((0, uiSlice_1.setGoalToHighlight)(null)); }, 2500);
             return () => clearTimeout(timer);
         }
     }, [isHighlighted, dispatch, goal.id]);
-    return ((0, jsx_runtime_1.jsx)(dnd_1.Draggable, { draggableId: instanceId, index: index, children: (provided, snapshot) => ((0, jsx_runtime_1.jsxs)("li", { id: `goal-${goal.id}`, ref: provided.innerRef, ...provided.draggableProps, className: `group relative p-2.5 rounded-md flex items-start justify-between transition-all duration-150 border ${snapshot.isDragging
-                ? "ring-2 ring-indigo-500 dark:ring-indigo-400 shadow-xl bg-indigo-50 dark:bg-indigo-900/60"
-                : isHighlighted
-                    ? "ring-2 ring-blue-500 dark:ring-blue-400 bg-blue-50 dark:bg-blue-900/40 shadow-lg"
-                    : goal.completed
-                        ? "text-slate-500 dark:text-slate-500 bg-slate-100 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/50"
-                        : "text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600"} ${!snapshot.isDragging && !isHighlighted && "hover:shadow-md dark:hover:shadow-black/10"}`, style: provided.draggableProps.style, children: [(0, jsx_runtime_1.jsx)("div", { className: "flex-shrink-0 pt-0.5", children: (0, jsx_runtime_1.jsx)("button", { ...provided.dragHandleProps, type: "button", className: "p-1 mr-2 cursor-grab focus:outline-none text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-600", "aria-label": "\u041F\u0435\u0440\u0435\u0442\u044F\u0433\u043D\u0443\u0442\u0438 \u0446\u0456\u043B\u044C", title: "\u041F\u0435\u0440\u0435\u0442\u044F\u0433\u043D\u0443\u0442\u0438 \u0434\u043B\u044F \u0441\u043E\u0440\u0442\u0443\u0432\u0430\u043D\u043D\u044F", children: (0, jsx_runtime_1.jsx)(lucide_react_1.GripVertical, { size: 18 }) }) }), (0, jsx_runtime_1.jsxs)("div", { className: "flex items-start flex-grow mr-2 min-w-0", children: [(0, jsx_runtime_1.jsx)("input", { type: "checkbox", checked: goal.completed, onChange: () => onToggle(goal.id), className: "h-4 w-4 text-indigo-600 dark:text-indigo-400 border-slate-300 dark:border-slate-500 rounded focus:ring-1 focus:ring-offset-1 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:focus:ring-offset-slate-700 mr-2.5 cursor-pointer flex-shrink-0 mt-1", "aria-label": `Позначити ціль ${goal.text}` }), (0, jsx_runtime_1.jsxs)("div", { className: "flex-grow min-w-0", children: [(0, jsx_runtime_1.jsxs)("div", { className: "flex items-center min-w-0", children: [(0, jsx_runtime_1.jsx)("div", { onClick: (e) => {
-                                                const targetElement = e.target;
-                                                const isChildInteractive = targetElement.closest("a") || targetElement.closest("button") || targetElement.closest("span[data-tag-name]");
-                                                if (!isChildInteractive && !goal.completed) {
-                                                    onStartEdit(goal);
-                                                }
-                                            }, className: `text-sm ${goal.completed ? "line-through opacity-70 dark:opacity-60" : "text-slate-800 dark:text-slate-100 cursor-pointer"}`, title: goal.text, children: (0, jsx_runtime_1.jsx)(GoalTextRenderer_1.default, { text: goal.text, stripFields: true, obsidianVaultName: obsidianVaultName, onTagClick: onTagClickForFilter }) }), (0, jsx_runtime_1.jsx)("div", { className: `flex-1 flex items-center min-w-0 overflow-hidden ml-2 transition-opacity duration-200 opacity-0 ${!isExpanded ? 'group-hover:opacity-100' : ''}`, "aria-hidden": "true", children: (0, jsx_runtime_1.jsx)("div", { className: "flex items-center flex-nowrap", children: associatedLists.map((list) => ((0, jsx_runtime_1.jsx)("button", { tabIndex: -1, onClick: (e) => handleGoToList(e, list), title: `Перейти до списку: ${list.name}`, className: "inline-flex items-center text-xs bg-slate-200 dark:bg-slate-600/80 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded mr-1 flex-shrink-0 whitespace-nowrap overflow-hidden text-ellipsis hover:bg-slate-300 dark:hover:bg-slate-500", children: list.name }, list.id))) }) })] }), (0, jsx_runtime_1.jsx)("div", { className: `transition-all duration-300 ease-in-out overflow-hidden max-h-0 opacity-0 ${isExpanded ? "max-h-96 opacity-100 mt-2" : ""}`, children: hasAssociatedLists && ((0, jsx_runtime_1.jsx)("div", { className: "flex flex-wrap gap-1.5", children: associatedLists.map((list) => ((0, jsx_runtime_1.jsx)("button", { onClick: (e) => handleGoToList(e, list), title: `Перейти до списку: ${list.name}`, className: "inline-flex items-center text-xs bg-indigo-100 dark:bg-indigo-800/80 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded-md hover:bg-indigo-200 dark:hover:bg-indigo-700 focus:outline-none focus:ring-1 focus:ring-indigo-500", children: list.name }, list.id))) })) })] })] }), (0, jsx_runtime_1.jsxs)("div", { className: "flex-shrink-0 flex items-center space-x-0.5 relative opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150 pt-0.5", children: [hasAssociatedLists && !goal.completed && ((0, jsx_runtime_1.jsx)("button", { onClick: toggleExpand, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 focus:outline-none rounded hover:bg-sky-100 dark:hover:bg-sky-700/50", title: isExpanded ? "Сховати списки" : "Показати списки", children: isExpanded ? (0, jsx_runtime_1.jsx)(lucide_react_1.ChevronUp, { size: 16 }) : (0, jsx_runtime_1.jsx)(lucide_react_1.ChevronDown, { size: 16 }) })), !goal.completed && ((0, jsx_runtime_1.jsx)("button", { ref: popoverAnchorRef, onClick: toggleAssocPopover, className: `p-1 text-slate-500 dark:text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 focus:outline-none rounded hover:bg-purple-100 dark:hover:bg-purple-700/50 ${isAssocPopoverOpen ? "bg-purple-100 dark:bg-purple-700/50 text-purple-600 dark:text-purple-400" : ""}`, title: "\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u0430\u0441\u043E\u0446\u0456\u0439\u043E\u0432\u0430\u043D\u0456 \u0441\u043F\u0438\u0441\u043A\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Link, { size: 16 }) })), !goal.completed && ((0, jsx_runtime_1.jsx)("button", { onClick: () => onStartEdit(goal), className: "p-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 focus:outline-none rounded hover:bg-blue-100 dark:hover:bg-blue-700/50", title: "\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u0446\u0456\u043B\u044C", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Edit2, { size: 16 }) })), (0, jsx_runtime_1.jsx)("button", { onClick: () => onDelete(instanceId), className: "p-1 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 focus:outline-none rounded hover:bg-red-100 dark:hover:bg-red-700/50", title: "\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u0446\u0435\u0439 \u0435\u043A\u0437\u0435\u043C\u043F\u043B\u044F\u0440 \u0446\u0456\u043B\u0456", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Trash2, { size: 16 }) }), isAssocPopoverOpen && ((0, jsx_runtime_1.jsx)(AssociatedListsPopover_1.default, { targetGoal: goal, onClose: closeAssocPopover, anchorEl: popoverAnchorRef.current }))] })] })) }));
+    const handleContainerClick = (e) => {
+        const target = e.target;
+        if (!target.closest('button, a, input, [data-tag-name]')) {
+            if (!goal.completed)
+                onStartEdit(goal);
+        }
+    };
+    return ((0, jsx_runtime_1.jsx)(dnd_1.Draggable, { draggableId: instanceId, index: index, children: (provided, snapshot) => ((0, jsx_runtime_1.jsxs)("li", { id: `goal-${goal.id}`, ref: provided.innerRef, ...provided.draggableProps, onClick: handleContainerClick, className: `group relative p-2.5 rounded-md flex flex-col justify-between transition-all duration-150 border ${!goal.completed ? 'cursor-pointer' : ''} ${snapshot.isDragging ? "ring-2 ring-indigo-500 dark:ring-indigo-400 shadow-xl bg-indigo-50 dark:bg-indigo-900/60"
+                : isHighlighted ? "ring-2 ring-blue-500 dark:ring-blue-400 bg-blue-50 dark:bg-blue-900/40 shadow-lg"
+                    : goal.completed ? "bg-slate-100 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/50"
+                        : "bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600"} ${!snapshot.isDragging && !isHighlighted && "hover:shadow-md dark:hover:shadow-black/10"}`, style: provided.draggableProps.style, children: [(0, jsx_runtime_1.jsxs)("div", { className: "flex items-start w-full", children: [(0, jsx_runtime_1.jsx)("div", { className: "flex-shrink-0 pt-0.5", children: (0, jsx_runtime_1.jsx)("button", { ...provided.dragHandleProps, type: "button", onClick: e => e.stopPropagation(), className: "p-1 mr-2 cursor-grab focus:outline-none text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-600", "aria-label": "\u041F\u0435\u0440\u0435\u0442\u044F\u0433\u043D\u0443\u0442\u0438 \u0446\u0456\u043B\u044C", title: "\u041F\u0435\u0440\u0435\u0442\u044F\u0433\u043D\u0443\u0442\u0438 \u0434\u043B\u044F \u0441\u043E\u0440\u0442\u0443\u0432\u0430\u043D\u043D\u044F", children: (0, jsx_runtime_1.jsx)(lucide_react_1.GripVertical, { size: 18 }) }) }), (0, jsx_runtime_1.jsxs)("div", { className: "flex items-center flex-grow flex-wrap gap-x-2 mr-2 min-w-0", children: [(0, jsx_runtime_1.jsxs)("div", { className: "flex items-start flex-shrink-0", children: [(0, jsx_runtime_1.jsx)("input", { type: "checkbox", checked: goal.completed, onChange: () => onToggle(goal.id), onClick: e => e.stopPropagation(), className: "h-4 w-4 text-indigo-600 dark:text-indigo-400 border-slate-300 dark:border-slate-500 rounded focus:ring-1 focus:ring-offset-1 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:focus:ring-offset-slate-700 mr-2.5 cursor-pointer flex-shrink-0 mt-1", "aria-label": `Позначити ціль ${goal.text}` }), (0, jsx_runtime_1.jsx)("div", { className: `text-sm ${goal.completed ? "line-through text-slate-500 dark:text-slate-500 opacity-70 dark:opacity-60" : "text-slate-800 dark:text-slate-100"}`, title: goal.text, children: (0, jsx_runtime_1.jsx)(GoalTextRenderer_1.default, { text: goal.text, stripFields: true, obsidianVaultName: obsidianVaultName, onTagClick: onTagClickForFilter }) })] }), !isExpanded && hasAssociatedLists && ((0, jsx_runtime_1.jsx)("div", { className: "flex items-center space-x-1.5 flex-shrink-0", children: associatedLists.map(list => ((0, jsx_runtime_1.jsx)("span", { className: "text-xs bg-slate-200 dark:bg-slate-600/80 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded", children: list.name }, list.id))) }))] }), (0, jsx_runtime_1.jsxs)("div", { className: "flex-shrink-0 flex items-center space-x-2 pt-0.5", children: [(0, jsx_runtime_1.jsxs)("div", { className: "flex items-center opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150", children: [shouldRenderExpandButton && ((0, jsx_runtime_1.jsx)("button", { onClick: toggleExpand, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 rounded", title: isExpanded ? "Сховати деталі" : "Показати деталі", children: isExpanded ? (0, jsx_runtime_1.jsx)(lucide_react_1.ChevronUp, { size: 16 }) : (0, jsx_runtime_1.jsx)(lucide_react_1.ChevronDown, { size: 16 }) })), !goal.completed && ((0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onStartEdit(goal); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded", title: "\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u0446\u0456\u043B\u044C", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Edit2, { size: 16 }) })), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onDelete(instanceId); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded", title: "\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u0446\u0435\u0439 \u0435\u043A\u0437\u0435\u043C\u043F\u043B\u044F\u0440 \u0446\u0456\u043B\u0456", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Trash2, { size: 16 }) })] }), (0, jsx_runtime_1.jsx)("div", { className: "flex-shrink-0", children: (0, jsx_runtime_1.jsx)(ScoreBadge, { goal: goal }) })] })] }), isExpanded && hasAssociatedLists && ((0, jsx_runtime_1.jsx)("div", { className: "pl-10 pt-2", children: (0, jsx_runtime_1.jsx)("div", { className: "flex flex-wrap items-center gap-x-3 gap-y-1.5", children: associatedLists.map((list) => ((0, jsx_runtime_1.jsx)("button", { onClick: (e) => handleGoToList(e, list), title: `Перейти до списку: ${list.name}`, className: "inline-flex items-center text-xs bg-indigo-100 dark:bg-indigo-800/80 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded-md hover:bg-indigo-200 dark:hover:bg-indigo-700 focus:outline-none focus:ring-1 focus:ring-indigo-500", children: list.name }, list.id))) }) }))] })) }));
 }
 exports["default"] = SortableGoalItem;
 
@@ -141102,7 +141006,6 @@ __webpack_require__.r(__webpack_exports__);
 // src/renderer/types.ts
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.ScoringStatus = void 0;
-// ✨ ДОДАНО: Enum для статусу оцінки, як в Android.
 var ScoringStatus;
 (function (ScoringStatus) {
     ScoringStatus["NOT_ASSESSED"] = "NOT_ASSESSED";

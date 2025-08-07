@@ -99,6 +99,11 @@ const IPC_CHANNELS_FROM_PRELOAD = {
   TRIGGER_FILE_EXPORT: "trigger-file-export",
   TRIGGER_FILE_IMPORT: "trigger-file-import",
   TRIGGER_SHOW_SETTINGS: "trigger-show-settings",
+  CLOSE_CURRENT_TAB: "close-current-tab",
+  NAVIGATE_NEXT_TAB: 'navigate-next-tab',
+  NAVIGATE_PREVIOUS_TAB: 'navigate-previous-tab',
+  REQUEST_TABS_FOR_SAVING: 'request-tabs-for-saving',
+  SAVE_TABS_STATE: 'save-tabs-state',
 };
 
 let syncServer: Express | null = null;
@@ -118,6 +123,10 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, "../preload/preload.js"),
     },
+  });
+
+  mainWindowInstance.on('close', () => {
+    mainWindowInstance?.webContents.send('request-tabs-for-saving');
   });
 
   if (process.platform === "linux") {
@@ -499,24 +508,23 @@ app.whenReady().then(() => {
       {
         label: "File",
         submenu: [
-           {
-            label: "Close Tab",
-            accelerator: "CmdOrCtrl+W",
-            click: () => {
-              mainWindowInstance?.webContents.send("close-current-tab");
-            },
-          },
           {
             label: "Settings",
             click: () => {
               mainWindowInstance?.webContents.send("trigger-show-settings");
             },
           },
+          {
+            label: "Close Tab",
+            accelerator: "CmdOrCtrl+W",
+            click: () => {
+              mainWindowInstance?.webContents.send("close-current-tab");
+            },
+          },
           { type: 'separator' },
           { label: "Exit", role: "quit" },
         ],
       },
-
       {
         label: "Sync",
         submenu: [
@@ -534,20 +542,20 @@ app.whenReady().then(() => {
           },
           { type: 'separator' },
           {
-            label: "Import from Local Network...", // ЗМІНЕНО
+            label: "Import from Local Network...",
             click: () => {
               mainWindowInstance?.webContents.send("show-wifi-import-dialog");
             },
           },
           {
-            label: "Share via Local Network...", // ЗМІНЕНО
+            label: "Share via Local Network...",
             click: () => {
               mainWindowInstance?.webContents.send("show-wifi-server-status");
             },
           },
         ],
       },
-            {
+      {
         label: "View",
         submenu: [
             {
@@ -605,9 +613,18 @@ app.whenReady().then(() => {
     Menu.setApplicationMenu(menu);
     
     // --- IPC ОБРОБНИКИ ---
+    
+    ipcMain.on('save-tabs-state', (_event, tabs, activeTabId) => {
+        console.log('[Main] Збереження стану вкладок...');
+        // @ts-ignore
+        store.set('session.openTabs', tabs);
+        // @ts-ignore
+        store.set('session.activeTabId', activeTabId);
+    });
 
     ipcMain.handle("get-app-version", () => app.getVersion());
 
+    // @ts-ignore
     ipcMain.handle("get-app-settings", () => {
       try {
         // @ts-ignore

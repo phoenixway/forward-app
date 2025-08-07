@@ -5,7 +5,6 @@ import React, {
   useCallback,
   useMemo,
 } from "react";
-// ВИПРАВЛЕНО: Імпортуємо типізовані хуки
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import {
   makeSelectListInfo,
@@ -15,7 +14,6 @@ import {
   goalToggled,
   instanceRemovedFromList,
 } from "../store/listsSlice";
-// ВИПРАВЛЕНО: Використовуємо оновлені типи
 import type { Goal, GoalInstance, GoalList } from "../types";
 import { SearchX, ListChecks } from "lucide-react";
 import SortableGoalItem from "./SortableGoalItem";
@@ -34,13 +32,11 @@ function GoalListPage({
   obsidianVaultName,
   onTagClickForFilter,
 }: GoalListPageProps) {
-  // ВИПРАВЛЕНО: Використовуємо useAppDispatch
   const dispatch = useAppDispatch();
 
   const selectListInfo = useMemo(makeSelectListInfo, []);
   const selectEnrichedInstances = useMemo(makeSelectEnrichedGoalInstances, []);
 
-  // ВИПРАВЛЕНО: Використовуємо useAppSelector
   const listInfo = useAppSelector((state) =>
     selectListInfo(state, listId),
   );
@@ -81,7 +77,6 @@ function GoalListPage({
   const handleDeleteGoal = useCallback(
     (instanceId: string) => {
       const goalInstanceToDelete = allEnrichedGoals.find(
-        // ВИПРАВЛЕНО: Звертаємось до instance.instanceId
         ({ instance }: { instance: GoalInstance }) => instance.instanceId === instanceId,
       );
       if (
@@ -141,7 +136,6 @@ function GoalListPage({
           <ul className="space-y-1.5">
             {activeFilteredGoals.map(({ instance, goal, associatedLists }, itemIndex) => (
               <SortableGoalItem
-                // ВИПРАВЛЕНО: Використовуємо instance.instanceId
                 key={instance.instanceId}
                 instanceId={instance.instanceId}
                 goal={goal}

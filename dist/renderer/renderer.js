@@ -138000,7 +138000,10 @@ const DropActionMenu_1 = __importDefault(__webpack_require__(/*! ./components/Dr
 const WifiSyncModal_1 = __importDefault(__webpack_require__(/*! ./components/WifiSyncModal */ "./src/renderer/components/WifiSyncModal.tsx"));
 const hooks_1 = __webpack_require__(/*! ./store/hooks */ "./src/renderer/store/hooks.ts");
 const uiSlice_1 = __webpack_require__(/*! ./store/uiSlice */ "./src/renderer/store/uiSlice.ts");
+const syncSlice_1 = __webpack_require__(/*! ./store/syncSlice */ "./src/renderer/store/syncSlice.ts");
 const listsSlice_1 = __webpack_require__(/*! ./store/listsSlice */ "./src/renderer/store/listsSlice.ts");
+const syncLogic_1 = __webpack_require__(/*! ./logic/syncLogic */ "./src/renderer/logic/syncLogic.ts");
+const events_1 = __webpack_require__(/*! ./events */ "./src/renderer/events.ts");
 const App = () => {
     const dispatch = (0, hooks_1.useAppDispatch)();
     const { allLists, goalInstances, listsState } = (0, hooks_1.useAppSelector)((state) => ({
@@ -138008,22 +138011,117 @@ const App = () => {
         goalInstances: state.lists.goalInstances,
         listsState: state.lists,
     }));
-    // ... (handleExportData, handleImportData, useEffect без змін) ...
     const handleExportData = (0, react_1.useCallback)(async () => {
-        // ...
+        if (!window.electronAPI)
+            return;
+        try {
+            const dataForExport = (0, syncLogic_1.formatStateForExport)(listsState);
+            const exportFileContent = {
+                version: 4,
+                exportedAt: new Date().toISOString(),
+                data: dataForExport,
+            };
+            const result = await window.electronAPI.showSaveDialog({
+                title: "Export All Data",
+                defaultPath: `forward-app-backup-${new Date().toISOString().split("T")[0]}.json`,
+                filters: [{ name: "JSON Files", extensions: ["json"] }],
+            });
+            if (!result.canceled && result.filePath) {
+                const jsonContent = JSON.stringify(exportFileContent, null, 2);
+                await window.electronAPI.writeFile(result.filePath, jsonContent);
+                alert("Data successfully exported!");
+            }
+        }
+        catch (error) {
+            alert(`An export error occurred: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }, [listsState]);
     const handleImportData = (0, react_1.useCallback)(async () => {
-        // ...
+        if (!window.electronAPI)
+            return;
+        if (!window.confirm("WARNING! Importing data will completely OVERWRITE all your current data. Continue?"))
+            return;
+        try {
+            const result = await window.electronAPI.showOpenDialog({
+                title: "Import All Data",
+                filters: [{ name: "JSON Files", extensions: ["json"] }],
+                properties: ["openFile"],
+            });
+            if (result.canceled || !result.filePaths || result.filePaths.length === 0)
+                return;
+            const readResult = await window.electronAPI.readFile(result.filePaths[0]);
+            if (!readResult.success || typeof readResult.content !== "string")
+                throw new Error("Could not read the file.");
+            const importedObject = JSON.parse(readResult.content);
+            if (!importedObject.data)
+                throw new Error("The file has an invalid format.");
+            const finalState = (0, syncLogic_1.transformImportedData)(importedObject.data);
+            dispatch((0, listsSlice_1.stateReplaced)(finalState));
+            alert("Data successfully imported!");
+        }
+        catch (error) {
+            alert(`An import error occurred: ${error instanceof Error ? error.message : String(error)}.`);
+        }
     }, [dispatch]);
+    // ВИПРАВЛЕННЯ: Розділено на два useEffect для стабільності
+    // Ефект для стабільних слухачів, що запускається один раз
     (0, react_1.useEffect)(() => {
-        // ...
-    }, [dispatch, handleExportData, handleImportData]);
+        if (!window.electronAPI)
+            return;
+        const removeImportListener = window.electronAPI.onShowWifiImportDialog(async () => {
+            try {
+                const settings = await window.electronAPI.getAppSettings();
+                const defaultAddress = settings?.defaultWifiImportAddress || '';
+                dispatch((0, syncSlice_1.setDeviceAddress)(defaultAddress));
+                dispatch((0, syncSlice_1.openSyncModal)('import'));
+            }
+            catch (error) {
+                console.error("Failed to get app settings for Wi-Fi import:", error);
+                dispatch((0, syncSlice_1.openSyncModal)('import'));
+            }
+        });
+        const removeServerListener = window.electronAPI.onShowWifiServerStatus(() => {
+            dispatch((0, syncSlice_1.openSyncModal)('server'));
+        });
+        const removeShowSettingsListener = window.electronAPI.onShowSettingsPage(() => {
+            (0, events_1.dispatchOpenSettingsEvent)();
+        });
+        return () => {
+            removeImportListener();
+            removeServerListener();
+            removeShowSettingsListener();
+        };
+    }, [dispatch]); // `dispatch` є стабільним
+    // Ефект для слухачів, колбеки яких залежать від мінливого стану (listsState)
+    (0, react_1.useEffect)(() => {
+        if (!window.electronAPI)
+            return;
+        const removeFileExportListener = window.electronAPI.onTriggerFileExport(handleExportData);
+        const removeFileImportListener = window.electronAPI.onTriggerFileImport(handleImportData);
+        return () => {
+            removeFileExportListener();
+            removeFileImportListener();
+        };
+    }, [handleExportData, handleImportData]);
     const handleDragEnd = (0, react_1.useCallback)((result) => {
         const { source, destination, type } = result;
         if (!destination)
             return;
-        // ВИДАЛЕНО: Блок if (type === "LIST") {...}
-        // Тепер DnD обробляє тільки цілі.
+        if (type === "LIST") {
+            if (source.droppableId !== destination.droppableId) {
+                alert("Списки можна сортувати лише в межах одного рівня.");
+                return;
+            }
+            const parentId = source.droppableId === 'root' ? null : source.droppableId;
+            const siblingLists = Object.values(allLists)
+                .filter((l) => l.parentId == parentId)
+                .sort((a, b) => a.order - b.order);
+            const reorderedIds = siblingLists.map((l) => l.id);
+            const [movedItem] = reorderedIds.splice(source.index, 1);
+            reorderedIds.splice(destination.index, 0, movedItem);
+            dispatch((0, listsSlice_1.listsReordered)({ parentId, orderedListIds: reorderedIds }));
+            return;
+        }
         if (type === "GOAL" || type === undefined) {
             const destinationListId = destination.droppableId;
             if (destinationListId.startsWith('sidebar-list-')) {
@@ -138314,47 +138412,142 @@ exports["default"] = GlobalSearchResults;
 
 /***/ }),
 
-/***/ "./src/renderer/components/GoalEditModal.tsx":
-/*!***************************************************!*\
-  !*** ./src/renderer/components/GoalEditModal.tsx ***!
-  \***************************************************/
+/***/ "./src/renderer/components/GoalAssociationManager.tsx":
+/*!************************************************************!*\
+  !*** ./src/renderer/components/GoalAssociationManager.tsx ***!
+  \************************************************************/
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
+// src/renderer/components/GoalAssociationManager.tsx
+const react_1 = __webpack_require__(/*! react */ "./node_modules/react/index.js");
+const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/hooks.ts");
+const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts");
+const events_1 = __webpack_require__(/*! ../events */ "./src/renderer/events.ts");
+const toolkit_1 = __webpack_require__(/*! @reduxjs/toolkit */ "./node_modules/@reduxjs/toolkit/dist/redux-toolkit.modern.mjs");
+const lucide_react_1 = __webpack_require__(/*! lucide-react */ "./node_modules/lucide-react/dist/esm/lucide-react.js"); // ЗМІНА: Замінено іконку
+const SelectableListItem = ({ list, level, allLists, onSelect, expandedNodes, onToggleExpand }) => {
+    const children = (0, react_1.useMemo)(() => Object.values(allLists).filter(l => l.parentId === list.id).sort((a, b) => a.order - b.order), [allLists, list.id]);
+    const isExpanded = expandedNodes[list.id] || false;
+    return ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsxs)("div", { className: "flex items-center p-2 rounded-md hover:bg-slate-200 dark:hover:bg-slate-600 cursor-pointer", style: { paddingLeft: `${level * 20 + 8}px` }, children: [children.length > 0 ? ((0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onToggleExpand(list.id); }, className: "p-0.5 mr-1", children: isExpanded ? (0, jsx_runtime_1.jsx)(lucide_react_1.ChevronDown, { size: 16, className: "text-slate-400" }) : (0, jsx_runtime_1.jsx)(lucide_react_1.ChevronRight, { size: 16, className: "text-slate-400" }) })) : ((0, jsx_runtime_1.jsx)("span", { className: "w-5 mr-1" })), (0, jsx_runtime_1.jsx)("span", { className: "truncate flex-grow", onClick: () => onSelect(list.id), children: list.name })] }), isExpanded && children.map(child => ((0, jsx_runtime_1.jsx)(SelectableListItem, { list: child, level: level + 1, allLists: allLists, onSelect: onSelect, expandedNodes: expandedNodes, onToggleExpand: onToggleExpand }, child.id)))] }));
+};
+const GoalAssociationManager = ({ goal, onGoalChange }) => {
+    const dispatch = (0, hooks_1.useAppDispatch)();
+    const allLists = (0, hooks_1.useAppSelector)(state => state.lists.goalLists);
+    const [newListName, setNewListName] = (0, react_1.useState)('');
+    const [expandedNodes, setExpandedNodes] = (0, react_1.useState)({});
+    const { associatedLists, availableLists } = (0, react_1.useMemo)(() => {
+        const associatedIds = new Set(goal.associatedListIds || []);
+        const listsArray = Object.values(allLists);
+        return {
+            associatedLists: listsArray.filter(l => associatedIds.has(l.id)),
+            availableLists: listsArray.filter(l => !associatedIds.has(l.id)),
+        };
+    }, [allLists, goal.associatedListIds]);
+    const topLevelAvailableLists = (0, react_1.useMemo)(() => availableLists.filter(l => !l.parentId).sort((a, b) => a.order - b.order), [availableLists]);
+    const handleToggleExpand = (listId) => {
+        setExpandedNodes(prev => ({ ...prev, [listId]: !prev[listId] }));
+    };
+    const handleAssociate = (listId) => {
+        const currentIds = goal.associatedListIds || [];
+        if (!currentIds.includes(listId)) {
+            onGoalChange({ ...goal, associatedListIds: [...currentIds, listId] });
+        }
+    };
+    const handleDisassociate = (listId) => {
+        const updatedIds = (goal.associatedListIds || []).filter(id => id !== listId);
+        onGoalChange({ ...goal, associatedListIds: updatedIds });
+    };
+    const handleCreateAndAssociate = () => {
+        if (!newListName.trim())
+            return;
+        const newId = (0, toolkit_1.nanoid)();
+        const name = newListName.trim();
+        const newList = {
+            id: newId, name, parentId: null, createdAt: Date.now(), updatedAt: Date.now(),
+            description: "", isExpanded: true, order: 0, tags: []
+        };
+        dispatch((0, listsSlice_1.listAdded)(newList));
+        handleAssociate(newId);
+        setNewListName('');
+    };
+    return ((0, jsx_runtime_1.jsxs)("div", { className: "grid grid-cols-2 gap-6 h-full", children: [(0, jsx_runtime_1.jsxs)("div", { children: [(0, jsx_runtime_1.jsx)("h4", { className: "font-medium text-slate-800 dark:text-slate-200 mb-2", children: "\u041F\u0440\u0438\u0432'\u044F\u0437\u0430\u043D\u0456 \u0441\u043F\u0438\u0441\u043A\u0438" }), (0, jsx_runtime_1.jsx)("div", { className: "bg-white dark:bg-slate-700/50 p-2 rounded-md border border-slate-200 dark:border-slate-700 min-h-[200px] max-h-[400px] overflow-y-auto custom-scrollbar", children: associatedLists.length > 0 ? (associatedLists.map(list => ((0, jsx_runtime_1.jsxs)("div", { className: "group flex items-center justify-between p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-600", children: [(0, jsx_runtime_1.jsx)("span", { className: "truncate cursor-pointer", onClick: () => (0, events_1.dispatchOpenGoalListEvent)(list.id, list.name), children: list.name }), (0, jsx_runtime_1.jsx)("button", { onClick: () => handleDisassociate(list.id), className: "opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-red-500 rounded-full", children: (0, jsx_runtime_1.jsx)(lucide_react_1.X, { size: 16 }) })] }, list.id)))) : ((0, jsx_runtime_1.jsx)("p", { className: "text-sm text-center text-slate-400 dark:text-slate-500 p-4", children: "\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0438\u0432'\u044F\u0437\u0430\u043D\u0438\u0445 \u0441\u043F\u0438\u0441\u043A\u0456\u0432." })) })] }), (0, jsx_runtime_1.jsxs)("div", { children: [(0, jsx_runtime_1.jsx)("h4", { className: "font-medium text-slate-800 dark:text-slate-200 mb-2", children: "\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u0456 \u0434\u043B\u044F \u043F\u0440\u0438\u0432'\u044F\u0437\u043A\u0438" }), (0, jsx_runtime_1.jsx)("div", { className: "bg-white dark:bg-slate-700/50 p-2 rounded-md border border-slate-200 dark:border-slate-700 mb-4 max-h-[300px] overflow-y-auto custom-scrollbar", children: topLevelAvailableLists.map(list => ((0, jsx_runtime_1.jsx)(SelectableListItem, { list: list, level: 0, allLists: allLists, onSelect: handleAssociate, expandedNodes: expandedNodes, onToggleExpand: handleToggleExpand }, list.id))) }), (0, jsx_runtime_1.jsxs)("div", { children: [(0, jsx_runtime_1.jsx)("h5", { className: "text-sm font-medium text-slate-600 dark:text-slate-400 mb-2", children: "\u0410\u0431\u043E \u0441\u0442\u0432\u043E\u0440\u0438\u0442\u0438 \u043D\u043E\u0432\u0438\u0439" }), (0, jsx_runtime_1.jsxs)("div", { className: "flex space-x-2", children: [(0, jsx_runtime_1.jsx)("input", { type: "text", value: newListName, onChange: e => setNewListName(e.target.value), placeholder: "\u041D\u0430\u0437\u0432\u0430 \u043D\u043E\u0432\u043E\u0433\u043E \u0441\u043F\u0438\u0441\u043A\u0443...", className: "flex-grow block w-full rounded-md border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" }), (0, jsx_runtime_1.jsxs)("button", { onClick: handleCreateAndAssociate, className: "px-3 py-2 text-sm bg-blue-600 text-white rounded-md flex items-center disabled:opacity-50", disabled: !newListName.trim(), children: [(0, jsx_runtime_1.jsx)(lucide_react_1.Plus, { size: 16, className: "mr-1" }), " \u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438"] })] })] })] })] }));
+};
+exports["default"] = GoalAssociationManager;
+
+
+/***/ }),
+
+/***/ "./src/renderer/components/GoalEditModal.tsx":
+/*!***************************************************!*\
+  !*** ./src/renderer/components/GoalEditModal.tsx ***!
+  \***************************************************/
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+
+"use strict";
+
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
 // src/renderer/components/GoalEditModal.tsx
 const react_1 = __webpack_require__(/*! react */ "./node_modules/react/index.js");
-// ВИПРАВЛЕНО: Замінюємо стандартний хук на наш типізований
 const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/hooks.ts");
 const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts");
 const goalScoring_1 = __webpack_require__(/*! ../logic/goalScoring */ "./src/renderer/logic/goalScoring.ts");
+const types_1 = __webpack_require__(/*! ../types */ "./src/renderer/types.ts");
 const lucide_react_1 = __webpack_require__(/*! lucide-react */ "./node_modules/lucide-react/dist/esm/lucide-react.js");
-// Допоміжний компонент для вкладок
+const GoalAssociationManager_1 = __importDefault(__webpack_require__(/*! ./GoalAssociationManager */ "./src/renderer/components/GoalAssociationManager.tsx"));
 const TabButton = ({ label, icon, isActive, onClick }) => ((0, jsx_runtime_1.jsxs)("button", { onClick: onClick, className: `flex items-center px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors duration-200 focus:outline-none ${isActive
         ? 'border-blue-500 text-blue-600 dark:text-blue-400 dark:border-blue-400'
         : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`, children: [icon, (0, jsx_runtime_1.jsx)("span", { className: "ml-2", children: label })] }));
+const ScoringSubTab = ({ label, isActive, onClick }) => ((0, jsx_runtime_1.jsx)("button", { onClick: onClick, className: `px-3 py-1 text-sm rounded-full ${isActive ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600'}`, children: label }));
+const PillButton = ({ label, isActive, onClick }) => ((0, jsx_runtime_1.jsx)("button", { onClick: onClick, className: `px-4 py-1.5 text-sm rounded-full font-medium transition-colors ${isActive ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600'}`, children: label }));
+// ЗМІНА: Повертаємо масиви значень для крокових слайдерів
+const effortRiskValues = [0, 1, 2, 3, 5, 8, 13, 21];
+const costValues = [0, 1, 3, 5, 8, 13]; // 0:немає, 1:дуже низькі, 3:низькі, 5:середні, 8:високі, 13:дуже високі
 const GoalEditModal = ({ goal, onClose }) => {
-    // ВИПРАВЛЕНО: Використовуємо useAppDispatch
     const dispatch = (0, hooks_1.useAppDispatch)();
     const [localGoal, setLocalGoal] = (0, react_1.useState)(goal);
-    const [activeTab, setActiveTab] = (0, react_1.useState)('params');
-    const handleChange = (field, value) => {
-        const numericValue = typeof value === 'string' ? parseFloat(value) : value;
-        setLocalGoal(prev => ({ ...prev, [field]: numericValue }));
-    };
+    const [activeTab, setActiveTab] = (0, react_1.useState)('general');
+    const [activeScoringTab, setActiveScoringTab] = (0, react_1.useState)('achievements');
     const handleTextChange = (e) => {
-        const { name, value } = e.target;
-        setLocalGoal(prev => ({ ...prev, [name]: value }));
+        setLocalGoal(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    };
+    const handleValueChange = (field, value) => {
+        setLocalGoal(prev => ({ ...prev, [field]: Number(value) }));
     };
     const handleSave = () => {
-        const goalWithNewScores = (0, goalScoring_1.calculateScores)(localGoal);
-        dispatch((0, listsSlice_1.goalUpdated)({ ...localGoal, ...goalWithNewScores }));
+        const finalScores = (0, goalScoring_1.calculateScores)(localGoal);
+        dispatch((0, listsSlice_1.goalUpdated)({ ...localGoal, ...finalScores }));
         onClose();
     };
-    const renderSlider = (label, field, min, max, step) => ((0, jsx_runtime_1.jsxs)("div", { className: "mb-4", children: [(0, jsx_runtime_1.jsxs)("div", { className: "flex justify-between items-center mb-1", children: [(0, jsx_runtime_1.jsx)("label", { className: "text-sm font-medium text-slate-700 dark:text-slate-300 capitalize", children: label }), (0, jsx_runtime_1.jsx)("span", { className: "text-sm font-mono px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-200", children: localGoal[field] || (field.startsWith('weight') ? 1 : 0) })] }), (0, jsx_runtime_1.jsx)("input", { type: "range", min: min, max: max, step: step, value: localGoal[field] || (field.startsWith('weight') ? 1 : 0), onChange: (e) => handleChange(field, e.target.value), className: "w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 slider-thumb" })] }));
-    return ((0, jsx_runtime_1.jsx)("div", { className: "fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4", onMouseDown: onClose, children: (0, jsx_runtime_1.jsxs)("div", { className: "bg-slate-50 dark:bg-slate-800 p-6 rounded-lg shadow-xl w-full max-w-2xl text-slate-800 dark:text-slate-200 flex flex-col", onMouseDown: e => e.stopPropagation(), children: [(0, jsx_runtime_1.jsxs)("div", { className: "flex-shrink-0", children: [(0, jsx_runtime_1.jsx)("h2", { className: "text-xl font-semibold mb-2 text-slate-900 dark:text-slate-100", children: "\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u0446\u0456\u043B\u044C" }), (0, jsx_runtime_1.jsx)("textarea", { name: "text", rows: 2, value: localGoal.text, onChange: handleTextChange, className: "block w-full text-lg rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-slate-900 dark:border-slate-600 dark:text-slate-100 sm:text-lg" })] }), (0, jsx_runtime_1.jsx)("div", { className: "mt-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0", children: (0, jsx_runtime_1.jsxs)("nav", { className: "-mb-px flex space-x-4", "aria-label": "Tabs", children: [(0, jsx_runtime_1.jsx)(TabButton, { label: "\u041F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u0438", icon: (0, jsx_runtime_1.jsx)(lucide_react_1.SlidersHorizontal, { size: 16 }), isActive: activeTab === 'params', onClick: () => setActiveTab('params') }), (0, jsx_runtime_1.jsx)(TabButton, { label: "\u0412\u0430\u0433\u0438", icon: (0, jsx_runtime_1.jsx)(lucide_react_1.BarChart2, { size: 16 }), isActive: activeTab === 'weights', onClick: () => setActiveTab('weights') }), (0, jsx_runtime_1.jsx)(TabButton, { label: "\u041D\u043E\u0442\u0430\u0442\u043A\u0438", icon: (0, jsx_runtime_1.jsx)(lucide_react_1.MessageSquare, { size: 16 }), isActive: activeTab === 'notes', onClick: () => setActiveTab('notes') })] }) }), (0, jsx_runtime_1.jsxs)("div", { className: "py-5 flex-grow min-h-[250px]", children: [activeTab === 'params' && ((0, jsx_runtime_1.jsxs)("div", { children: [renderSlider("Важливість", "valueImportance", 0, 10, 1), renderSlider("Вплив", "valueImpact", 0, 10, 1), renderSlider("Зусилля", "effort", 0, 10, 1), renderSlider("Вартість", "cost", 0, 10, 1), renderSlider("Ризик", "risk", 0, 10, 1)] })), activeTab === 'weights' && ((0, jsx_runtime_1.jsxs)("div", { children: [renderSlider("Вага Зусиль", "weightEffort", 0.1, 3, 0.1), renderSlider("Вага Вартості", "weightCost", 0.1, 3, 0.1), renderSlider("Вага Ризику", "weightRisk", 0.1, 3, 0.1)] })), activeTab === 'notes' && ((0, jsx_runtime_1.jsxs)("div", { children: [(0, jsx_runtime_1.jsx)("label", { htmlFor: "description", className: "block text-sm font-medium text-slate-700 dark:text-slate-300", children: "\u041D\u043E\u0442\u0430\u0442\u043A\u0438 \u0434\u043E \u0446\u0456\u043B\u0456" }), (0, jsx_runtime_1.jsx)("textarea", { id: "description", name: "description", rows: 8, value: localGoal.description || '', onChange: handleTextChange, placeholder: "\u0414\u043E\u0434\u0430\u0439\u0442\u0435 \u0434\u0435\u0442\u0430\u043B\u044C\u043D\u0438\u0439 \u043E\u043F\u0438\u0441, \u043A\u0440\u0438\u0442\u0435\u0440\u0456\u0457 \u0432\u0438\u043A\u043E\u043D\u0430\u043D\u043D\u044F, \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F \u0442\u043E\u0449\u043E.", className: "mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100 sm:text-sm" })] }))] }), (0, jsx_runtime_1.jsxs)("div", { className: "flex justify-end space-x-2 mt-4 flex-shrink-0", children: [(0, jsx_runtime_1.jsx)("button", { type: "button", onClick: onClose, className: "px-4 py-2 text-sm rounded-md bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500", children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" }), (0, jsx_runtime_1.jsx)("button", { type: "button", onClick: handleSave, className: "px-4 py-2 text-sm rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold", children: "\u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438" })] })] }) }));
+    const renderSlider = (label, field, min, max, step) => ((0, jsx_runtime_1.jsxs)("div", { className: "mb-6", children: [(0, jsx_runtime_1.jsxs)("label", { className: "text-sm font-medium text-slate-700 dark:text-slate-300 capitalize flex justify-between", children: [(0, jsx_runtime_1.jsx)("span", { children: label }), (0, jsx_runtime_1.jsx)("span", { className: "font-mono px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-200", children: localGoal[field] || (field.startsWith('weight') ? 1 : min) })] }), (0, jsx_runtime_1.jsx)("input", { type: "range", min: min, max: max, step: step, value: localGoal[field] || (field.startsWith('weight') ? 1 : min), onChange: (e) => handleValueChange(field, e.target.value), className: "w-full h-2 mt-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 slider-thumb" })] }));
+    // ЗМІНА: Нова функція для рендерингу крокового слайдера
+    const renderSteppedSlider = (label, field, options) => {
+        const currentValue = localGoal[field] || 0;
+        // Знаходимо найближчий індекс у масиві опцій
+        let currentIndex = options.findIndex(opt => opt === currentValue);
+        if (currentIndex === -1)
+            currentIndex = 0;
+        const handleSteppedChange = (index) => {
+            const newValue = options[index];
+            handleValueChange(field, newValue);
+        };
+        return ((0, jsx_runtime_1.jsxs)("div", { className: "mb-6", children: [(0, jsx_runtime_1.jsxs)("label", { className: "text-sm font-medium text-slate-700 dark:text-slate-300 capitalize flex justify-between", children: [(0, jsx_runtime_1.jsx)("span", { children: label }), (0, jsx_runtime_1.jsx)("span", { className: "font-mono px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-200", children: currentValue })] }), (0, jsx_runtime_1.jsx)("input", { type: "range", min: 0, max: options.length - 1, step: 1, value: currentIndex, onChange: (e) => handleSteppedChange(parseInt(e.target.value, 10)), className: "w-full h-2 mt-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 slider-thumb" })] }));
+    };
+    const BalanceIndicator = () => {
+        const { rawScore } = (0, goalScoring_1.calculateScores)(localGoal);
+        const colorClass = rawScore > 0.05 ? 'text-green-600 dark:text-green-400' : rawScore < -0.05 ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400';
+        return ((0, jsx_runtime_1.jsxs)("div", { className: "flex items-center text-sm mb-4 p-3 bg-slate-100 dark:bg-slate-700/50 rounded-md", children: [(0, jsx_runtime_1.jsx)("span", { className: `font-semibold ${colorClass}`, children: "\u0411\u0430\u043B\u0430\u043D\u0441:" }), (0, jsx_runtime_1.jsx)("span", { className: "font-mono ml-2 px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-200", children: rawScore.toFixed(2) })] }));
+    };
+    return ((0, jsx_runtime_1.jsx)("div", { className: "fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4", onMouseDown: onClose, children: (0, jsx_runtime_1.jsxs)("div", { className: "bg-slate-50 dark:bg-slate-800 p-6 rounded-lg shadow-xl w-full max-w-3xl text-slate-800 dark:text-slate-200 flex flex-col max-h-[90vh]", onMouseDown: e => e.stopPropagation(), children: [(0, jsx_runtime_1.jsxs)("div", { className: "flex-shrink-0", children: [(0, jsx_runtime_1.jsx)("h2", { className: "text-xl font-semibold mb-2 text-slate-900 dark:text-slate-100", children: "\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u0446\u0456\u043B\u044C" }), (0, jsx_runtime_1.jsx)("textarea", { name: "text", rows: 2, value: localGoal.text, onChange: handleTextChange, className: "block w-full text-lg rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-slate-900 dark:border-slate-600 dark:text-slate-100" })] }), (0, jsx_runtime_1.jsx)("div", { className: "mt-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0", children: (0, jsx_runtime_1.jsxs)("nav", { className: "-mb-px flex space-x-4", children: [(0, jsx_runtime_1.jsx)(TabButton, { label: "\u0417\u0430\u0433\u0430\u043B\u044C\u043D\u0435", icon: (0, jsx_runtime_1.jsx)(lucide_react_1.Info, { size: 16 }), isActive: activeTab === 'general', onClick: () => setActiveTab('general') }), (0, jsx_runtime_1.jsx)(TabButton, { label: "\u0410\u0441\u043E\u0446\u0456\u0439\u043E\u0432\u0430\u043D\u0456 \u0441\u043F\u0438\u0441\u043A\u0438", icon: (0, jsx_runtime_1.jsx)(lucide_react_1.Link, { size: 16 }), isActive: activeTab === 'associations', onClick: () => setActiveTab('associations') }), (0, jsx_runtime_1.jsx)(TabButton, { label: "\u041E\u0446\u0456\u043D\u043A\u0430 \u0446\u0456\u043B\u0456", icon: (0, jsx_runtime_1.jsx)(lucide_react_1.Activity, { size: 16 }), isActive: activeTab === 'scoring', onClick: () => setActiveTab('scoring') })] }) }), (0, jsx_runtime_1.jsxs)("div", { className: "py-5 flex-grow min-h-0 overflow-y-auto custom-scrollbar", children: [activeTab === 'general' && ((0, jsx_runtime_1.jsxs)("div", { children: [(0, jsx_runtime_1.jsx)("label", { htmlFor: "description", className: "block text-sm font-medium text-slate-700 dark:text-slate-300", children: "\u041D\u043E\u0442\u0430\u0442\u043A\u0438" }), (0, jsx_runtime_1.jsx)("textarea", { id: "description", name: "description", rows: 10, value: localGoal.description || '', onChange: handleTextChange, placeholder: "\u0414\u043E\u0434\u0430\u0439\u0442\u0435 \u0434\u0435\u0442\u0430\u043B\u044C\u043D\u0438\u0439 \u043E\u043F\u0438\u0441...", className: "mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-slate-700 dark:border-slate-600" }), (0, jsx_runtime_1.jsxs)("div", { className: "mt-4 text-xs text-slate-400 dark:text-slate-500 space-y-1", children: [(0, jsx_runtime_1.jsxs)("p", { children: ["\u0421\u0442\u0432\u043E\u0440\u0435\u043D\u043E: ", new Date(localGoal.createdAt).toLocaleString()] }), localGoal.updatedAt && (0, jsx_runtime_1.jsxs)("p", { children: ["\u041E\u043D\u043E\u0432\u043B\u0435\u043D\u043E: ", new Date(localGoal.updatedAt).toLocaleString()] })] })] })), activeTab === 'associations' && ((0, jsx_runtime_1.jsx)(GoalAssociationManager_1.default, { goal: localGoal, onGoalChange: setLocalGoal })), activeTab === 'scoring' && ((0, jsx_runtime_1.jsxs)("div", { children: [(0, jsx_runtime_1.jsxs)("div", { className: "mb-4", children: [(0, jsx_runtime_1.jsx)("label", { className: "block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2", children: "\u0421\u0442\u0430\u0442\u0443\u0441 \u043E\u0446\u0456\u043D\u043A\u0438" }), (0, jsx_runtime_1.jsxs)("div", { className: "flex items-center space-x-2", children: [(0, jsx_runtime_1.jsx)(PillButton, { label: "\u041D\u0435 \u043E\u0446\u0456\u043D\u0435\u043D\u043E", isActive: !localGoal.scoringStatus || localGoal.scoringStatus === types_1.ScoringStatus.NOT_ASSESSED, onClick: () => setLocalGoal(g => ({ ...g, scoringStatus: types_1.ScoringStatus.NOT_ASSESSED })) }), (0, jsx_runtime_1.jsx)(PillButton, { label: "\u041D\u0435\u043C\u043E\u0436\u043B\u0438\u0432\u043E \u043E\u0446\u0456\u043D\u0438\u0442\u0438", isActive: localGoal.scoringStatus === types_1.ScoringStatus.IMPOSSIBLE_TO_ASSESS, onClick: () => setLocalGoal(g => ({ ...g, scoringStatus: types_1.ScoringStatus.IMPOSSIBLE_TO_ASSESS })) }), (0, jsx_runtime_1.jsx)(PillButton, { label: "\u041E\u0446\u0456\u043D\u0435\u043D\u043E", isActive: localGoal.scoringStatus === types_1.ScoringStatus.ASSESSED, onClick: () => setLocalGoal(g => ({ ...g, scoringStatus: types_1.ScoringStatus.ASSESSED })) })] })] }), localGoal.scoringStatus === 'ASSESSED' && ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)(BalanceIndicator, {}), (0, jsx_runtime_1.jsx)("div", { className: "my-6 border-b border-slate-200 dark:border-slate-700" }), (0, jsx_runtime_1.jsxs)("div", { className: "flex items-center space-x-2 mb-4", children: [(0, jsx_runtime_1.jsx)(ScoringSubTab, { label: "\u0414\u043E\u0441\u044F\u0433\u043D\u0435\u043D\u043D\u044F", isActive: activeScoringTab === 'achievements', onClick: () => setActiveScoringTab('achievements') }), (0, jsx_runtime_1.jsx)(ScoringSubTab, { label: "\u0412\u0442\u0440\u0430\u0442\u0438", isActive: activeScoringTab === 'losses', onClick: () => setActiveScoringTab('losses') }), (0, jsx_runtime_1.jsx)(ScoringSubTab, { label: "\u0412\u0430\u0433\u0438", isActive: activeScoringTab === 'weights', onClick: () => setActiveScoringTab('weights') })] }), activeScoringTab === 'achievements' && ((0, jsx_runtime_1.jsxs)("div", { children: [" ", renderSlider("Цінність", "valueImportance", 1, 12, 1), " ", renderSlider("Вплив", "valueImpact", 1, 13, 1), " "] })), activeScoringTab === 'losses' && (
+                                        // ЗМІНА: Використовуємо нові крокові слайдери
+                                        (0, jsx_runtime_1.jsxs)("div", { children: [renderSteppedSlider("Зусилля", "effort", effortRiskValues), renderSteppedSlider("Вартість", "cost", costValues), renderSteppedSlider("Ризик", "risk", effortRiskValues)] })), activeScoringTab === 'weights' && ((0, jsx_runtime_1.jsxs)("div", { children: [" ", renderSlider("Вага Зусиль", "weightEffort", 0.0, 2.0, 0.1), " ", renderSlider("Вага Вартості", "weightCost", 0.0, 2.0, 0.1), " ", renderSlider("Вага Ризику", "weightRisk", 0.0, 2.0, 0.1), " "] }))] }))] }))] }), (0, jsx_runtime_1.jsxs)("div", { className: "flex justify-end space-x-2 mt-4 flex-shrink-0 border-t border-slate-200 dark:border-slate-700 pt-4", children: [(0, jsx_runtime_1.jsx)("button", { type: "button", onClick: onClose, className: "px-4 py-2 text-sm rounded-md bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500", children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" }), (0, jsx_runtime_1.jsx)("button", { type: "button", onClick: handleSave, className: "px-4 py-2 text-sm rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold", children: "\u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438" })] })] }) }));
 };
 exports["default"] = GoalEditModal;
 
@@ -139612,21 +139805,40 @@ const toolkit_1 = __webpack_require__(/*! @reduxjs/toolkit */ "./node_modules/@r
 const SidebarListItem = ({ listId, isFirst, isLast, level, onMoveUp, onMoveDown, onStartEdit, onDelete, onAddChild, cutListId, onCut, onPaste }) => {
     const dispatch = (0, hooks_1.useAppDispatch)();
     const list = (0, hooks_1.useAppSelector)((state) => state.lists.goalLists[listId]);
-    const childLists = (0, hooks_1.useAppSelector)((state) => (0, selectors_1.makeSelectChildLists)()(state, listId));
+    const selectChildLists = (0, react_1.useMemo)(selectors_1.makeSelectChildLists, []);
+    const childLists = (0, hooks_1.useAppSelector)((state) => selectChildLists(state, listId));
+    const [isMenuOpen, setMenuOpen] = (0, react_1.useState)(false);
+    const menuRef = (0, react_1.useRef)(null);
+    const menuButtonRef = (0, react_1.useRef)(null);
+    (0, react_1.useEffect)(() => {
+        const handleClickOutside = (event) => {
+            if (isMenuOpen &&
+                menuRef.current &&
+                !menuRef.current.contains(event.target) &&
+                !menuButtonRef.current?.contains(event.target)) {
+                setMenuOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [isMenuOpen]);
     if (!list)
         return null;
     const isExpanded = list.isExpanded ?? true;
     const handleOpenGoalList = () => (0, events_1.dispatchOpenGoalListEvent)(list.id, list.name);
     const hasChildren = childLists.length > 0;
     const isCut = cutListId === list.id;
-    const handleMoveUp = (e) => { e.stopPropagation(); onMoveUp(listId); };
-    const handleMoveDown = (e) => { e.stopPropagation(); onMoveDown(listId); };
-    return ((0, jsx_runtime_1.jsxs)("div", { className: `my-px relative ${isCut ? 'opacity-50' : ''}`, children: [(0, jsx_runtime_1.jsx)(dnd_1.Droppable, { droppableId: `sidebar-list-${listId}`, type: "GOAL", children: (provided, snapshot) => ((0, jsx_runtime_1.jsxs)("div", { ref: provided.innerRef, ...provided.droppableProps, 
-                    // Клас `group` тепер тут, на самому рядку
-                    className: `group flex items-center p-1 rounded-md transition-colors min-h-[32px] 
+    const handleActionClick = (action) => (e) => {
+        e.stopPropagation();
+        action();
+        setMenuOpen(false);
+    };
+    const ActionMenuItem = ({ onClick, children, className = '' }) => ((0, jsx_runtime_1.jsx)("button", { onClick: onClick, className: `w-full text-left flex items-center px-3 py-2 text-sm rounded-md ${className}`, children: children }));
+    const ActionMenu = () => ((0, jsx_runtime_1.jsxs)("div", { ref: menuRef, className: "absolute top-full right-0 z-20 mt-1 w-52 bg-white dark:bg-slate-800 rounded-lg shadow-xl ring-1 ring-black/5 dark:ring-white/10 p-1.5", children: [(0, jsx_runtime_1.jsxs)(ActionMenuItem, { onClick: handleActionClick(() => onStartEdit(list)), className: "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.Edit3, { size: 14, className: "mr-3 text-slate-500 dark:text-slate-400" }), "\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438"] }), (0, jsx_runtime_1.jsxs)(ActionMenuItem, { onClick: handleActionClick(() => onAddChild(list.id)), className: "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.CornerDownRight, { size: 14, className: "mr-3 text-slate-500 dark:text-slate-400" }), "\u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438 \u0434\u043E\u0447\u0456\u0440\u043D\u0456\u0439"] }), (0, jsx_runtime_1.jsxs)(ActionMenuItem, { onClick: handleActionClick(() => onCut(list.id)), className: "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.Scissors, { size: 14, className: "mr-3 text-slate-500 dark:text-slate-400" }), "\u0412\u0438\u0440\u0456\u0437\u0430\u0442\u0438"] }), cutListId && cutListId !== list.id && ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsxs)(ActionMenuItem, { onClick: handleActionClick(() => onPaste(list.id, false)), className: "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.ClipboardPaste, { size: 14, className: "mr-3 text-slate-500 dark:text-slate-400" }), "\u0412\u0441\u0442\u0430\u0432\u0438\u0442\u0438"] }), (0, jsx_runtime_1.jsxs)(ActionMenuItem, { onClick: handleActionClick(() => onPaste(list.id, true)), className: "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.ClipboardPaste, { size: 14, className: "mr-3 text-slate-500 dark:text-slate-400" }), "\u0412\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u044F\u043A \u0434\u043E\u0447\u0456\u0440\u043D\u0456\u0439"] })] })), (0, jsx_runtime_1.jsx)("div", { className: "my-1.5 h-px bg-slate-200 dark:bg-slate-700" }), (0, jsx_runtime_1.jsxs)(ActionMenuItem, { onClick: handleActionClick(() => onDelete(list.id, list.name)), className: "text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.Trash2, { size: 14, className: "mr-3" }), "\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438"] })] }));
+    return ((0, jsx_runtime_1.jsxs)("div", { className: `my-px relative ${isCut ? 'opacity-50' : ''}`, children: [(0, jsx_runtime_1.jsx)(dnd_1.Droppable, { droppableId: `sidebar-list-${listId}`, type: "GOAL", children: (provided, snapshot) => ((0, jsx_runtime_1.jsxs)("div", { ref: provided.innerRef, ...provided.droppableProps, className: `group flex items-center p-1 rounded-md transition-colors min-h-[32px] 
               ${snapshot.isDraggingOver
                         ? 'bg-green-100 dark:bg-green-800/40 ring-1 ring-green-500'
-                        : 'hover:bg-slate-200 dark:hover:bg-slate-700'}`, style: { paddingLeft: `${level * 16}px` }, onClick: handleOpenGoalList, children: [(0, jsx_runtime_1.jsxs)("div", { className: "flex items-center flex-grow truncate mr-2", children: [hasChildren ? ((0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); dispatch((0, listsSlice_1.listExpansionToggled)({ listId: list.id })); }, className: "p-0.5 mr-1 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 flex-shrink-0", children: isExpanded ? (0, jsx_runtime_1.jsx)(lucide_react_1.ChevronDown, { size: 14 }) : (0, jsx_runtime_1.jsx)(lucide_react_1.ChevronRight, { size: 14 }) })) : ((0, jsx_runtime_1.jsx)("span", { className: "w-[18px] mr-1 flex-shrink-0" })), (0, jsx_runtime_1.jsx)("span", { className: "text-slate-700 dark:text-slate-300 text-sm cursor-pointer", title: list.name, children: list.name })] }), (0, jsx_runtime_1.jsxs)("div", { className: "flex-shrink-0 flex items-center opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150 space-x-0.5", children: [(0, jsx_runtime_1.jsx)("button", { onClick: handleMoveUp, disabled: isFirst, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded disabled:opacity-30 disabled:cursor-not-allowed", title: "\u041F\u0435\u0440\u0435\u043C\u0456\u0441\u0442\u0438\u0442\u0438 \u0432\u0433\u043E\u0440\u0443", children: (0, jsx_runtime_1.jsx)(lucide_react_1.ArrowUp, { size: 16 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: handleMoveDown, disabled: isLast, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded disabled:opacity-30 disabled:cursor-not-allowed", title: "\u041F\u0435\u0440\u0435\u043C\u0456\u0441\u0442\u0438\u0442\u0438 \u0432\u043D\u0438\u0437", children: (0, jsx_runtime_1.jsx)(lucide_react_1.ArrowDown, { size: 16 }) }), cutListId && cutListId !== list.id && ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onPaste(list.id, false); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-400 rounded", title: "\u0412\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u044F\u043A \u0441\u0443\u0441\u0456\u0434\u0430", children: (0, jsx_runtime_1.jsx)(lucide_react_1.ClipboardPaste, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onPaste(list.id, true); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-400 rounded", title: "\u0412\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u044F\u043A \u0434\u043E\u0447\u0456\u0440\u043D\u0456\u0439", children: (0, jsx_runtime_1.jsx)(lucide_react_1.ClipboardPaste, { size: 14, className: "ml-[-4px]", style: { clipPath: 'inset(50% 0 0 0)' } }) })] })), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onCut(list.id); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-yellow-600 dark:hover:text-yellow-500 rounded", title: "\u0412\u0438\u0440\u0456\u0437\u0430\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Scissors, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onAddChild(list.id); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-500 rounded", title: "\u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438 \u0434\u043E\u0447\u0456\u0440\u043D\u0456\u0439 \u0441\u043F\u0438\u0441\u043E\u043A", children: (0, jsx_runtime_1.jsx)(lucide_react_1.CornerDownRight, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onStartEdit(list); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded", title: "\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Edit3, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onDelete(list.id, list.name); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-500 rounded", title: "\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Trash2, { size: 14 }) })] }), (0, jsx_runtime_1.jsx)("div", { style: { display: 'none' }, children: provided.placeholder })] })) }), isExpanded && hasChildren && ((0, jsx_runtime_1.jsx)("div", { className: "pt-1", children: childLists.map((child, index) => ((0, jsx_runtime_1.jsx)(SidebarListItem, { listId: child.id, isFirst: index === 0, isLast: index === childLists.length - 1, level: level + 1, onMoveUp: onMoveUp, onMoveDown: onMoveDown, onStartEdit: onStartEdit, onDelete: onDelete, onAddChild: onAddChild, cutListId: cutListId, onCut: onCut, onPaste: onPaste }, child.id))) }))] }));
+                        : 'hover:bg-slate-200 dark:hover:bg-slate-700'}`, style: { paddingLeft: `${level * 16}px` }, onClick: handleOpenGoalList, children: [(0, jsx_runtime_1.jsxs)("div", { className: "flex items-center flex-grow truncate min-w-0 mr-2", children: [hasChildren ? ((0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); dispatch((0, listsSlice_1.listExpansionToggled)({ listId: list.id })); }, className: "p-0.5 mr-1 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 flex-shrink-0", children: isExpanded ? (0, jsx_runtime_1.jsx)(lucide_react_1.ChevronDown, { size: 14 }) : (0, jsx_runtime_1.jsx)(lucide_react_1.ChevronRight, { size: 14 }) })) : ((0, jsx_runtime_1.jsx)("span", { className: "w-[18px] mr-1 flex-shrink-0" })), (0, jsx_runtime_1.jsx)("span", { className: "truncate text-slate-700 dark:text-slate-300 text-sm cursor-pointer", title: list.name, children: list.name })] }), (0, jsx_runtime_1.jsxs)("div", { className: "relative flex-shrink-0 flex items-center opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150", children: [!isFirst && (0, jsx_runtime_1.jsx)("button", { onClick: handleActionClick(() => onMoveUp(listId)), className: "p-1 text-slate-500 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-slate-600 rounded", title: "\u041F\u0435\u0440\u0435\u043C\u0456\u0441\u0442\u0438\u0442\u0438 \u0432\u0433\u043E\u0440\u0443", children: (0, jsx_runtime_1.jsx)(lucide_react_1.ArrowUp, { size: 16 }) }), !isLast && (0, jsx_runtime_1.jsx)("button", { onClick: handleActionClick(() => onMoveDown(listId)), className: "p-1 text-slate-500 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-slate-600 rounded", title: "\u041F\u0435\u0440\u0435\u043C\u0456\u0441\u0442\u0438\u0442\u0438 \u0432\u043D\u0438\u0437", children: (0, jsx_runtime_1.jsx)(lucide_react_1.ArrowDown, { size: 16 }) }), (0, jsx_runtime_1.jsx)("button", { ref: menuButtonRef, onClick: (e) => { e.stopPropagation(); setMenuOpen(prev => !prev); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-slate-600 rounded", title: "\u0411\u0456\u043B\u044C\u0448\u0435 \u0434\u0456\u0439", children: (0, jsx_runtime_1.jsx)(lucide_react_1.MoreHorizontal, { size: 16 }) }), isMenuOpen && (0, jsx_runtime_1.jsx)(ActionMenu, {})] }), (0, jsx_runtime_1.jsx)("div", { style: { display: 'none' }, children: provided.placeholder })] })) }), isExpanded && hasChildren && ((0, jsx_runtime_1.jsx)("div", { className: "pt-1", children: childLists.map((child, index) => ((0, jsx_runtime_1.jsx)(SidebarListItem, { listId: child.id, isFirst: index === 0, isLast: index === childLists.length - 1, level: level + 1, onMoveUp: onMoveUp, onMoveDown: onMoveDown, onStartEdit: onStartEdit, onDelete: onDelete, onAddChild: onAddChild, cutListId: cutListId, onCut: onCut, onPaste: onPaste }, child.id))) }))] }));
 };
 function Sidebar() {
     const dispatch = (0, hooks_1.useAppDispatch)();
@@ -139636,11 +139848,12 @@ function Sidebar() {
     const [editingList, setEditingList] = (0, react_1.useState)(null);
     const [editingListName, setEditingListName] = (0, react_1.useState)("");
     const [editingListDescription, setEditingListDescription] = (0, react_1.useState)("");
-    const [isCreatingNewList, setIsCreatingNewList] = (0, react_1.useState)(false);
+    // ЗМІНА 1: Стан для відстеження, для якого батька створюється список
+    const [creatingListParentId, setCreatingListParentId] = (0, react_1.useState)(null);
     const [newListName, setNewListName] = (0, react_1.useState)("");
     const [cutListId, setCutListId] = (0, react_1.useState)(null);
     (0, react_1.useEffect)(() => {
-        const handleCreateRequest = () => { setIsCreatingNewList(true); };
+        const handleCreateRequest = () => { setCreatingListParentId('root'); };
         window.addEventListener(events_1.SIDEBAR_CREATE_NEW_LIST_EVENT, handleCreateRequest);
         return () => { window.removeEventListener(events_1.SIDEBAR_CREATE_NEW_LIST_EVENT, handleCreateRequest); };
     }, []);
@@ -139669,72 +139882,57 @@ function Sidebar() {
         setEditingListName(list.name);
         setEditingListDescription(list.description || "");
     };
-    const handleCancelEdit = () => {
-        setEditingList(null);
-        setEditingListName("");
-        setEditingListDescription("");
+    // ЗМІНА 2: `handleAddChildList` тепер просто відкриває форму
+    const handleAddChildList = (parentId) => {
+        setCreatingListParentId(parentId);
     };
-    const submitRenameList = () => {
-        if (editingList && editingListName.trim()) {
-            dispatch((0, listsSlice_1.listUpdated)({ id: editingList.id, name: editingListName.trim(), description: editingListDescription.trim() }));
-        }
-        handleCancelEdit();
-    };
-    const handleDeleteList = (listId, listName) => {
-        if (window.confirm(`Видалити список "${listName}" та всі вкладені списки?`)) {
-            dispatch((0, listsSlice_1.listRemoved)(listId));
-            if (cutListId === listId) {
-                setCutListId(null);
-            }
-        }
-    };
-    const submitNewList = () => {
-        if (newListName.trim()) {
+    // ЗМІНА 3: `submitNewList` тепер універсальний
+    const handleCreateNewList = () => {
+        if (newListName.trim() && creatingListParentId !== null) {
+            const parentId = creatingListParentId === 'root' ? null : creatingListParentId;
             const newId = (0, toolkit_1.nanoid)();
             const name = newListName.trim();
-            const newList = { id: newId, name: name, parentId: null, createdAt: Date.now(), updatedAt: Date.now(), description: "", isExpanded: true, order: 0, tags: [] };
+            const newList = {
+                id: newId,
+                name,
+                parentId,
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+                description: "",
+                isExpanded: true,
+                order: 0,
+                tags: []
+            };
             dispatch((0, listsSlice_1.listAdded)(newList));
             (0, events_1.dispatchOpenGoalListEvent)(newId, name);
             setNewListName("");
-            setIsCreatingNewList(false);
+            setCreatingListParentId(null);
         }
     };
-    const handleAddChildList = (parentId) => {
-        const name = prompt("Введіть назву для нового під-списку:");
-        if (name && name.trim()) {
-            const newId = (0, toolkit_1.nanoid)();
-            const newName = name.trim();
-            const newList = { id: newId, name: newName, parentId: parentId, createdAt: Date.now(), updatedAt: Date.now(), description: "", isExpanded: true, order: 0, tags: [] };
-            dispatch((0, listsSlice_1.listAdded)(newList));
-            (0, events_1.dispatchOpenGoalListEvent)(newId, newName);
+    // ... решта обробників ...
+    const handleCancelEdit = () => { setEditingList(null); setEditingListName(""); setEditingListDescription(""); };
+    const submitRenameList = () => { if (editingList && editingListName.trim()) {
+        dispatch((0, listsSlice_1.listUpdated)({ id: editingList.id, name: editingListName.trim(), description: editingListDescription.trim() }));
+    } handleCancelEdit(); };
+    const handleDeleteList = (listId, listName) => { if (window.confirm(`Видалити список "${listName}" та всі вкладені списки?`)) {
+        dispatch((0, listsSlice_1.listRemoved)(listId));
+        if (cutListId === listId) {
+            setCutListId(null);
         }
-    };
+    } };
     const handleCut = (id) => { setCutListId(id); };
-    const handlePaste = (targetListId, asChild) => {
-        if (!cutListId || targetListId === cutListId)
+    const handlePaste = (targetListId, asChild) => { if (!cutListId || targetListId === cutListId)
+        return; const cutList = allLists[cutListId]; const targetList = allLists[targetListId]; if (!cutList || !targetList)
+        return; let currentParentIdCheck = asChild ? targetListId : targetList.parentId; while (currentParentIdCheck) {
+        if (currentParentIdCheck === cutListId) {
+            alert("Неможливо вставити батьківський список у дочірній.");
             return;
-        const cutList = allLists[cutListId];
-        const targetList = allLists[targetListId];
-        if (!cutList || !targetList)
-            return;
-        let currentParentIdCheck = asChild ? targetListId : targetList.parentId;
-        while (currentParentIdCheck) {
-            if (currentParentIdCheck === cutListId) {
-                alert("Неможливо вставити батьківський список у дочірній.");
-                return;
-            }
-            currentParentIdCheck = allLists[currentParentIdCheck]?.parentId;
         }
-        const newParentId = asChild ? targetListId : targetList.parentId;
-        dispatch((0, listsSlice_1.listMoved)({ listId: cutListId, newParentId: newParentId }));
-        setCutListId(null);
-    };
-    const renderEditForm = () => {
-        if (!editingList)
-            return null;
-        return ((0, jsx_runtime_1.jsxs)("div", { className: "p-2 my-1 border border-blue-400 dark:border-blue-600 rounded-md bg-white dark:bg-slate-800 shadow", children: [(0, jsx_runtime_1.jsx)("input", { type: "text", value: editingListName, onChange: (e) => setEditingListName(e.target.value), className: "w-full text-sm p-2 mb-2 border rounded", onKeyDown: (e) => e.key === 'Enter' && submitRenameList(), autoFocus: true }), (0, jsx_runtime_1.jsx)("textarea", { value: editingListDescription, onChange: (e) => setEditingListDescription(e.target.value), rows: 2, className: "w-full text-xs p-2 mb-2 border rounded" }), (0, jsx_runtime_1.jsxs)("div", { className: "flex justify-end space-x-2", children: [(0, jsx_runtime_1.jsx)("button", { onClick: handleCancelEdit, className: "px-3 py-1 text-xs rounded bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500", children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" }), (0, jsx_runtime_1.jsx)("button", { onClick: submitRenameList, className: "px-3 py-1 text-xs rounded bg-blue-500 hover:bg-blue-600 text-white", children: "\u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438" })] })] }));
-    };
-    return ((0, jsx_runtime_1.jsxs)("div", { className: "h-full flex flex-col bg-slate-100 dark:bg-slate-900", children: [(0, jsx_runtime_1.jsx)("div", { className: "p-2 border-b border-slate-200 dark:border-slate-700 flex-shrink-0", children: (0, jsx_runtime_1.jsx)(GlobalSearch_1.default, { value: filterTerm, onFilterChange: setFilterTerm }) }), (0, jsx_runtime_1.jsxs)("div", { className: "px-4 py-2 flex-shrink-0", children: [(0, jsx_runtime_1.jsxs)("div", { className: "mb-2 flex justify-between items-center", children: [(0, jsx_runtime_1.jsx)("h3", { className: "text-lg font-semibold text-slate-700 dark:text-slate-300", children: "Backlogs" }), (0, jsx_runtime_1.jsx)("button", { onClick: () => setIsCreatingNewList(true), className: "p-1.5 text-slate-500 hover:text-blue-600 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Plus, { size: 20 }) })] }), isCreatingNewList && ((0, jsx_runtime_1.jsxs)("div", { className: "mb-3 p-2 border rounded-md bg-white dark:bg-slate-800", children: [(0, jsx_runtime_1.jsx)("input", { value: newListName, onChange: (e) => setNewListName(e.target.value), placeholder: "\u041D\u0430\u0437\u0432\u0430 \u043D\u043E\u0432\u043E\u0433\u043E \u0441\u043F\u0438\u0441\u043A\u0443", onKeyDown: e => e.key === 'Enter' && submitNewList(), className: "w-full p-2 mb-2 border rounded", autoFocus: true }), (0, jsx_runtime_1.jsxs)("div", { className: "flex justify-end space-x-2", children: [(0, jsx_runtime_1.jsx)("button", { onClick: () => setIsCreatingNewList(false), className: "px-3 py-1 text-xs rounded bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500", children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" }), (0, jsx_runtime_1.jsx)("button", { onClick: submitNewList, className: "px-3 py-1 text-xs rounded bg-blue-500 hover:bg-blue-600 text-white", children: "\u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438" })] })] })), editingList && renderEditForm()] }), (0, jsx_runtime_1.jsx)("div", { className: "flex-grow px-2 min-h-0 overflow-y-auto custom-scrollbar", children: allTopLevelLists.map((list, index) => (0, jsx_runtime_1.jsx)(SidebarListItem, { listId: list.id, isFirst: index === 0, isLast: index === allTopLevelLists.length - 1, level: 0, onMoveUp: handleMoveListUp, onMoveDown: handleMoveListDown, onStartEdit: handleStartEdit, onDelete: handleDeleteList, onAddChild: handleAddChildList, cutListId: cutListId, onCut: handleCut, onPaste: handlePaste }, list.id)) })] }));
+        currentParentIdCheck = allLists[currentParentIdCheck]?.parentId;
+    } const newParentId = asChild ? targetListId : targetList.parentId; dispatch((0, listsSlice_1.listMoved)({ listId: cutListId, newParentId: newParentId })); setCutListId(null); };
+    const renderEditForm = () => { if (!editingList)
+        return null; return ((0, jsx_runtime_1.jsxs)("div", { className: "p-2 my-1 border border-blue-400 dark:border-blue-600 rounded-md bg-white dark:bg-slate-800 shadow", children: [" ", (0, jsx_runtime_1.jsx)("input", { type: "text", value: editingListName, onChange: (e) => setEditingListName(e.target.value), className: "w-full text-sm p-2 mb-2 border rounded", onKeyDown: (e) => e.key === 'Enter' && submitRenameList(), autoFocus: true }), " ", (0, jsx_runtime_1.jsx)("textarea", { value: editingListDescription, onChange: (e) => setEditingListDescription(e.target.value), rows: 2, className: "w-full text-xs p-2 mb-2 border rounded" }), " ", (0, jsx_runtime_1.jsxs)("div", { className: "flex justify-end space-x-2", children: [" ", (0, jsx_runtime_1.jsx)("button", { onClick: handleCancelEdit, className: "px-3 py-1 text-xs rounded bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500", children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" }), " ", (0, jsx_runtime_1.jsx)("button", { onClick: submitRenameList, className: "px-3 py-1 text-xs rounded bg-blue-500 hover:bg-blue-600 text-white", children: "\u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438" }), " "] }), " "] })); };
+    return ((0, jsx_runtime_1.jsxs)("div", { className: "h-full flex flex-col bg-slate-100 dark:bg-slate-900", children: [(0, jsx_runtime_1.jsx)("div", { className: "p-2 border-b border-slate-200 dark:border-slate-700 flex-shrink-0", children: (0, jsx_runtime_1.jsx)(GlobalSearch_1.default, { value: filterTerm, onFilterChange: setFilterTerm }) }), (0, jsx_runtime_1.jsxs)("div", { className: "px-4 py-2 flex-shrink-0", children: [(0, jsx_runtime_1.jsxs)("div", { className: "mb-2 flex justify-between items-center", children: [(0, jsx_runtime_1.jsx)("h3", { className: "text-lg font-semibold text-slate-700 dark:text-slate-300", children: "Backlogs" }), (0, jsx_runtime_1.jsx)("button", { onClick: () => setCreatingListParentId('root'), className: "p-1.5 text-slate-500 hover:text-blue-600 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Plus, { size: 20 }) })] }), creatingListParentId !== null && ((0, jsx_runtime_1.jsxs)("div", { className: "mb-3 p-2 border rounded-md bg-white dark:bg-slate-800", children: [(0, jsx_runtime_1.jsx)("input", { value: newListName, onChange: (e) => setNewListName(e.target.value), placeholder: "\u041D\u0430\u0437\u0432\u0430 \u043D\u043E\u0432\u043E\u0433\u043E \u0441\u043F\u0438\u0441\u043A\u0443", onKeyDown: e => e.key === 'Enter' && handleCreateNewList(), className: "w-full p-2 mb-2 border rounded", autoFocus: true }), (0, jsx_runtime_1.jsxs)("div", { className: "flex justify-end space-x-2", children: [(0, jsx_runtime_1.jsx)("button", { onClick: () => setCreatingListParentId(null), className: "px-3 py-1 text-xs rounded bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500", children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" }), (0, jsx_runtime_1.jsx)("button", { onClick: handleCreateNewList, className: "px-3 py-1 text-xs rounded bg-blue-500 hover:bg-blue-600 text-white", children: "\u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438" })] })] })), editingList && renderEditForm()] }), (0, jsx_runtime_1.jsx)("div", { className: "flex-grow px-2 min-h-0 overflow-y-auto custom-scrollbar", children: allTopLevelLists.map((list, index) => (0, jsx_runtime_1.jsx)(SidebarListItem, { listId: list.id, isFirst: index === 0, isLast: index === allTopLevelLists.length - 1, level: 0, onMoveUp: handleMoveListUp, onMoveDown: handleMoveListDown, onStartEdit: handleStartEdit, onDelete: handleDeleteList, onAddChild: handleAddChildList, cutListId: cutListId, onCut: handleCut, onPaste: handlePaste }, list.id)) })] }));
 }
 exports["default"] = Sidebar;
 
@@ -140085,39 +140283,52 @@ window.process = __webpack_require__(/*! process/browser */ "./node_modules/proc
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.calculateScores = calculateScores;
+// --- Визначення індивідуальних шкал для кожного параметра ---
+const effortScale = [0, 1, 2, 3, 5, 8, 13, 21];
+const importanceScale = Array.from({ length: 12 }, (_, i) => i + 1); // Лінійна 1-12
+const impactScale = [1, 2, 3, 5, 8, 13];
+const costScale = Array.from({ length: 6 }, (_, i) => i); // Лінійна 0-5
+const riskScale = effortScale; // Ризик використовує ту ж шкалу, що й зусилля
 /**
- * Розраховує rawScore та displayScore для цілі на основі її параметрів.
- * Ця функція є аналогом логіки з GoalScoringManager в Android-додатку.
- * @param goal Об'єкт цілі для розрахунку.
- * @returns Оновлений об'єкт цілі з розрахованими `rawScore` та `displayScore`.
+ * Нормалізує значення в діапазон від 0 до 1 на основі заданої шкали.
+ */
+function normalize(value, scale) {
+    const min = scale[0] ?? 0;
+    const max = scale[scale.length - 1] ?? 1;
+    if (max <= min)
+        return 0;
+    const result = (value - min) / (max - min);
+    // Аналог .coerceIn(0f, 1f) в Kotlin
+    return Math.max(0, Math.min(1, result));
+}
+/**
+ * Розраховує rawScore (від -1 до 1) та displayScore (від 0 до 100) для цілі.
+ * @param goal Об'єкт цілі (може бути частковим, для розрахунку "на льоту").
+ * @returns Об'єкт з розрахованими rawScore та displayScore.
  */
 function calculateScores(goal) {
-    // Значення за замовчуванням, якщо поля не визначені
-    const importance = goal.valueImportance ?? 0;
-    const impact = goal.valueImpact ?? 0;
-    const effort = goal.effort ?? 0;
-    const cost = goal.cost ?? 0;
-    const risk = goal.risk ?? 0;
-    const weightEffort = goal.weightEffort ?? 1.0;
-    const weightCost = goal.weightCost ?? 1.0;
-    const weightRisk = goal.weightRisk ?? 1.0;
-    // Формула, що імітує логіку Android-додатку
-    const valueComponent = importance * impact;
-    const costComponent = (effort * weightEffort) + (cost * weightCost) + (risk * weightRisk);
-    let rawScore;
-    if (costComponent > 0) {
-        rawScore = valueComponent / costComponent;
+    if (goal.scoringStatus !== 'ASSESSED') {
+        return { rawScore: 0, displayScore: 0 };
     }
-    else {
-        rawScore = valueComponent > 0 ? Infinity : 0; // Якщо витрат немає, цінність максимальна
-    }
-    // Перетворення rawScore у простий цілочисельний рейтинг для відображення
-    // (цю логіку можна налаштувати)
-    const displayScore = Math.round(rawScore * 10);
+    // Беремо значення з цілі або встановлюємо значення за замовчуванням
+    const { valueImportance = 1, valueImpact = 1, effort = 0, cost = 0, risk = 0, weightEffort = 1, weightCost = 1, weightRisk = 1 } = goal;
+    const normImportance = normalize(valueImportance, importanceScale);
+    const normImpact = normalize(valueImpact, impactScale);
+    const normEffort = normalize(effort, effortScale);
+    const normCost = normalize(cost, costScale);
+    const normRisk = normalize(risk, riskScale);
+    const normBenefit = normImportance * normImpact;
+    const totalWeight = weightEffort + weightCost + weightRisk;
+    const normTotalCost = totalWeight > 0
+        ? ((weightEffort * normEffort) + (weightCost * normCost) + (weightRisk * normRisk)) / totalWeight
+        : 0;
+    // rawScore: Нормалізований "баланс" від -1 до 1
+    const calculatedRawScore = normBenefit - normTotalCost;
+    // displayScore: Відображувана оцінка, переведена у шкалу від 0 до 100
+    const calculatedDisplayScore = Math.round(((calculatedRawScore + 1) / 2) * 100);
     return {
-        ...goal,
-        rawScore,
-        displayScore
+        rawScore: calculatedRawScore,
+        displayScore: Math.max(0, Math.min(100, calculatedDisplayScore)) // Гарантуємо, що значення в межах 0-100
     };
 }
 
@@ -140876,6 +141087,28 @@ exports["default"] = uiSlice.reducer;
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 // extracted by mini-css-extract-plugin
+
+
+/***/ }),
+
+/***/ "./src/renderer/types.ts":
+/*!*******************************!*\
+  !*** ./src/renderer/types.ts ***!
+  \*******************************/
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+// src/renderer/types.ts
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.ScoringStatus = void 0;
+// ✨ ДОДАНО: Enum для статусу оцінки, як в Android.
+var ScoringStatus;
+(function (ScoringStatus) {
+    ScoringStatus["NOT_ASSESSED"] = "NOT_ASSESSED";
+    ScoringStatus["IMPOSSIBLE_TO_ASSESS"] = "IMPOSSIBLE_TO_ASSESS";
+    ScoringStatus["ASSESSED"] = "ASSESSED";
+})(ScoringStatus || (exports.ScoringStatus = ScoringStatus = {}));
 
 
 /***/ })

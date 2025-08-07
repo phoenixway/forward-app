@@ -1,15 +1,12 @@
 // src/renderer/components/DropActionMenu.tsx
 import React from "react";
-// ВИПРАВЛЕНО: Замінюємо стандартні хуки на наші типізовані
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { closeDropActionMenu } from "../store/uiSlice";
 import { goalMoved, goalReferenceAdded, goalCopied } from "../store/listsSlice";
+import { Move, Copy, CopyPlus, X } from 'lucide-react';
 
 const DropActionMenu: React.FC = () => {
-  // ВИПРАВЛЕНО: Використовуємо useAppDispatch
   const dispatch = useAppDispatch();
-
-  // ВИПРАВЛЕНО: Використовуємо useAppSelector, `state` тепер автоматично типізований
   const { isOpen, result } = useAppSelector((state) => state.ui);
   const goalInstances = useAppSelector((state) => state.lists.goalInstances);
 
@@ -20,17 +17,18 @@ const DropActionMenu: React.FC = () => {
   const { source, destination, draggableId: instanceId } = result;
 
   const sourceListId = source.droppableId;
-  let destinationListId = destination.droppableId;
-
-  // Ця логіка може залишитись, якщо ID дроп-зон мають префікси
-  if (destination.droppableId.startsWith("sidebar-")) {
-    destinationListId = destination.droppableId.substring("sidebar-".length);
-  } else if (destination.droppableId.startsWith("tab-")) {
-    destinationListId = destination.droppableId.substring("tab-".length);
-  }
+  // Видаляємо префікси, щоб отримати чистий ID списку
+  let destinationListId = destination.droppableId
+    .replace('sidebar-list-', '')
+    .replace('tab-', '');
 
   const handleAction = (action: "move" | "reference" | "copy") => {
     const originalGoalId = goalInstances[instanceId]?.goalId;
+    if (!originalGoalId) {
+        console.error("Не вдалося знайти оригінальну ціль для дії.");
+        dispatch(closeDropActionMenu());
+        return;
+    }
 
     switch (action) {
       case "move":
@@ -44,17 +42,14 @@ const DropActionMenu: React.FC = () => {
         );
         break;
       case "reference":
-        if (originalGoalId) {
-          dispatch(
-            goalReferenceAdded({
-              listId: destinationListId,
-              goalId: originalGoalId,
-            }),
-          );
-        }
+        dispatch(
+          goalReferenceAdded({
+            listId: destinationListId,
+            goalId: originalGoalId,
+          }),
+        );
         break;
       case "copy":
-        if (originalGoalId) {
           dispatch(
             goalCopied({
               sourceGoalId: originalGoalId,
@@ -62,46 +57,38 @@ const DropActionMenu: React.FC = () => {
               destinationIndex: destination.index,
             }),
           );
-        }
         break;
     }
     dispatch(closeDropActionMenu());
   };
 
+  const handleClose = () => dispatch(closeDropActionMenu());
+
   return (
     <div
-      className="fixed inset-0 bg-black/40 z-40 flex items-center justify-center"
-      onClick={() => dispatch(closeDropActionMenu())}
+      className="fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-4"
+      onMouseDown={handleClose}
     >
       <div
-        className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-xl w-full max-w-xs text-slate-800 dark:text-slate-200"
-        onClick={(e) => e.stopPropagation()}
+        className="relative bg-white dark:bg-slate-800 p-6 rounded-lg shadow-xl w-full max-w-xs text-slate-800 dark:text-slate-200"
+        onMouseDown={(e) => e.stopPropagation()}
       >
+        <button onClick={handleClose} className="absolute top-2 right-2 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700">
+          <X size={20} />
+        </button>
         <h3 className="text-lg font-semibold mb-4 text-center">Виберіть дію</h3>
-        <div className="flex flex-col space-y-2">
-          <button
-            onClick={() => handleAction("move")}
-            className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md"
-          >
-            Перемістити
+        <div className="space-y-3">
+          <button onClick={() => handleAction('move')} className="w-full flex items-center p-3 rounded-md bg-slate-100 hover:bg-blue-100 dark:bg-slate-700 dark:hover:bg-blue-900/50 transition-colors">
+              <Move className="mr-3 h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <span>Перемістити сюди</span>
           </button>
-          <button
-            onClick={() => handleAction("reference")}
-            className="px-4 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-md"
-          >
-            Створити посилання
+          <button onClick={() => handleAction('reference')} className="w-full flex items-center p-3 rounded-md bg-slate-100 hover:bg-purple-100 dark:bg-slate-700 dark:hover:bg-purple-900/50 transition-colors">
+              <Copy className="mr-3 h-5 w-5 text-purple-600 dark:text-purple-400" />
+              <span>Створити посилання</span>
           </button>
-          <button
-            onClick={() => handleAction("copy")}
-            className="px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-md"
-          >
-            Створити копію
-          </button>
-          <button
-            onClick={() => dispatch(closeDropActionMenu())}
-            className="mt-2 px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md"
-          >
-            Скасувати
+          <button onClick={() => handleAction('copy')} className="w-full flex items-center p-3 rounded-md bg-slate-100 hover:bg-green-100 dark:bg-slate-700 dark:hover:bg-green-900/50 transition-colors">
+              <CopyPlus className="mr-3 h-5 w-5 text-green-600 dark:text-green-400" />
+              <span>Створити копію (клонувати)</span>
           </button>
         </div>
       </div>

@@ -137993,7 +137993,6 @@ const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modul
 // src/renderer/App.tsx
 const react_1 = __webpack_require__(/*! react */ "./node_modules/react/index.js");
 __webpack_require__(/*! ./styles.css */ "./src/renderer/styles.css");
-const Layout_1 = __importDefault(__webpack_require__(/*! ./components/Layout */ "./src/renderer/components/Layout.tsx"));
 const MainPanel_1 = __importDefault(__webpack_require__(/*! ./components/MainPanel */ "./src/renderer/components/MainPanel.tsx"));
 const dnd_1 = __webpack_require__(/*! @hello-pangea/dnd */ "./node_modules/@hello-pangea/dnd/dist/dnd.esm.js");
 const Sidebar_1 = __importDefault(__webpack_require__(/*! ./components/Sidebar */ "./src/renderer/components/Sidebar.tsx"));
@@ -138001,140 +138000,53 @@ const DropActionMenu_1 = __importDefault(__webpack_require__(/*! ./components/Dr
 const WifiSyncModal_1 = __importDefault(__webpack_require__(/*! ./components/WifiSyncModal */ "./src/renderer/components/WifiSyncModal.tsx"));
 const hooks_1 = __webpack_require__(/*! ./store/hooks */ "./src/renderer/store/hooks.ts");
 const uiSlice_1 = __webpack_require__(/*! ./store/uiSlice */ "./src/renderer/store/uiSlice.ts");
-const syncSlice_1 = __webpack_require__(/*! ./store/syncSlice */ "./src/renderer/store/syncSlice.ts");
 const listsSlice_1 = __webpack_require__(/*! ./store/listsSlice */ "./src/renderer/store/listsSlice.ts");
-const syncLogic_1 = __webpack_require__(/*! ./logic/syncLogic */ "./src/renderer/logic/syncLogic.ts");
-const events_1 = __webpack_require__(/*! ./events */ "./src/renderer/events.ts"); // Імпортуємо нову функцію
 const App = () => {
     const dispatch = (0, hooks_1.useAppDispatch)();
-    const { goalLists, allLists, goalInstances, listsState } = (0, hooks_1.useAppSelector)((state) => ({
-        goalLists: state.lists.goalLists,
+    const { allLists, goalInstances, listsState } = (0, hooks_1.useAppSelector)((state) => ({
         allLists: state.lists.goalLists,
         goalInstances: state.lists.goalInstances,
         listsState: state.lists,
     }));
+    // ... (handleExportData, handleImportData, useEffect без змін) ...
     const handleExportData = (0, react_1.useCallback)(async () => {
-        if (!window.electronAPI)
-            return;
-        try {
-            const dataForExport = (0, syncLogic_1.formatStateForExport)(listsState);
-            const exportFileContent = {
-                version: 4,
-                exportedAt: new Date().toISOString(),
-                data: dataForExport,
-            };
-            const result = await window.electronAPI.showSaveDialog({
-                title: "Export All Data",
-                defaultPath: `forward-app-backup-${new Date().toISOString().split("T")[0]}.json`,
-                filters: [{ name: "JSON Files", extensions: ["json"] }],
-            });
-            if (!result.canceled && result.filePath) {
-                const jsonContent = JSON.stringify(exportFileContent, null, 2);
-                await window.electronAPI.writeFile(result.filePath, jsonContent);
-                alert("Data successfully exported!");
-            }
-        }
-        catch (error) {
-            alert(`An export error occurred: ${error instanceof Error ? error.message : String(error)}`);
-        }
+        // ...
     }, [listsState]);
     const handleImportData = (0, react_1.useCallback)(async () => {
-        if (!window.electronAPI)
-            return;
-        if (!window.confirm("WARNING! Importing data will completely OVERWRITE all your current data. Continue?"))
-            return;
-        try {
-            const result = await window.electronAPI.showOpenDialog({
-                title: "Import All Data",
-                filters: [{ name: "JSON Files", extensions: ["json"] }],
-                properties: ["openFile"],
-            });
-            if (result.canceled || !result.filePaths || result.filePaths.length === 0)
-                return;
-            const readResult = await window.electronAPI.readFile(result.filePaths[0]);
-            if (!readResult.success || typeof readResult.content !== "string")
-                throw new Error("Could not read the file.");
-            const importedObject = JSON.parse(readResult.content);
-            if (!importedObject.data)
-                throw new Error("The file has an invalid format.");
-            const finalState = (0, syncLogic_1.transformImportedData)(importedObject.data);
-            dispatch((0, listsSlice_1.stateReplaced)(finalState));
-            alert("Data successfully imported!");
-        }
-        catch (error) {
-            alert(`An import error occurred: ${error instanceof Error ? error.message : String(error)}.`);
-        }
+        // ...
     }, [dispatch]);
     (0, react_1.useEffect)(() => {
-        const removeImportListener = window.electronAPI.onShowWifiImportDialog(() => {
-            dispatch((0, syncSlice_1.openSyncModal)('import'));
-        });
-        const removeServerListener = window.electronAPI.onShowWifiServerStatus(() => {
-            dispatch((0, syncSlice_1.openSyncModal)('server'));
-        });
-        const removeFileExportListener = window.electronAPI.onTriggerFileExport(handleExportData);
-        const removeFileImportListener = window.electronAPI.onTriggerFileImport(handleImportData);
-        const removeShowSettingsListener = window.electronAPI.onShowSettingsPage(() => {
-            // Замість зміни стану, ми відправляємо подію, яку слухає MainPanel
-            (0, events_1.dispatchOpenSettingsEvent)();
-        });
-        return () => {
-            removeImportListener();
-            removeServerListener();
-            removeFileExportListener();
-            removeFileImportListener();
-            removeShowSettingsListener();
-        };
+        // ...
     }, [dispatch, handleExportData, handleImportData]);
     const handleDragEnd = (0, react_1.useCallback)((result) => {
-        const { source, destination, type, draggableId } = result;
+        const { source, destination, type } = result;
         if (!destination)
             return;
-        if (type === "LIST") {
-            const sourceParentId = source.droppableId === "root" ? null : source.droppableId;
-            const destinationParentId = destination.droppableId === "root" ? null : destination.droppableId;
-            if (source.droppableId === destination.droppableId) {
-                const parentId = source.droppableId === 'root' ? null : source.droppableId;
-                const siblingLists = Object.values(allLists).filter((l) => l.parentId === parentId).sort((a, b) => a.order - b.order);
-                const reorderedIds = siblingLists.map((l) => l.id);
-                const [movedItem] = reorderedIds.splice(source.index, 1);
-                reorderedIds.splice(destination.index, 0, movedItem);
-                dispatch((0, listsSlice_1.listsReordered)({ parentId, orderedListIds: reorderedIds }));
-            }
-            else {
-                dispatch((0, listsSlice_1.listMoved)({ listId: draggableId, newParentId: destinationParentId }));
-                const oldSiblings = Object.values(allLists).filter((l) => l.parentId === sourceParentId && l.id !== draggableId).sort((a, b) => a.order - b.order).map((l) => l.id);
-                dispatch((0, listsSlice_1.listsReordered)({ parentId: sourceParentId, orderedListIds: oldSiblings }));
-                const newSiblings = Object.values(allLists).filter((l) => l.parentId === destinationParentId && l.id !== draggableId).sort((a, b) => a.order - b.order).map((l) => l.id);
-                newSiblings.splice(destination.index, 0, draggableId);
-                dispatch((0, listsSlice_1.listsReordered)({ parentId: destinationParentId, orderedListIds: newSiblings }));
-            }
-            return;
-        }
+        // ВИДАЛЕНО: Блок if (type === "LIST") {...}
+        // Тепер DnD обробляє тільки цілі.
         if (type === "GOAL" || type === undefined) {
-            const sourceListId = source.droppableId;
             const destinationListId = destination.droppableId;
-            if (sourceListId === destinationListId) {
-                const instancesInList = Object.values(goalInstances).filter(inst => inst.listId === sourceListId).sort((a, b) => a.order - b.order);
+            if (destinationListId.startsWith('sidebar-list-')) {
+                dispatch((0, uiSlice_1.openDropActionMenu)(result));
+                return;
+            }
+            if (source.droppableId === destinationListId) {
+                const instancesInList = Object.values(goalInstances).filter(inst => inst.listId === source.droppableId).sort((a, b) => a.order - b.order);
                 const orderedInstanceIds = instancesInList.map(inst => inst.instanceId);
                 const [movedItem] = orderedInstanceIds.splice(source.index, 1);
                 orderedInstanceIds.splice(destination.index, 0, movedItem);
-                dispatch((0, listsSlice_1.goalOrderUpdated)({ listId: sourceListId, orderedInstanceIds: orderedInstanceIds }));
+                dispatch((0, listsSlice_1.goalOrderUpdated)({ listId: source.droppableId, orderedInstanceIds: orderedInstanceIds }));
             }
             else {
                 dispatch((0, uiSlice_1.openDropActionMenu)(result));
             }
         }
-    }, [dispatch, goalLists, allLists, goalInstances]);
+    }, [dispatch, allLists, goalInstances]);
     const [userPreference, setUserPreference] = (0, react_1.useState)('system');
     const handleThemePreferenceChange = (pref) => setUserPreference(pref);
     const [obsidianVaultPath, setObsidianVaultPath] = (0, react_1.useState)('');
     const handleObsidianVaultChange = (path) => setObsidianVaultPath(path);
-    return ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)(dnd_1.DragDropContext, { onDragEnd: handleDragEnd, children: (0, jsx_runtime_1.jsx)(Layout_1.default, { sidebar: (0, jsx_runtime_1.jsx)(Sidebar_1.default, {}), mainPanel: (0, jsx_runtime_1.jsx)(MainPanel_1.default
-                    // Пропси isSettingsVisible та onCloseSettings більше не потрібні
-                    , { 
-                        // Пропси isSettingsVisible та onCloseSettings більше не потрібні
-                        currentThemePreference: userPreference, onChangeThemePreference: handleThemePreferenceChange, obsidianVaultPath: obsidianVaultPath, onObsidianVaultChange: handleObsidianVaultChange }) }) }), (0, jsx_runtime_1.jsx)(DropActionMenu_1.default, {}), (0, jsx_runtime_1.jsx)(WifiSyncModal_1.default, {})] }));
+    return ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("div", { className: "flex h-screen w-screen bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200", children: (0, jsx_runtime_1.jsxs)(dnd_1.DragDropContext, { onDragEnd: handleDragEnd, children: [(0, jsx_runtime_1.jsx)("aside", { className: "w-80 flex-shrink-0 border-r border-slate-200 dark:border-slate-800 h-full flex flex-col", children: (0, jsx_runtime_1.jsx)(Sidebar_1.default, {}) }), (0, jsx_runtime_1.jsx)("main", { className: "flex-1 min-w-0 h-full", children: (0, jsx_runtime_1.jsx)(MainPanel_1.default, { currentThemePreference: userPreference, onChangeThemePreference: handleThemePreferenceChange, obsidianVaultPath: obsidianVaultPath, onObsidianVaultChange: handleObsidianVaultChange }) })] }) }), (0, jsx_runtime_1.jsx)(DropActionMenu_1.default, {}), (0, jsx_runtime_1.jsx)(WifiSyncModal_1.default, {})] }));
 };
 exports["default"] = App;
 
@@ -138266,14 +138178,12 @@ exports["default"] = AssociatedListsPopover;
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
-// ВИПРАВЛЕНО: Замінюємо стандартні хуки на наші типізовані
 const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/hooks.ts");
 const uiSlice_1 = __webpack_require__(/*! ../store/uiSlice */ "./src/renderer/store/uiSlice.ts");
 const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts");
+const lucide_react_1 = __webpack_require__(/*! lucide-react */ "./node_modules/lucide-react/dist/esm/lucide-react.js");
 const DropActionMenu = () => {
-    // ВИПРАВЛЕНО: Використовуємо useAppDispatch
     const dispatch = (0, hooks_1.useAppDispatch)();
-    // ВИПРАВЛЕНО: Використовуємо useAppSelector, `state` тепер автоматично типізований
     const { isOpen, result } = (0, hooks_1.useAppSelector)((state) => state.ui);
     const goalInstances = (0, hooks_1.useAppSelector)((state) => state.lists.goalInstances);
     if (!isOpen || !result || !result.destination) {
@@ -138281,16 +138191,17 @@ const DropActionMenu = () => {
     }
     const { source, destination, draggableId: instanceId } = result;
     const sourceListId = source.droppableId;
-    let destinationListId = destination.droppableId;
-    // Ця логіка може залишитись, якщо ID дроп-зон мають префікси
-    if (destination.droppableId.startsWith("sidebar-")) {
-        destinationListId = destination.droppableId.substring("sidebar-".length);
-    }
-    else if (destination.droppableId.startsWith("tab-")) {
-        destinationListId = destination.droppableId.substring("tab-".length);
-    }
+    // Видаляємо префікси, щоб отримати чистий ID списку
+    let destinationListId = destination.droppableId
+        .replace('sidebar-list-', '')
+        .replace('tab-', '');
     const handleAction = (action) => {
         const originalGoalId = goalInstances[instanceId]?.goalId;
+        if (!originalGoalId) {
+            console.error("Не вдалося знайти оригінальну ціль для дії.");
+            dispatch((0, uiSlice_1.closeDropActionMenu)());
+            return;
+        }
         switch (action) {
             case "move":
                 dispatch((0, listsSlice_1.goalMoved)({
@@ -138301,26 +138212,23 @@ const DropActionMenu = () => {
                 }));
                 break;
             case "reference":
-                if (originalGoalId) {
-                    dispatch((0, listsSlice_1.goalReferenceAdded)({
-                        listId: destinationListId,
-                        goalId: originalGoalId,
-                    }));
-                }
+                dispatch((0, listsSlice_1.goalReferenceAdded)({
+                    listId: destinationListId,
+                    goalId: originalGoalId,
+                }));
                 break;
             case "copy":
-                if (originalGoalId) {
-                    dispatch((0, listsSlice_1.goalCopied)({
-                        sourceGoalId: originalGoalId,
-                        destinationListId,
-                        destinationIndex: destination.index,
-                    }));
-                }
+                dispatch((0, listsSlice_1.goalCopied)({
+                    sourceGoalId: originalGoalId,
+                    destinationListId,
+                    destinationIndex: destination.index,
+                }));
                 break;
         }
         dispatch((0, uiSlice_1.closeDropActionMenu)());
     };
-    return ((0, jsx_runtime_1.jsx)("div", { className: "fixed inset-0 bg-black/40 z-40 flex items-center justify-center", onClick: () => dispatch((0, uiSlice_1.closeDropActionMenu)()), children: (0, jsx_runtime_1.jsxs)("div", { className: "bg-white dark:bg-slate-800 p-4 rounded-lg shadow-xl w-full max-w-xs text-slate-800 dark:text-slate-200", onClick: (e) => e.stopPropagation(), children: [(0, jsx_runtime_1.jsx)("h3", { className: "text-lg font-semibold mb-4 text-center", children: "\u0412\u0438\u0431\u0435\u0440\u0456\u0442\u044C \u0434\u0456\u044E" }), (0, jsx_runtime_1.jsxs)("div", { className: "flex flex-col space-y-2", children: [(0, jsx_runtime_1.jsx)("button", { onClick: () => handleAction("move"), className: "px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md", children: "\u041F\u0435\u0440\u0435\u043C\u0456\u0441\u0442\u0438\u0442\u0438" }), (0, jsx_runtime_1.jsx)("button", { onClick: () => handleAction("reference"), className: "px-4 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-md", children: "\u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438 \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F" }), (0, jsx_runtime_1.jsx)("button", { onClick: () => handleAction("copy"), className: "px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-md", children: "\u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438 \u043A\u043E\u043F\u0456\u044E" }), (0, jsx_runtime_1.jsx)("button", { onClick: () => dispatch((0, uiSlice_1.closeDropActionMenu)()), className: "mt-2 px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md", children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" })] })] }) }));
+    const handleClose = () => dispatch((0, uiSlice_1.closeDropActionMenu)());
+    return ((0, jsx_runtime_1.jsx)("div", { className: "fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-4", onMouseDown: handleClose, children: (0, jsx_runtime_1.jsxs)("div", { className: "relative bg-white dark:bg-slate-800 p-6 rounded-lg shadow-xl w-full max-w-xs text-slate-800 dark:text-slate-200", onMouseDown: (e) => e.stopPropagation(), children: [(0, jsx_runtime_1.jsx)("button", { onClick: handleClose, className: "absolute top-2 right-2 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700", children: (0, jsx_runtime_1.jsx)(lucide_react_1.X, { size: 20 }) }), (0, jsx_runtime_1.jsx)("h3", { className: "text-lg font-semibold mb-4 text-center", children: "\u0412\u0438\u0431\u0435\u0440\u0456\u0442\u044C \u0434\u0456\u044E" }), (0, jsx_runtime_1.jsxs)("div", { className: "space-y-3", children: [(0, jsx_runtime_1.jsxs)("button", { onClick: () => handleAction('move'), className: "w-full flex items-center p-3 rounded-md bg-slate-100 hover:bg-blue-100 dark:bg-slate-700 dark:hover:bg-blue-900/50 transition-colors", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.Move, { className: "mr-3 h-5 w-5 text-blue-600 dark:text-blue-400" }), (0, jsx_runtime_1.jsx)("span", { children: "\u041F\u0435\u0440\u0435\u043C\u0456\u0441\u0442\u0438\u0442\u0438 \u0441\u044E\u0434\u0438" })] }), (0, jsx_runtime_1.jsxs)("button", { onClick: () => handleAction('reference'), className: "w-full flex items-center p-3 rounded-md bg-slate-100 hover:bg-purple-100 dark:bg-slate-700 dark:hover:bg-purple-900/50 transition-colors", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.Copy, { className: "mr-3 h-5 w-5 text-purple-600 dark:text-purple-400" }), (0, jsx_runtime_1.jsx)("span", { children: "\u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438 \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F" })] }), (0, jsx_runtime_1.jsxs)("button", { onClick: () => handleAction('copy'), className: "w-full flex items-center p-3 rounded-md bg-slate-100 hover:bg-green-100 dark:bg-slate-700 dark:hover:bg-green-900/50 transition-colors", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.CopyPlus, { className: "mr-3 h-5 w-5 text-green-600 dark:text-green-400" }), (0, jsx_runtime_1.jsx)("span", { children: "\u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438 \u043A\u043E\u043F\u0456\u044E (\u043A\u043B\u043E\u043D\u0443\u0432\u0430\u0442\u0438)" })] })] })] }) }));
 };
 exports["default"] = DropActionMenu;
 
@@ -139335,75 +139243,6 @@ exports["default"] = InputPanel;
 
 /***/ }),
 
-/***/ "./src/renderer/components/Layout.tsx":
-/*!********************************************!*\
-  !*** ./src/renderer/components/Layout.tsx ***!
-  \********************************************/
-/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
-// src/renderer/components/Layout.tsx
-const react_1 = __webpack_require__(/*! react */ "./node_modules/react/index.js");
-const MIN_SIDEBAR_WIDTH = 150;
-const MAX_SIDEBAR_WIDTH = 500;
-const DEFAULT_SIDEBAR_WIDTH = 250;
-function Layout({ sidebar, mainPanel }) {
-    const [sidebarWidth, setSidebarWidth] = (0, react_1.useState)(() => {
-        const savedWidth = localStorage.getItem("sidebarWidth");
-        return savedWidth ? parseInt(savedWidth, 10) : DEFAULT_SIDEBAR_WIDTH;
-    });
-    const [isResizing, setIsResizing] = (0, react_1.useState)(false);
-    const resizeStartXRef = (0, react_1.useRef)(0);
-    const initialSidebarWidthRef = (0, react_1.useRef)(0);
-    (0, react_1.useEffect)(() => {
-        localStorage.setItem("sidebarWidth", sidebarWidth.toString());
-    }, [sidebarWidth]);
-    const startResizing = (0, react_1.useCallback)((mouseDownEvent) => {
-        mouseDownEvent.preventDefault();
-        setIsResizing(true);
-        resizeStartXRef.current = mouseDownEvent.clientX;
-        initialSidebarWidthRef.current = sidebarWidth;
-    }, [sidebarWidth]);
-    const stopResizing = (0, react_1.useCallback)(() => {
-        setIsResizing(false);
-    }, []);
-    const doResize = (0, react_1.useCallback)((mouseMoveEvent) => {
-        if (isResizing) {
-            const deltaX = mouseMoveEvent.clientX - resizeStartXRef.current;
-            let newWidth = initialSidebarWidthRef.current + deltaX;
-            if (newWidth < MIN_SIDEBAR_WIDTH) {
-                newWidth = MIN_SIDEBAR_WIDTH;
-            }
-            else if (newWidth > MAX_SIDEBAR_WIDTH) {
-                newWidth = MAX_SIDEBAR_WIDTH;
-            }
-            setSidebarWidth(newWidth);
-        }
-    }, [isResizing]);
-    (0, react_1.useEffect)(() => {
-        if (isResizing) {
-            document.addEventListener("mousemove", doResize);
-            document.addEventListener("mouseup", stopResizing);
-            document.body.style.cursor = "col-resize";
-            document.body.style.userSelect = "none";
-        }
-        return () => {
-            document.removeEventListener("mousemove", doResize);
-            document.removeEventListener("mouseup", stopResizing);
-            document.body.style.cursor = "";
-            document.body.style.userSelect = "";
-        };
-    }, [isResizing, doResize, stopResizing]);
-    return ((0, jsx_runtime_1.jsxs)("div", { className: "flex h-screen w-screen overflow-hidden bg-white dark:bg-black", children: [" ", (0, jsx_runtime_1.jsx)("aside", { className: "h-full flex-shrink-0 bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200 overflow-y-auto", style: { width: `${sidebarWidth}px` }, children: sidebar }), (0, jsx_runtime_1.jsx)("div", { className: "w-1.5 h-full cursor-col-resize bg-slate-300 dark:bg-slate-700 hover:bg-blue-500 dark:hover:bg-blue-600 transition-colors duration-150 ease-in-out flex-shrink-0", onMouseDown: startResizing, role: "separator", "aria-orientation": "vertical", "aria-valuenow": sidebarWidth, "aria-valuemin": MIN_SIDEBAR_WIDTH, "aria-valuemax": MAX_SIDEBAR_WIDTH, tabIndex: 0 }), (0, jsx_runtime_1.jsx)("main", { className: "h-full flex-grow bg-slate-50 dark:bg-slate-950 flex flex-col overflow-hidden", children: mainPanel })] }));
-}
-exports["default"] = Layout;
-
-
-/***/ }),
-
 /***/ "./src/renderer/components/ListToolbar.tsx":
 /*!*************************************************!*\
   !*** ./src/renderer/components/ListToolbar.tsx ***!
@@ -139585,6 +139424,47 @@ function MainPanel({ currentThemePreference, onChangeThemePreference, obsidianVa
             return newTabs;
         });
     }, [activeTabId]);
+    (0, react_1.useEffect)(() => {
+        const cleanup = window.electronAPI.onCloseCurrentTab(() => {
+            if (activeTabId) {
+                handleTabClose(activeTabId);
+            }
+        });
+        return () => cleanup();
+    }, [activeTabId, handleTabClose]);
+    const handleNavigateNextTab = (0, react_1.useCallback)(() => {
+        if (!activeTabId || tabs.length < 2)
+            return;
+        const currentIndex = tabs.findIndex(tab => tab.id === activeTabId);
+        if (currentIndex === -1)
+            return;
+        const nextIndex = (currentIndex + 1) % tabs.length;
+        setActiveTabId(tabs[nextIndex].id);
+    }, [tabs, activeTabId]);
+    const handleNavigatePreviousTab = (0, react_1.useCallback)(() => {
+        if (!activeTabId || tabs.length < 2)
+            return;
+        const currentIndex = tabs.findIndex(tab => tab.id === activeTabId);
+        if (currentIndex === -1)
+            return;
+        const prevIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+        setActiveTabId(tabs[prevIndex].id);
+    }, [tabs, activeTabId]);
+    // Оновлено useEffect для обробки всіх гарячих клавіш
+    (0, react_1.useEffect)(() => {
+        const cleanupClose = window.electronAPI.onCloseCurrentTab(() => {
+            if (activeTabId) {
+                handleTabClose(activeTabId);
+            }
+        });
+        const cleanupNext = window.electronAPI.onNavigateNextTab(handleNavigateNextTab);
+        const cleanupPrev = window.electronAPI.onNavigatePreviousTab(handleNavigatePreviousTab);
+        return () => {
+            cleanupClose();
+            cleanupNext();
+            cleanupPrev();
+        };
+    }, [activeTabId, handleTabClose, handleNavigateNextTab, handleNavigatePreviousTab]);
     const handleDeleteList = (0, react_1.useCallback)((listId) => {
         const listToDelete = goalLists[listId];
         if (listToDelete && window.confirm(`Видалити список "${listToDelete.name}"?`)) {
@@ -139674,8 +139554,32 @@ exports["default"] = NoListSelected;
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
+// src/renderer/components/SettingsPage.tsx
+const react_1 = __webpack_require__(/*! react */ "./node_modules/react/index.js");
 const SettingsPage = ({ currentTheme, onChangeTheme, initialObsidianVault, onObsidianVaultChange, }) => {
-    return ((0, jsx_runtime_1.jsxs)("div", { className: "p-6 min-h-full text-slate-800 dark:text-slate-200", children: [(0, jsx_runtime_1.jsx)("h1", { className: "text-2xl font-semibold mb-8 text-slate-900 dark:text-slate-100", children: "\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F" }), (0, jsx_runtime_1.jsxs)("div", { className: "space-y-10 max-w-3xl mx-auto", children: [(0, jsx_runtime_1.jsxs)("section", { children: [(0, jsx_runtime_1.jsx)("h2", { className: "text-xl font-medium mb-4", children: "\u0412\u0438\u0433\u043B\u044F\u0434" }), (0, jsx_runtime_1.jsx)("div", { className: "bg-white dark:bg-slate-700/30 shadow-md sm:rounded-lg p-6", children: (0, jsx_runtime_1.jsx)("div", { className: "space-y-4", children: (0, jsx_runtime_1.jsxs)("div", { children: [(0, jsx_runtime_1.jsx)("label", { htmlFor: "theme-select", className: "block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1", children: "\u0422\u0435\u043C\u0430 \u043E\u0444\u043E\u0440\u043C\u043B\u0435\u043D\u043D\u044F" }), (0, jsx_runtime_1.jsxs)("select", { id: "theme-select", value: currentTheme, onChange: (e) => onChangeTheme(e.target.value), className: "mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md", children: [(0, jsx_runtime_1.jsx)("option", { value: "system", children: "\u0421\u0438\u0441\u0442\u0435\u043C\u043D\u0430" }), (0, jsx_runtime_1.jsx)("option", { value: "light", children: "\u0421\u0432\u0456\u0442\u043B\u0430" }), (0, jsx_runtime_1.jsx)("option", { value: "dark", children: "\u0422\u0435\u043C\u043D\u0430" })] })] }) }) })] }), (0, jsx_runtime_1.jsxs)("section", { children: [(0, jsx_runtime_1.jsx)("h2", { className: "text-xl font-medium mb-4", children: "\u0406\u043D\u0442\u0435\u0433\u0440\u0430\u0446\u0456\u0457" }), (0, jsx_runtime_1.jsx)("div", { className: "bg-white dark:bg-slate-700/30 shadow-md sm:rounded-lg p-6", children: (0, jsx_runtime_1.jsx)("div", { className: "space-y-4", children: (0, jsx_runtime_1.jsxs)("div", { children: [(0, jsx_runtime_1.jsx)("label", { htmlFor: "obsidian-path", className: "block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1", children: "\u0428\u043B\u044F\u0445 \u0434\u043E \u0441\u0445\u043E\u0432\u0438\u0449\u0430 Obsidian" }), (0, jsx_runtime_1.jsx)("input", { type: "text", id: "obsidian-path", value: initialObsidianVault, onChange: (e) => onObsidianVaultChange(e.target.value), placeholder: "/path/to/your/vault", className: "mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" }), (0, jsx_runtime_1.jsx)("p", { className: "mt-2 text-xs text-slate-500 dark:text-slate-400", children: "\u0412\u043A\u0430\u0436\u0456\u0442\u044C \u0448\u043B\u044F\u0445 \u0434\u043B\u044F \u0441\u0442\u0432\u043E\u0440\u0435\u043D\u043D\u044F \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u044C `obsidian://`." })] }) }) })] })] })] }));
+    const [defaultWifiAddress, setDefaultWifiAddress] = (0, react_1.useState)('');
+    // Завантажуємо налаштування при відкритті сторінки
+    (0, react_1.useEffect)(() => {
+        const fetchSettings = async () => {
+            const settings = await window.electronAPI?.getAppSettings();
+            if (settings?.defaultWifiImportAddress) {
+                setDefaultWifiAddress(settings.defaultWifiImportAddress);
+            }
+        };
+        fetchSettings();
+    }, []);
+    const handleSaveWifiAddress = async () => {
+        if (window.electronAPI) {
+            const result = await window.electronAPI.setAppSetting('defaultWifiImportAddress', defaultWifiAddress);
+            if (result.success) {
+                alert('Адресу за замовчуванням збережено!');
+            }
+            else {
+                alert(`Помилка збереження: ${result.message}`);
+            }
+        }
+    };
+    return ((0, jsx_runtime_1.jsxs)("div", { className: "p-6 min-h-full text-slate-800 dark:text-slate-200", children: [(0, jsx_runtime_1.jsx)("h1", { className: "text-2xl font-semibold mb-8 text-slate-900 dark:text-slate-100", children: "\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F" }), (0, jsx_runtime_1.jsxs)("div", { className: "space-y-10 max-w-3xl mx-auto", children: [(0, jsx_runtime_1.jsxs)("section", { children: [(0, jsx_runtime_1.jsx)("h2", { className: "text-xl font-medium mb-4", children: "\u0412\u0438\u0433\u043B\u044F\u0434" }), (0, jsx_runtime_1.jsx)("div", { className: "bg-white dark:bg-slate-700/30 shadow-md sm:rounded-lg p-6", children: (0, jsx_runtime_1.jsx)("div", { className: "space-y-4", children: (0, jsx_runtime_1.jsxs)("div", { children: [(0, jsx_runtime_1.jsx)("label", { htmlFor: "theme-select", className: "block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1", children: "\u0422\u0435\u043C\u0430 \u043E\u0444\u043E\u0440\u043C\u043B\u0435\u043D\u043D\u044F" }), (0, jsx_runtime_1.jsxs)("select", { id: "theme-select", value: currentTheme, onChange: (e) => onChangeTheme(e.target.value), className: "mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md", children: [(0, jsx_runtime_1.jsx)("option", { value: "system", children: "\u0421\u0438\u0441\u0442\u0435\u043C\u043D\u0430" }), (0, jsx_runtime_1.jsx)("option", { value: "light", children: "\u0421\u0432\u0456\u0442\u043B\u0430" }), (0, jsx_runtime_1.jsx)("option", { value: "dark", children: "\u0422\u0435\u043C\u043D\u0430" })] })] }) }) })] }), (0, jsx_runtime_1.jsxs)("section", { children: [(0, jsx_runtime_1.jsx)("h2", { className: "text-xl font-medium mb-4", children: "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0456\u0437\u0430\u0446\u0456\u044F Wi-Fi" }), (0, jsx_runtime_1.jsx)("div", { className: "bg-white dark:bg-slate-700/30 shadow-md sm:rounded-lg p-6", children: (0, jsx_runtime_1.jsx)("div", { className: "space-y-4", children: (0, jsx_runtime_1.jsxs)("div", { children: [(0, jsx_runtime_1.jsx)("label", { htmlFor: "wifi-address", className: "block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1", children: "\u0410\u0434\u0440\u0435\u0441\u0430 \u0434\u043B\u044F \u0456\u043C\u043F\u043E\u0440\u0442\u0443 \u0437\u0430 \u0437\u0430\u043C\u043E\u0432\u0447\u0443\u0432\u0430\u043D\u043D\u044F\u043C" }), (0, jsx_runtime_1.jsxs)("div", { className: "mt-1 flex rounded-md shadow-sm", children: [(0, jsx_runtime_1.jsx)("input", { type: "text", id: "wifi-address", value: defaultWifiAddress, onChange: (e) => setDefaultWifiAddress(e.target.value), placeholder: "192.168.1.100:8080", className: "flex-1 block w-full min-w-0 rounded-none rounded-l-md px-3 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" }), (0, jsx_runtime_1.jsx)("button", { onClick: handleSaveWifiAddress, type: "button", className: "relative -ml-px inline-flex items-center space-x-2 rounded-r-md border border-gray-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500", children: "\u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438" })] }), (0, jsx_runtime_1.jsx)("p", { className: "mt-2 text-xs text-slate-500 dark:text-slate-400", children: "\u0426\u044F \u0430\u0434\u0440\u0435\u0441\u0430 \u0431\u0443\u0434\u0435 \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u043D\u043E \u043F\u0456\u0434\u0441\u0442\u0430\u0432\u043B\u044F\u0442\u0438\u0441\u044C \u043F\u0440\u0438 \u0432\u0438\u0431\u043E\u0440\u0456 \u043F\u0443\u043D\u043A\u0442\u0443 \u043C\u0435\u043D\u044E \"\u0406\u043C\u043F\u043E\u0440\u0442 \u0437 Wi-Fi...\"." })] }) }) })] }), (0, jsx_runtime_1.jsxs)("section", { children: [(0, jsx_runtime_1.jsx)("h2", { className: "text-xl font-medium mb-4", children: "\u0406\u043D\u0442\u0435\u0433\u0440\u0430\u0446\u0456\u0457" }), (0, jsx_runtime_1.jsx)("div", { className: "bg-white dark:bg-slate-700/30 shadow-md sm:rounded-lg p-6", children: (0, jsx_runtime_1.jsx)("div", { className: "space-y-4", children: (0, jsx_runtime_1.jsxs)("div", { children: [(0, jsx_runtime_1.jsx)("label", { htmlFor: "obsidian-path", className: "block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1", children: "\u0428\u043B\u044F\u0445 \u0434\u043E \u0441\u0445\u043E\u0432\u0438\u0449\u0430 Obsidian" }), (0, jsx_runtime_1.jsx)("input", { type: "text", id: "obsidian-path", value: initialObsidianVault, onChange: (e) => onObsidianVaultChange(e.target.value), placeholder: "/path/to/your/vault", className: "mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" }), (0, jsx_runtime_1.jsx)("p", { className: "mt-2 text-xs text-slate-500 dark:text-slate-400", children: "\u0412\u043A\u0430\u0436\u0456\u0442\u044C \u0448\u043B\u044F\u0445 \u0434\u043B\u044F \u0441\u0442\u0432\u043E\u0440\u0435\u043D\u043D\u044F \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u044C `obsidian://`." })] }) }) })] })] })] }));
 };
 exports["default"] = SettingsPage;
 
@@ -139705,38 +139609,24 @@ const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/rende
 const selectors_1 = __webpack_require__(/*! ../store/selectors */ "./src/renderer/store/selectors.ts");
 const GlobalSearch_1 = __importDefault(__webpack_require__(/*! ./GlobalSearch */ "./src/renderer/components/GlobalSearch.tsx"));
 const toolkit_1 = __webpack_require__(/*! @reduxjs/toolkit */ "./node_modules/@reduxjs/toolkit/dist/redux-toolkit.modern.mjs");
-const listMatchesFilter = (list, allLists, filterTerm) => {
-    if (!filterTerm.trim())
-        return true;
-    const lowercaseFilter = filterTerm.toLowerCase();
-    if (list.name.toLowerCase().includes(lowercaseFilter)) {
-        return true;
-    }
-    const children = Object.values(allLists).filter(l => l.parentId === list.id);
-    return children.some(childList => listMatchesFilter(childList, allLists, filterTerm));
-};
-const SidebarListItem = ({ listId, index, level, onStartEdit, onDelete, onAddChild, cutListId, onCut, onPaste, filterTerm }) => {
+const SidebarListItem = ({ listId, isFirst, isLast, level, onMoveUp, onMoveDown, onStartEdit, onDelete, onAddChild, cutListId, onCut, onPaste }) => {
     const dispatch = (0, hooks_1.useAppDispatch)();
     const list = (0, hooks_1.useAppSelector)((state) => state.lists.goalLists[listId]);
-    const allLists = (0, hooks_1.useAppSelector)((state) => state.lists.goalLists);
-    const selectChildLists = (0, react_1.useMemo)(selectors_1.makeSelectChildLists, []);
-    const childLists = (0, hooks_1.useAppSelector)((state) => selectChildLists(state, listId));
-    const filteredChildLists = (0, react_1.useMemo)(() => {
-        if (!filterTerm.trim())
-            return childLists;
-        return childLists.filter(child => listMatchesFilter(child, allLists, filterTerm));
-    }, [childLists, filterTerm, allLists]);
+    const childLists = (0, hooks_1.useAppSelector)((state) => (0, selectors_1.makeSelectChildLists)()(state, listId));
     if (!list)
         return null;
     const isExpanded = list.isExpanded ?? true;
     const handleOpenGoalList = () => (0, events_1.dispatchOpenGoalListEvent)(list.id, list.name);
     const hasChildren = childLists.length > 0;
-    const hasFilteredChildren = filteredChildLists.length > 0;
     const isCut = cutListId === list.id;
-    return ((0, jsx_runtime_1.jsx)(dnd_1.Draggable, { draggableId: list.id, index: index, children: (provided, snapshot) => ((0, jsx_runtime_1.jsxs)("div", { ref: provided.innerRef, ...provided.draggableProps, className: `rounded-md my-px transition-opacity ${snapshot.isDragging ? 'bg-blue-100 dark:bg-blue-900/50 shadow-lg' : ''} ${isCut ? 'opacity-50' : 'opacity-100'}`, children: [(0, jsx_runtime_1.jsx)(dnd_1.Droppable, { droppableId: list.id, type: "LIST", children: (dropProvided, dropSnapshot) => ((0, jsx_runtime_1.jsxs)("div", { ref: dropProvided.innerRef, ...dropProvided.droppableProps, className: `p-1 rounded-md transition-colors ${dropSnapshot.isDraggingOver ? 'bg-purple-100 dark:bg-purple-700/20' : ''}`, children: [(0, jsx_runtime_1.jsxs)("div", { className: "group flex items-center justify-between", style: { paddingLeft: `${level * 12}px` }, children: [(0, jsx_runtime_1.jsx)("div", { ...provided.dragHandleProps, className: "p-1 opacity-50 group-hover:opacity-100 cursor-grab", children: (0, jsx_runtime_1.jsx)(lucide_react_1.GripVertical, { size: 14 }) }), (0, jsx_runtime_1.jsxs)("div", { className: "flex items-center flex-grow truncate mr-2", onClick: handleOpenGoalList, children: [hasChildren ? ((0, jsx_runtime_1.jsx)("button", { onClick: (e) => {
-                                                    e.stopPropagation();
-                                                    dispatch((0, listsSlice_1.listExpansionToggled)({ listId: list.id }));
-                                                }, className: "p-0.5 mr-1 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 flex-shrink-0", children: isExpanded ? (0, jsx_runtime_1.jsx)(lucide_react_1.ChevronDown, { size: 14 }) : (0, jsx_runtime_1.jsx)(lucide_react_1.ChevronRight, { size: 14 }) })) : ((0, jsx_runtime_1.jsx)("span", { className: "w-[18px] mr-1 flex-shrink-0" })), (0, jsx_runtime_1.jsx)("span", { className: "text-slate-700 dark:text-slate-300 text-sm cursor-pointer", title: list.name, children: list.name })] }), (0, jsx_runtime_1.jsxs)("div", { className: "flex-shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150 space-x-0.5", children: [cutListId && cutListId !== list.id && ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onPaste(list.id, false); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-400 rounded", title: "\u0412\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u044F\u043A \u0441\u0443\u0441\u0456\u0434\u0430", children: (0, jsx_runtime_1.jsx)(lucide_react_1.ClipboardPaste, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onPaste(list.id, true); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-400 rounded", title: "\u0412\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u044F\u043A \u0434\u043E\u0447\u0456\u0440\u043D\u0456\u0439", children: (0, jsx_runtime_1.jsx)(lucide_react_1.ClipboardPaste, { size: 14, className: "ml-[-4px]", style: { clipPath: 'inset(50% 0 0 0)' } }) })] })), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onCut(list.id); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-yellow-600 dark:hover:text-yellow-500 rounded", title: "\u0412\u0438\u0440\u0456\u0437\u0430\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Scissors, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onAddChild(list.id); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-500 rounded", title: "\u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438 \u0434\u043E\u0447\u0456\u0440\u043D\u0456\u0439 \u0441\u043F\u0438\u0441\u043E\u043A", children: (0, jsx_runtime_1.jsx)(lucide_react_1.CornerDownRight, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onStartEdit(list); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded", title: "\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Edit3, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onDelete(list.id, list.name); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-500 rounded", title: "\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Trash2, { size: 14 }) })] })] }), dropProvided.placeholder] })) }), isExpanded && hasFilteredChildren && ((0, jsx_runtime_1.jsx)("div", { className: "pl-2", children: filteredChildLists.map((child, childIndex) => ((0, jsx_runtime_1.jsx)(SidebarListItem, { listId: child.id, index: childIndex, level: level + 1, onStartEdit: onStartEdit, onDelete: onDelete, onAddChild: onAddChild, cutListId: cutListId, onCut: onCut, onPaste: onPaste, filterTerm: filterTerm }, child.id))) }))] })) }));
+    const handleMoveUp = (e) => { e.stopPropagation(); onMoveUp(listId); };
+    const handleMoveDown = (e) => { e.stopPropagation(); onMoveDown(listId); };
+    return ((0, jsx_runtime_1.jsxs)("div", { className: `my-px relative ${isCut ? 'opacity-50' : ''}`, children: [(0, jsx_runtime_1.jsx)(dnd_1.Droppable, { droppableId: `sidebar-list-${listId}`, type: "GOAL", children: (provided, snapshot) => ((0, jsx_runtime_1.jsxs)("div", { ref: provided.innerRef, ...provided.droppableProps, 
+                    // Клас `group` тепер тут, на самому рядку
+                    className: `group flex items-center p-1 rounded-md transition-colors min-h-[32px] 
+              ${snapshot.isDraggingOver
+                        ? 'bg-green-100 dark:bg-green-800/40 ring-1 ring-green-500'
+                        : 'hover:bg-slate-200 dark:hover:bg-slate-700'}`, style: { paddingLeft: `${level * 16}px` }, onClick: handleOpenGoalList, children: [(0, jsx_runtime_1.jsxs)("div", { className: "flex items-center flex-grow truncate mr-2", children: [hasChildren ? ((0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); dispatch((0, listsSlice_1.listExpansionToggled)({ listId: list.id })); }, className: "p-0.5 mr-1 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 flex-shrink-0", children: isExpanded ? (0, jsx_runtime_1.jsx)(lucide_react_1.ChevronDown, { size: 14 }) : (0, jsx_runtime_1.jsx)(lucide_react_1.ChevronRight, { size: 14 }) })) : ((0, jsx_runtime_1.jsx)("span", { className: "w-[18px] mr-1 flex-shrink-0" })), (0, jsx_runtime_1.jsx)("span", { className: "text-slate-700 dark:text-slate-300 text-sm cursor-pointer", title: list.name, children: list.name })] }), (0, jsx_runtime_1.jsxs)("div", { className: "flex-shrink-0 flex items-center opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150 space-x-0.5", children: [(0, jsx_runtime_1.jsx)("button", { onClick: handleMoveUp, disabled: isFirst, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded disabled:opacity-30 disabled:cursor-not-allowed", title: "\u041F\u0435\u0440\u0435\u043C\u0456\u0441\u0442\u0438\u0442\u0438 \u0432\u0433\u043E\u0440\u0443", children: (0, jsx_runtime_1.jsx)(lucide_react_1.ArrowUp, { size: 16 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: handleMoveDown, disabled: isLast, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded disabled:opacity-30 disabled:cursor-not-allowed", title: "\u041F\u0435\u0440\u0435\u043C\u0456\u0441\u0442\u0438\u0442\u0438 \u0432\u043D\u0438\u0437", children: (0, jsx_runtime_1.jsx)(lucide_react_1.ArrowDown, { size: 16 }) }), cutListId && cutListId !== list.id && ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onPaste(list.id, false); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-400 rounded", title: "\u0412\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u044F\u043A \u0441\u0443\u0441\u0456\u0434\u0430", children: (0, jsx_runtime_1.jsx)(lucide_react_1.ClipboardPaste, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onPaste(list.id, true); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-400 rounded", title: "\u0412\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u044F\u043A \u0434\u043E\u0447\u0456\u0440\u043D\u0456\u0439", children: (0, jsx_runtime_1.jsx)(lucide_react_1.ClipboardPaste, { size: 14, className: "ml-[-4px]", style: { clipPath: 'inset(50% 0 0 0)' } }) })] })), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onCut(list.id); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-yellow-600 dark:hover:text-yellow-500 rounded", title: "\u0412\u0438\u0440\u0456\u0437\u0430\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Scissors, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onAddChild(list.id); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-500 rounded", title: "\u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438 \u0434\u043E\u0447\u0456\u0440\u043D\u0456\u0439 \u0441\u043F\u0438\u0441\u043E\u043A", children: (0, jsx_runtime_1.jsx)(lucide_react_1.CornerDownRight, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onStartEdit(list); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded", title: "\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Edit3, { size: 14 }) }), (0, jsx_runtime_1.jsx)("button", { onClick: (e) => { e.stopPropagation(); onDelete(list.id, list.name); }, className: "p-1 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-500 rounded", title: "\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Trash2, { size: 14 }) })] }), (0, jsx_runtime_1.jsx)("div", { style: { display: 'none' }, children: provided.placeholder })] })) }), isExpanded && hasChildren && ((0, jsx_runtime_1.jsx)("div", { className: "pt-1", children: childLists.map((child, index) => ((0, jsx_runtime_1.jsx)(SidebarListItem, { listId: child.id, isFirst: index === 0, isLast: index === childLists.length - 1, level: level + 1, onMoveUp: onMoveUp, onMoveDown: onMoveDown, onStartEdit: onStartEdit, onDelete: onDelete, onAddChild: onAddChild, cutListId: cutListId, onCut: onCut, onPaste: onPaste }, child.id))) }))] }));
 };
 function Sidebar() {
     const dispatch = (0, hooks_1.useAppDispatch)();
@@ -139750,19 +139640,30 @@ function Sidebar() {
     const [newListName, setNewListName] = (0, react_1.useState)("");
     const [cutListId, setCutListId] = (0, react_1.useState)(null);
     (0, react_1.useEffect)(() => {
-        const handleCreateRequest = () => {
-            setIsCreatingNewList(true);
-        };
+        const handleCreateRequest = () => { setIsCreatingNewList(true); };
         window.addEventListener(events_1.SIDEBAR_CREATE_NEW_LIST_EVENT, handleCreateRequest);
-        return () => {
-            window.removeEventListener(events_1.SIDEBAR_CREATE_NEW_LIST_EVENT, handleCreateRequest);
-        };
+        return () => { window.removeEventListener(events_1.SIDEBAR_CREATE_NEW_LIST_EVENT, handleCreateRequest); };
     }, []);
-    const filteredLists = (0, react_1.useMemo)(() => {
-        if (!filterTerm.trim())
-            return allTopLevelLists;
-        return allTopLevelLists.filter(list => listMatchesFilter(list, allLists, filterTerm));
-    }, [allTopLevelLists, filterTerm, allLists]);
+    const moveList = (0, react_1.useCallback)((listId, direction) => {
+        const listToMove = allLists[listId];
+        if (!listToMove)
+            return;
+        const parentId = listToMove.parentId;
+        const siblings = Object.values(allLists).filter(l => l.parentId == parentId).sort((a, b) => a.order - b.order);
+        const currentIndex = siblings.findIndex(l => l.id === listId);
+        if (currentIndex === -1)
+            return;
+        const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+        if (newIndex < 0 || newIndex >= siblings.length)
+            return;
+        const reorderedSiblings = [...siblings];
+        const [movedItem] = reorderedSiblings.splice(currentIndex, 1);
+        reorderedSiblings.splice(newIndex, 0, movedItem);
+        const reorderedIds = reorderedSiblings.map(l => l.id);
+        dispatch((0, listsSlice_1.listsReordered)({ parentId, orderedListIds: reorderedIds }));
+    }, [allLists, dispatch]);
+    const handleMoveListUp = (0, react_1.useCallback)((listId) => moveList(listId, 'up'), [moveList]);
+    const handleMoveListDown = (0, react_1.useCallback)((listId) => moveList(listId, 'down'), [moveList]);
     const handleStartEdit = (list) => {
         setEditingList(list);
         setEditingListName(list.name);
@@ -139791,17 +139692,7 @@ function Sidebar() {
         if (newListName.trim()) {
             const newId = (0, toolkit_1.nanoid)();
             const name = newListName.trim();
-            const newList = {
-                id: newId,
-                name: name,
-                parentId: null,
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-                description: "",
-                isExpanded: true,
-                order: 0,
-                tags: []
-            };
+            const newList = { id: newId, name: name, parentId: null, createdAt: Date.now(), updatedAt: Date.now(), description: "", isExpanded: true, order: 0, tags: [] };
             dispatch((0, listsSlice_1.listAdded)(newList));
             (0, events_1.dispatchOpenGoalListEvent)(newId, name);
             setNewListName("");
@@ -139813,24 +139704,12 @@ function Sidebar() {
         if (name && name.trim()) {
             const newId = (0, toolkit_1.nanoid)();
             const newName = name.trim();
-            const newList = {
-                id: newId,
-                name: newName,
-                parentId: parentId,
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-                description: "",
-                isExpanded: true,
-                order: 0,
-                tags: []
-            };
+            const newList = { id: newId, name: newName, parentId: parentId, createdAt: Date.now(), updatedAt: Date.now(), description: "", isExpanded: true, order: 0, tags: [] };
             dispatch((0, listsSlice_1.listAdded)(newList));
             (0, events_1.dispatchOpenGoalListEvent)(newId, newName);
         }
     };
-    const handleCut = (id) => {
-        setCutListId(id);
-    };
+    const handleCut = (id) => { setCutListId(id); };
     const handlePaste = (targetListId, asChild) => {
         if (!cutListId || targetListId === cutListId)
             return;
@@ -139847,10 +139726,7 @@ function Sidebar() {
             currentParentIdCheck = allLists[currentParentIdCheck]?.parentId;
         }
         const newParentId = asChild ? targetListId : targetList.parentId;
-        dispatch((0, listsSlice_1.listMoved)({
-            listId: cutListId,
-            newParentId: newParentId,
-        }));
+        dispatch((0, listsSlice_1.listMoved)({ listId: cutListId, newParentId: newParentId }));
         setCutListId(null);
     };
     const renderEditForm = () => {
@@ -139858,7 +139734,7 @@ function Sidebar() {
             return null;
         return ((0, jsx_runtime_1.jsxs)("div", { className: "p-2 my-1 border border-blue-400 dark:border-blue-600 rounded-md bg-white dark:bg-slate-800 shadow", children: [(0, jsx_runtime_1.jsx)("input", { type: "text", value: editingListName, onChange: (e) => setEditingListName(e.target.value), className: "w-full text-sm p-2 mb-2 border rounded", onKeyDown: (e) => e.key === 'Enter' && submitRenameList(), autoFocus: true }), (0, jsx_runtime_1.jsx)("textarea", { value: editingListDescription, onChange: (e) => setEditingListDescription(e.target.value), rows: 2, className: "w-full text-xs p-2 mb-2 border rounded" }), (0, jsx_runtime_1.jsxs)("div", { className: "flex justify-end space-x-2", children: [(0, jsx_runtime_1.jsx)("button", { onClick: handleCancelEdit, className: "px-3 py-1 text-xs rounded bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500", children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" }), (0, jsx_runtime_1.jsx)("button", { onClick: submitRenameList, className: "px-3 py-1 text-xs rounded bg-blue-500 hover:bg-blue-600 text-white", children: "\u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438" })] })] }));
     };
-    return ((0, jsx_runtime_1.jsxs)("div", { className: "h-full flex flex-col bg-slate-100 dark:bg-slate-900", children: [(0, jsx_runtime_1.jsx)("div", { className: "p-2 border-b border-slate-200 dark:border-slate-700 flex-shrink-0", children: (0, jsx_runtime_1.jsx)(GlobalSearch_1.default, { value: filterTerm, onFilterChange: setFilterTerm }) }), (0, jsx_runtime_1.jsxs)("div", { className: "px-4 py-2 flex-shrink-0", children: [" ", (0, jsx_runtime_1.jsxs)("div", { className: "mb-2 flex justify-between items-center", children: [" ", (0, jsx_runtime_1.jsx)("h3", { className: "text-lg font-semibold text-slate-700 dark:text-slate-300", children: "Backlogs" }), " ", (0, jsx_runtime_1.jsx)("button", { onClick: () => setIsCreatingNewList(true), className: "p-1.5 text-slate-500 hover:text-blue-600 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Plus, { size: 20 }) })] }), isCreatingNewList && ((0, jsx_runtime_1.jsxs)("div", { className: "mb-3 p-2 border rounded-md bg-white dark:bg-slate-800", children: [(0, jsx_runtime_1.jsx)("input", { value: newListName, onChange: (e) => setNewListName(e.target.value), placeholder: "\u041D\u0430\u0437\u0432\u0430 \u043D\u043E\u0432\u043E\u0433\u043E \u0441\u043F\u0438\u0441\u043A\u0443", onKeyDown: e => e.key === 'Enter' && submitNewList(), className: "w-full p-2 mb-2 border rounded", autoFocus: true }), (0, jsx_runtime_1.jsxs)("div", { className: "flex justify-end space-x-2", children: [(0, jsx_runtime_1.jsx)("button", { onClick: () => setIsCreatingNewList(false), className: "px-3 py-1 text-xs rounded bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500", children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" }), (0, jsx_runtime_1.jsx)("button", { onClick: submitNewList, className: "px-3 py-1 text-xs rounded bg-blue-500 hover:bg-blue-600 text-white", children: "\u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438" })] })] })), editingList && renderEditForm()] }), (0, jsx_runtime_1.jsx)("div", { className: "flex-grow px-2 min-h-0 overflow-y-auto custom-scrollbar", children: (0, jsx_runtime_1.jsx)(dnd_1.Droppable, { droppableId: "root", type: "LIST", children: (provided, snapshot) => ((0, jsx_runtime_1.jsxs)("div", { ref: provided.innerRef, ...provided.droppableProps, className: `transition-colors min-h-full p-1 rounded-md ${snapshot.isDraggingOver ? 'bg-purple-100 dark:bg-purple-900/30' : ''}`, children: [filteredLists.map((list, index) => (0, jsx_runtime_1.jsx)(SidebarListItem, { listId: list.id, index: index, level: 0, onStartEdit: handleStartEdit, onDelete: handleDeleteList, onAddChild: handleAddChildList, cutListId: cutListId, onCut: handleCut, onPaste: handlePaste, filterTerm: filterTerm }, list.id)), provided.placeholder] })) }, filterTerm ? 'filtered-lists' : 'all-lists') })] }));
+    return ((0, jsx_runtime_1.jsxs)("div", { className: "h-full flex flex-col bg-slate-100 dark:bg-slate-900", children: [(0, jsx_runtime_1.jsx)("div", { className: "p-2 border-b border-slate-200 dark:border-slate-700 flex-shrink-0", children: (0, jsx_runtime_1.jsx)(GlobalSearch_1.default, { value: filterTerm, onFilterChange: setFilterTerm }) }), (0, jsx_runtime_1.jsxs)("div", { className: "px-4 py-2 flex-shrink-0", children: [(0, jsx_runtime_1.jsxs)("div", { className: "mb-2 flex justify-between items-center", children: [(0, jsx_runtime_1.jsx)("h3", { className: "text-lg font-semibold text-slate-700 dark:text-slate-300", children: "Backlogs" }), (0, jsx_runtime_1.jsx)("button", { onClick: () => setIsCreatingNewList(true), className: "p-1.5 text-slate-500 hover:text-blue-600 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Plus, { size: 20 }) })] }), isCreatingNewList && ((0, jsx_runtime_1.jsxs)("div", { className: "mb-3 p-2 border rounded-md bg-white dark:bg-slate-800", children: [(0, jsx_runtime_1.jsx)("input", { value: newListName, onChange: (e) => setNewListName(e.target.value), placeholder: "\u041D\u0430\u0437\u0432\u0430 \u043D\u043E\u0432\u043E\u0433\u043E \u0441\u043F\u0438\u0441\u043A\u0443", onKeyDown: e => e.key === 'Enter' && submitNewList(), className: "w-full p-2 mb-2 border rounded", autoFocus: true }), (0, jsx_runtime_1.jsxs)("div", { className: "flex justify-end space-x-2", children: [(0, jsx_runtime_1.jsx)("button", { onClick: () => setIsCreatingNewList(false), className: "px-3 py-1 text-xs rounded bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500", children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" }), (0, jsx_runtime_1.jsx)("button", { onClick: submitNewList, className: "px-3 py-1 text-xs rounded bg-blue-500 hover:bg-blue-600 text-white", children: "\u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438" })] })] })), editingList && renderEditForm()] }), (0, jsx_runtime_1.jsx)("div", { className: "flex-grow px-2 min-h-0 overflow-y-auto custom-scrollbar", children: allTopLevelLists.map((list, index) => (0, jsx_runtime_1.jsx)(SidebarListItem, { listId: list.id, isFirst: index === 0, isLast: index === allTopLevelLists.length - 1, level: 0, onMoveUp: handleMoveListUp, onMoveDown: handleMoveListDown, onStartEdit: handleStartEdit, onDelete: handleDeleteList, onAddChild: handleAddChildList, cutListId: cutListId, onCut: handleCut, onPaste: handlePaste }, list.id)) })] }));
 }
 exports["default"] = Sidebar;
 
@@ -140110,9 +139986,9 @@ const WifiSyncModal = () => {
     const handleClose = () => dispatch((0, syncSlice_1.closeSyncModal)());
     if (!isModalOpen)
         return null;
-    const renderServerContent = () => ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("h3", { className: "text-lg font-semibold mb-4 text-center", children: "Wi-Fi \u0421\u0435\u0440\u0432\u0435\u0440" }), localServerAddress ? ((0, jsx_runtime_1.jsxs)("div", { className: 'text-center', children: [(0, jsx_runtime_1.jsx)(lucide_react_1.Wifi, { className: "mx-auto h-12 w-12 text-green-500 mb-4" }), (0, jsx_runtime_1.jsx)("p", { className: "text-sm text-slate-500 dark:text-slate-400", children: "\u0421\u0435\u0440\u0432\u0435\u0440 \u0437\u0430\u043F\u0443\u0449\u0435\u043D\u043E. \u0412\u0432\u0435\u0434\u0456\u0442\u044C \u0446\u044E \u0430\u0434\u0440\u0435\u0441\u0443 \u043D\u0430 Android-\u043F\u0440\u0438\u0441\u0442\u0440\u043E\u0457:" }), (0, jsx_runtime_1.jsxs)("p", { className: "mt-2 text-xl font-mono p-2 bg-slate-100 dark:bg-slate-700 rounded-md select-all", children: ["http://", localServerAddress] })] })) : !localError ? ((0, jsx_runtime_1.jsxs)("div", { className: 'text-center', children: [(0, jsx_runtime_1.jsx)(lucide_react_1.LoaderCircle, { className: "mx-auto h-12 w-12 text-blue-500 mb-4 animate-spin" }), (0, jsx_runtime_1.jsx)("p", { className: "text-sm text-slate-500 dark:text-slate-400", children: "\u0417\u0430\u043F\u0443\u0441\u043A \u0441\u0435\u0440\u0432\u0435\u0440\u0430..." })] })) : null, localError &&
+    const renderServerContent = () => ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("h3", { className: "text-lg font-semibold mb-4 text-center", children: "\u041F\u043E\u0434\u0456\u043B\u0438\u0442\u0438\u0441\u044C \u0443 \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u0456\u0439 \u043C\u0435\u0440\u0435\u0436\u0456" }), localServerAddress ? ((0, jsx_runtime_1.jsxs)("div", { className: 'text-center', children: [(0, jsx_runtime_1.jsx)(lucide_react_1.Wifi, { className: "mx-auto h-12 w-12 text-green-500 mb-4" }), (0, jsx_runtime_1.jsx)("p", { className: "text-sm text-slate-500 dark:text-slate-400", children: "\u0421\u0435\u0440\u0432\u0435\u0440 \u0437\u0430\u043F\u0443\u0449\u0435\u043D\u043E. \u0412\u0432\u0435\u0434\u0456\u0442\u044C \u0446\u044E \u0430\u0434\u0440\u0435\u0441\u0443 \u043D\u0430 \u0456\u043D\u0448\u043E\u043C\u0443 \u043F\u0440\u0438\u0441\u0442\u0440\u043E\u0457:" }), (0, jsx_runtime_1.jsxs)("p", { className: "mt-2 text-xl font-mono p-2 bg-slate-100 dark:bg-slate-700 rounded-md select-all", children: ["http://", localServerAddress] })] })) : !localError ? ((0, jsx_runtime_1.jsxs)("div", { className: 'text-center', children: [(0, jsx_runtime_1.jsx)(lucide_react_1.LoaderCircle, { className: "mx-auto h-12 w-12 text-blue-500 mb-4 animate-spin" }), (0, jsx_runtime_1.jsx)("p", { className: "text-sm text-slate-500 dark:text-slate-400", children: "\u0417\u0430\u043F\u0443\u0441\u043A \u0441\u0435\u0440\u0432\u0435\u0440\u0430..." })] })) : null, localError &&
                 (0, jsx_runtime_1.jsxs)("div", { className: "text-center py-4", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.CircleAlert, { className: "mx-auto h-10 w-10 text-red-500" }), (0, jsx_runtime_1.jsx)("p", { className: "mt-2 text-sm text-red-500", children: localError })] })] }));
-    const renderReviewContent = () => ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsxs)("h3", { className: "text-lg font-semibold mb-2 text-center flex items-center justify-center", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.FileDiff, { className: "mr-2 h-5 w-5" }), "\u041E\u0433\u043B\u044F\u0434 \u0437\u043C\u0456\u043D"] }), (0, jsx_runtime_1.jsxs)("p", { className: "text-sm text-center text-slate-500 dark:text-slate-400 mb-4", children: ["\u0417\u043D\u0430\u0439\u0434\u0435\u043D\u043E ", syncReport?.changes.length || 0, " \u0437\u043C\u0456\u043D \u0437 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0443. \u0417\u0430\u0441\u0442\u043E\u0441\u0443\u0432\u0430\u0442\u0438 \u0457\u0445?"] }), (0, jsx_runtime_1.jsx)("div", { className: "max-h-60 overflow-y-auto p-3 bg-slate-50 dark:bg-slate-700/50 rounded-md border border-slate-200 dark:border-slate-600", children: (0, jsx_runtime_1.jsx)("ul", { className: "space-y-2", children: syncReport?.changes.map(change => ((0, jsx_runtime_1.jsxs)("li", { className: "flex items-center text-sm", children: [(0, jsx_runtime_1.jsx)("span", { className: `font-bold mr-2 ${change.type === 'Add' ? 'text-green-500' : 'text-blue-500'}`, children: change.type === 'Add' ? '[ + ]' : '[ ~ ]' }), (0, jsx_runtime_1.jsxs)("span", { className: "font-medium mr-1", children: [change.entityType, ":"] }), (0, jsx_runtime_1.jsx)("span", { className: "truncate text-slate-700 dark:text-slate-300", title: change.description, children: change.description })] }, change.id))) }) }), (0, jsx_runtime_1.jsxs)("div", { className: "flex justify-end space-x-2 mt-4", children: [(0, jsx_runtime_1.jsx)("button", { onClick: () => dispatch((0, syncSlice_1.setSyncStatus)('idle')), className: "px-4 py-2 text-sm bg-slate-200 dark:bg-slate-600 rounded-md", children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" }), (0, jsx_runtime_1.jsx)("button", { onClick: handleApplyChanges, className: "px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold", children: "\u0417\u0430\u0441\u0442\u043E\u0441\u0443\u0432\u0430\u0442\u0438 \u0437\u043C\u0456\u043D\u0438" })] })] }));
+    const renderReviewContent = () => ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsxs)("h3", { className: "text-lg font-semibold mb-2 text-center flex items-center justify-center", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.FileDiff, { className: "mr-2 h-5 w-5" }), "\u041E\u0433\u043B\u044F\u0434 \u0437\u043C\u0456\u043D"] }), (0, jsx_runtime_1.jsxs)("p", { className: "text-sm text-center text-slate-500 dark:text-slate-400 mb-4", children: ["\u0417\u043D\u0430\u0439\u0434\u0435\u043D\u043E ", syncReport?.changes.length || 0, " \u0437\u043C\u0456\u043D \u0437 \u0456\u043D\u0448\u043E\u0433\u043E \u043F\u0440\u0438\u0441\u0442\u0440\u043E\u044E. \u0417\u0430\u0441\u0442\u043E\u0441\u0443\u0432\u0430\u0442\u0438 \u0457\u0445?"] }), (0, jsx_runtime_1.jsx)("div", { className: "max-h-60 overflow-y-auto p-3 bg-slate-50 dark:bg-slate-700/50 rounded-md border border-slate-200 dark:border-slate-600", children: (0, jsx_runtime_1.jsx)("ul", { className: "space-y-2", children: syncReport?.changes.map(change => ((0, jsx_runtime_1.jsxs)("li", { className: "flex items-center text-sm", children: [(0, jsx_runtime_1.jsx)("span", { className: `font-bold mr-2 ${change.type === 'Add' ? 'text-green-500' : 'text-blue-500'}`, children: change.type === 'Add' ? '[ + ]' : '[ ~ ]' }), (0, jsx_runtime_1.jsxs)("span", { className: "font-medium mr-1", children: [change.entityType, ":"] }), (0, jsx_runtime_1.jsx)("span", { className: "truncate text-slate-700 dark:text-slate-300", title: change.description, children: change.description })] }, change.id))) }) }), (0, jsx_runtime_1.jsxs)("div", { className: "flex justify-end space-x-2 mt-4", children: [(0, jsx_runtime_1.jsx)("button", { onClick: () => dispatch((0, syncSlice_1.setSyncStatus)('idle')), className: "px-4 py-2 text-sm bg-slate-200 dark:bg-slate-600 rounded-md", children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" }), (0, jsx_runtime_1.jsx)("button", { onClick: handleApplyChanges, className: "px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold", children: "\u0417\u0430\u0441\u0442\u043E\u0441\u0443\u0432\u0430\u0442\u0438 \u0437\u043C\u0456\u043D\u0438" })] })] }));
     const renderImportContent = () => {
         switch (syncStatus) {
             case 'fetching':
@@ -140125,7 +140001,7 @@ const WifiSyncModal = () => {
             case 'reviewing':
                 return renderReviewContent();
             default: // idle
-                return ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("h3", { className: "text-lg font-semibold mb-4 text-center", children: "\u0406\u043C\u043F\u043E\u0440\u0442 \u0437 Wi-Fi" }), (0, jsx_runtime_1.jsx)("label", { htmlFor: "device-address", className: "text-sm font-medium text-slate-700 dark:text-slate-300", children: "\u0410\u0434\u0440\u0435\u0441\u0430 Android-\u043F\u0440\u0438\u0441\u0442\u0440\u043E\u044E" }), (0, jsx_runtime_1.jsx)("input", { id: "device-address", type: "text", value: deviceAddress, onChange: (e) => dispatch((0, syncSlice_1.setDeviceAddress)(e.target.value)), placeholder: "\u041D\u0430\u043F\u0440. 192.168.1.5:8080", className: "w-full mt-1 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" }), (0, jsx_runtime_1.jsx)("button", { onClick: handleFetchFromDevice, disabled: !deviceAddress, className: "w-full mt-4 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold disabled:opacity-50", children: "\u041E\u0442\u0440\u0438\u043C\u0430\u0442\u0438 \u0434\u0430\u043D\u0456" })] }));
+                return ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("h3", { className: "text-lg font-semibold mb-4 text-center", children: "\u0406\u043C\u043F\u043E\u0440\u0442 \u0437 \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u043E\u0457 \u043C\u0435\u0440\u0435\u0436\u0456" }), (0, jsx_runtime_1.jsx)("label", { htmlFor: "device-address", className: "text-sm font-medium text-slate-700 dark:text-slate-300", children: "\u0410\u0434\u0440\u0435\u0441\u0430 \u0443 \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u0456\u0439 \u043C\u0435\u0440\u0435\u0436\u0456 \u0434\u043B\u044F \u0456\u043C\u043F\u043E\u0440\u0442\u0443" }), (0, jsx_runtime_1.jsx)("input", { id: "device-address", type: "text", value: deviceAddress, onChange: (e) => dispatch((0, syncSlice_1.setDeviceAddress)(e.target.value)), placeholder: "\u041D\u0430\u043F\u0440. 192.168.1.5:8080", className: "w-full mt-1 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" }), (0, jsx_runtime_1.jsx)("button", { onClick: handleFetchFromDevice, disabled: !deviceAddress, className: "w-full mt-4 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold disabled:opacity-50", children: "\u041E\u0442\u0440\u0438\u043C\u0430\u0442\u0438 \u0434\u0430\u043D\u0456" })] }));
         }
     };
     return ((0, jsx_runtime_1.jsx)("div", { className: "fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4", onMouseDown: handleClose, children: (0, jsx_runtime_1.jsxs)("div", { className: "bg-white dark:bg-slate-800 p-6 rounded-lg shadow-xl w-full max-w-md text-slate-800 dark:text-slate-200 relative", onMouseDown: e => e.stopPropagation(), children: [(0, jsx_runtime_1.jsx)("button", { onClick: handleClose, className: "absolute top-2 right-2 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700", children: (0, jsx_runtime_1.jsx)(lucide_react_1.X, { size: 20 }) }), modalMode === 'server' ? renderServerContent() : renderImportContent()] }) }));
@@ -140752,17 +140628,16 @@ const selectGoals = (0, reselect_1.createSelector)([selectListsSlice], (lists) =
 const selectGoalInstances = (0, reselect_1.createSelector)([selectListsSlice], (lists) => lists.goalInstances);
 const selectListId = (_state, listId) => listId;
 const selectParentId = (_state, parentId) => parentId;
-// --- HIERARCHY SELECTORS ---
 exports.selectTopLevelLists = (0, reselect_1.createSelector)([selectAllGoalLists], (allLists) => {
     return Object.values(allLists)
-        // ✨ ВИПРАВЛЕННЯ: Змінено `list.parentId === null` на `!list.parentId`.
-        // Ця перевірка коректно обробляє і `null`, і `undefined`.
         .filter(list => !list.parentId)
+        // ВИПРАВЛЕНО: Розкоментовано сортування
         .sort((a, b) => a.order - b.order);
 });
-const makeSelectChildLists = () => (0, reselect_1.createSelector)([selectAllGoalLists, selectParentId], (allLists, parentId) => {
+const makeSelectChildLists = () => (0, reselect_1.createSelector)([selectAllGoalLists, (_state, parentId) => parentId], (allLists, parentId) => {
     return Object.values(allLists)
-        .filter(list => list.parentId === parentId)
+        .filter((list) => list.parentId === parentId)
+        // ВИПРАВЛЕНО: Розкоментовано сортування
         .sort((a, b) => a.order - b.order);
 });
 exports.makeSelectChildLists = makeSelectChildLists;

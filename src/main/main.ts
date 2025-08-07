@@ -10,11 +10,7 @@ import axios from 'axios';
 import ip from 'ip';
 import * as http from 'http';
 
-type StoreSchema = {
-	[key: string]: unknown;
-};
-// Цей store використовується для інших налаштувань, але не для стану Redux
-const store = new Store<StoreSchema>();
+const store = new Store();
 app.commandLine.appendSwitch("gtk-version", "3");
 
 console.log("[Main] Налаштування командного рядка для GTK завершено.");
@@ -503,6 +499,13 @@ app.whenReady().then(() => {
       {
         label: "File",
         submenu: [
+           {
+            label: "Close Tab",
+            accelerator: "CmdOrCtrl+W",
+            click: () => {
+              mainWindowInstance?.webContents.send("close-current-tab");
+            },
+          },
           {
             label: "Settings",
             click: () => {
@@ -513,6 +516,7 @@ app.whenReady().then(() => {
           { label: "Exit", role: "quit" },
         ],
       },
+
       {
         label: "Sync",
         submenu: [
@@ -530,18 +534,37 @@ app.whenReady().then(() => {
           },
           { type: 'separator' },
           {
-            label: "Import from Wi-Fi...",
+            label: "Import from Local Network...", // ЗМІНЕНО
             click: () => {
               mainWindowInstance?.webContents.send("show-wifi-import-dialog");
             },
           },
           {
-            label: "Show Wi-Fi Server Status...",
+            label: "Share via Local Network...", // ЗМІНЕНО
             click: () => {
               mainWindowInstance?.webContents.send("show-wifi-server-status");
             },
           },
         ],
+      },
+            {
+        label: "View",
+        submenu: [
+            {
+                label: 'Next Tab',
+                accelerator: 'Ctrl+Tab',
+                click: () => {
+                    mainWindowInstance?.webContents.send('navigate-next-tab');
+                }
+            },
+            {
+                label: 'Previous Tab',
+                accelerator: 'Ctrl+Shift+Tab',
+                click: () => {
+                    mainWindowInstance?.webContents.send('navigate-previous-tab');
+                }
+            }
+        ]
       },
       {
           label: 'Development',
@@ -581,8 +604,30 @@ app.whenReady().then(() => {
     const menu = Menu.buildFromTemplate(menuTemplate);
     Menu.setApplicationMenu(menu);
     
-    // IPC обробники
+    // --- IPC ОБРОБНИКИ ---
+
     ipcMain.handle("get-app-version", () => app.getVersion());
+
+    ipcMain.handle("get-app-settings", () => {
+      try {
+        // @ts-ignore
+        return store.store;
+      } catch (error) {
+        console.error("Помилка отримання налаштувань додатку:", error);
+        return null;
+      }
+    });
+
+    ipcMain.handle("set-app-setting", async (_event, key: string, value: any) => {
+      try {
+        // @ts-ignore
+        store.set(key, value);
+        return { success: true };
+      } catch (error: any) {
+        console.error(`Помилка встановлення налаштування для ключа "${key}":`, error);
+        return { success: false, message: error.message };
+      }
+    });
 
     ipcMain.handle("show-save-dialog", async (_event, options: Electron.SaveDialogOptions) => {
         if (!mainWindowInstance) return { canceled: true, filePath: undefined };
@@ -612,6 +657,7 @@ app.whenReady().then(() => {
         }
     });
 
+    // --- WIFI SYNC ОБРОБНИКИ ---
     let serverInstance: http.Server | null = null;
     ipcMain.handle("wifi-sync:start-server", async (_event, dataForExport: any) => {
         if (serverInstance) {

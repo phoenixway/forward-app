@@ -11,26 +11,26 @@ const selectGoalInstances = createSelector([selectListsSlice], (lists) => lists.
 const selectListId = (_state: RootState, listId: string) => listId;
 const selectParentId = (_state: RootState, parentId: string | null) => parentId;
 
-// --- HIERARCHY SELECTORS ---
 export const selectTopLevelLists = createSelector(
   [selectAllGoalLists],
   (allLists) => {
     return Object.values(allLists)
-      // ✨ ВИПРАВЛЕННЯ: Змінено `list.parentId === null` на `!list.parentId`.
-      // Ця перевірка коректно обробляє і `null`, і `undefined`.
       .filter(list => !list.parentId)
+      // ВИПРАВЛЕНО: Розкоментовано сортування
       .sort((a, b) => a.order - b.order);
   }
 );
 
-export const makeSelectChildLists = () => createSelector(
-    [selectAllGoalLists, selectParentId],
+export const makeSelectChildLists = () =>
+  createSelector(
+    [selectAllGoalLists, (_state: RootState, parentId: string) => parentId],
     (allLists, parentId) => {
-        return Object.values(allLists)
-            .filter(list => list.parentId === parentId)
-            .sort((a, b) => a.order - b.order);
+      return Object.values(allLists)
+        .filter((list) => list.parentId === parentId)
+        // ВИПРАВЛЕНО: Розкоментовано сортування
+        .sort((a, b) => a.order - b.order);
     }
-);
+  );
 
 // --- ORIGINAL SELECTORS ---
 export const selectAllLists = createSelector([selectAllGoalLists], (goalLists) =>

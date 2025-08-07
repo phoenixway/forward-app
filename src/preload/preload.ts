@@ -35,6 +35,10 @@ export const IPC_CHANNELS = {
   TRIGGER_FILE_EXPORT: "trigger-file-export",
   TRIGGER_FILE_IMPORT: "trigger-file-import",
   TRIGGER_SHOW_SETTINGS: "trigger-show-settings",
+
+  CLOSE_CURRENT_TAB: "close-current-tab",
+  NAVIGATE_NEXT_TAB: 'navigate-next-tab',
+  NAVIGATE_PREVIOUS_TAB: 'navigate-previous-tab',
 };
 
 export interface ElectronAPI {
@@ -67,6 +71,10 @@ export interface ElectronAPI {
   onTriggerFileExport: (callback: () => void) => () => void;
   onTriggerFileImport: (callback: () => void) => () => void;
   onShowSettingsPage: (callback: () => void) => () => void;
+
+  onCloseCurrentTab: (callback: () => void) => () => void;
+  onNavigateNextTab: (callback: () => void) => () => void;
+  onNavigatePreviousTab: (callback: () => void) => () => void;
 }
 
 
@@ -179,6 +187,23 @@ const exposedAPI: ElectronAPI = {
     const listener = () => callback();
     ipcRenderer.on(IPC_CHANNELS.TRIGGER_SHOW_SETTINGS, listener);
     return () => ipcRenderer.removeListener(IPC_CHANNELS.TRIGGER_SHOW_SETTINGS, listener);
+  },
+
+  onCloseCurrentTab: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on(IPC_CHANNELS.CLOSE_CURRENT_TAB, listener);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.CLOSE_CURRENT_TAB, listener);
+  },
+
+  onNavigateNextTab: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on(IPC_CHANNELS.NAVIGATE_NEXT_TAB, listener);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.NAVIGATE_NEXT_TAB, listener);
+  },
+  onNavigatePreviousTab: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on(IPC_CHANNELS.NAVIGATE_PREVIOUS_TAB, listener);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.NAVIGATE_PREVIOUS_TAB, listener);
   },
 };
 

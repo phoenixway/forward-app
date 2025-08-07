@@ -101,11 +101,11 @@ const WifiSyncModal: React.FC = () => {
 
     const renderServerContent = () => (
         <>
-            <h3 className="text-lg font-semibold mb-4 text-center">Wi-Fi Сервер</h3>
+            <h3 className="text-lg font-semibold mb-4 text-center">Поділитись у локальній мережі</h3>
             {localServerAddress ? (
                 <div className='text-center'>
                     <Wifi className="mx-auto h-12 w-12 text-green-500 mb-4" />
-                    <p className="text-sm text-slate-500 dark:text-slate-400">Сервер запущено. Введіть цю адресу на Android-пристрої:</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Сервер запущено. Введіть цю адресу на іншому пристрої:</p>
                     <p className="mt-2 text-xl font-mono p-2 bg-slate-100 dark:bg-slate-700 rounded-md select-all">
                         http://{localServerAddress}
                     </p>
@@ -132,7 +132,7 @@ const WifiSyncModal: React.FC = () => {
                 Огляд змін
             </h3>
             <p className="text-sm text-center text-slate-500 dark:text-slate-400 mb-4">
-                Знайдено {syncReport?.changes.length || 0} змін з телефону. Застосувати їх?
+                Знайдено {syncReport?.changes.length || 0} змін з іншого пристрою. Застосувати їх?
             </p>
             <div className="max-h-60 overflow-y-auto p-3 bg-slate-50 dark:bg-slate-700/50 rounded-md border border-slate-200 dark:border-slate-600">
                 <ul className="space-y-2">
@@ -192,8 +192,8 @@ const WifiSyncModal: React.FC = () => {
             default: // idle
                 return (
                     <>
-                        <h3 className="text-lg font-semibold mb-4 text-center">Імпорт з Wi-Fi</h3>
-                        <label htmlFor="device-address" className="text-sm font-medium text-slate-700 dark:text-slate-300">Адреса Android-пристрою</label>
+                        <h3 className="text-lg font-semibold mb-4 text-center">Імпорт з локальної мережі</h3>
+                        <label htmlFor="device-address" className="text-sm font-medium text-slate-700 dark:text-slate-300">Адреса у локальній мережі для імпорту</label>
                         <input
                             id="device-address"
                             type="text"

@@ -152,6 +152,51 @@ function MainPanel({
     });
   }, [activeTabId]);
 
+    useEffect(() => {
+    const cleanup = window.electronAPI.onCloseCurrentTab(() => {
+      if (activeTabId) {
+        handleTabClose(activeTabId);
+      }
+    });
+    return () => cleanup();
+  }, [activeTabId, handleTabClose]);
+
+    const handleNavigateNextTab = useCallback(() => {
+    if (!activeTabId || tabs.length < 2) return;
+    const currentIndex = tabs.findIndex(tab => tab.id === activeTabId);
+    if (currentIndex === -1) return;
+    const nextIndex = (currentIndex + 1) % tabs.length;
+    setActiveTabId(tabs[nextIndex].id);
+  }, [tabs, activeTabId]);
+
+  const handleNavigatePreviousTab = useCallback(() => {
+      if (!activeTabId || tabs.length < 2) return;
+      const currentIndex = tabs.findIndex(tab => tab.id === activeTabId);
+      if (currentIndex === -1) return;
+      const prevIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+      setActiveTabId(tabs[prevIndex].id);
+  }, [tabs, activeTabId]);
+
+  // Оновлено useEffect для обробки всіх гарячих клавіш
+  useEffect(() => {
+    const cleanupClose = window.electronAPI.onCloseCurrentTab(() => {
+      if (activeTabId) {
+        handleTabClose(activeTabId);
+      }
+    });
+
+    const cleanupNext = window.electronAPI.onNavigateNextTab(handleNavigateNextTab);
+    const cleanupPrev = window.electronAPI.onNavigatePreviousTab(handleNavigatePreviousTab);
+
+    return () => {
+      cleanupClose();
+      cleanupNext();
+      cleanupPrev();
+    };
+  }, [activeTabId, handleTabClose, handleNavigateNextTab, handleNavigatePreviousTab]);
+
+
+
   const handleDeleteList = useCallback((listId: string) => {
     const listToDelete = goalLists[listId];
     if (listToDelete && window.confirm(`Видалити список "${listToDelete.name}"?`)) {

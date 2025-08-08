@@ -123,7 +123,7 @@ function SortableGoalItem({
           } ${!snapshot.isDragging && !isHighlighted && "hover:shadow-md dark:hover:shadow-black/10"}`}
           style={provided.draggableProps.style}
         >
-          <div className="flex items-start w-full">
+          <div className="flex items-center w-full">
             <div className="flex-shrink-0 pt-0.5">
               <button {...provided.dragHandleProps} type="button" onClick={e => e.stopPropagation()}
                 className="p-1 mr-2 cursor-grab focus:outline-none text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-600"
@@ -131,8 +131,6 @@ function SortableGoalItem({
                 <GripVertical size={18} />
               </button>
             </div>
-            
-            {/* --- ЗМІНА: Контейнер для тексту та ас. списків --- */}
             <div className="flex items-center flex-grow flex-wrap gap-x-2 mr-2 min-w-0">
                 <div className="flex items-start flex-shrink-0">
                     <input type="checkbox" checked={goal.completed} onChange={() => onToggle(goal.id)} onClick={e => e.stopPropagation()}
@@ -143,20 +141,24 @@ function SortableGoalItem({
                         <GoalTextRenderer text={goal.text} stripFields={true} obsidianVaultName={obsidianVaultName} onTagClick={onTagClickForFilter}/>
                     </div>
                 </div>
-
-                {/* Асоційовані списки, що з'являються одразу після тексту */}
+                {/* --- ЗМІНА: `span` замінено на `button` з обробником onClick --- */}
                 {!isExpanded && hasAssociatedLists && (
-                    <div className="flex items-center space-x-1.5 flex-shrink-0">
+                    <div className="flex items-center space-x-1.5">
                         {associatedLists.map(list => (
-                            <span key={list.id} className="text-xs bg-slate-200 dark:bg-slate-600/80 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded">
+                            <button 
+                                key={list.id} 
+                                onClick={(e) => handleGoToList(e, list)}
+                                title={`Перейти до списку: ${list.name}`}
+                                className="text-xs bg-slate-200 dark:bg-slate-600/80 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded hover:bg-slate-300 dark:hover:bg-slate-500"
+                            >
                                 {list.name}
-                            </span>
+                            </button>
                         ))}
                     </div>
                 )}
             </div>
 
-            <div className="flex-shrink-0 flex items-center space-x-2 pt-0.5">
+            <div className="flex-shrink-0 flex items-center space-x-1 pt-0.5">
                 <div className="flex items-center opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150">
                     {shouldRenderExpandButton && (
                         <button onClick={toggleExpand} className="p-1 text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 rounded" title={isExpanded ? "Сховати деталі" : "Показати деталі"}>

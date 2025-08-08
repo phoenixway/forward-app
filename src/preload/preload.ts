@@ -12,31 +12,31 @@ export const IPC_CHANNELS = {
   GET_APP_SETTINGS: "get-app-settings",
   SET_APP_SETTING: "set-app-setting",
   OPEN_EXTERNAL_LINK: "open-external-link",
-  HANDLE_CUSTOM_URL: "handle-custom-url", 
+  HANDLE_CUSTOM_URL: "handle-custom-url",
   SHOW_SAVE_DIALOG: "show-save-dialog",
   SHOW_OPEN_DIALOG: "show-open-dialog",
   WRITE_FILE: "write-file",
   READ_FILE: "read-file",
-  TEST_IPC_MESSAGE: "test-ipc-message", 
-  RENDERER_READY_FOR_URL: "renderer-ready-for-url", 
+  TEST_IPC_MESSAGE: "test-ipc-message",
+  RENDERER_READY_FOR_URL: "renderer-ready-for-url",
   RENDERER_ERROR: "renderer-error",
   APP_IS_APPIMAGE_ON_LINUX: "app:isAppImageOnLinux",
   APP_HAS_USER_DESKTOP_FILE: "app:hasUserDesktopFile",
   APP_CREATE_USER_DESKTOP_FILE: "app:createUserDesktopFile",
-  
+
   // Канали синхронізації
   WIFI_SYNC_START_SERVER: "wifi-sync:start-server",
   WIFI_SYNC_STOP_SERVER: "wifi-sync:stop-server",
   WIFI_SYNC_FETCH_FROM_DEVICE: "wifi-sync:fetch-from-device",
   WIFI_SYNC_APPLY_TO_DEVICE: "wifi-sync:apply-to-device",
-  
+
   // Канали, що викликаються з меню
   SHOW_WIFI_IMPORT_DIALOG: "show-wifi-import-dialog",
   SHOW_WIFI_SERVER_STATUS: "show-wifi-server-status",
   TRIGGER_FILE_EXPORT: "trigger-file-export",
   TRIGGER_FILE_IMPORT: "trigger-file-import",
   TRIGGER_SHOW_SETTINGS: "trigger-show-settings",
-  
+
   // Канали для гарячих клавіш
   CLOSE_CURRENT_TAB: "close-current-tab",
   NAVIGATE_NEXT_TAB: 'navigate-next-tab',
@@ -45,11 +45,12 @@ export const IPC_CHANNELS = {
   // Канали для збереження сесії вкладок
   REQUEST_TABS_FOR_SAVING: 'request-tabs-for-saving',
   SAVE_TABS_STATE: 'save-tabs-state',
+  SAVE_TABS_STATE_AND_QUIT: 'save-tabs-state-and-quit',
 };
 
 export interface ElectronAPI {
   getAppVersion: () => Promise<string>;
-  getAppSettings: () => Promise<Record<string, any> | null>; 
+  getAppSettings: () => Promise<Record<string, any> | null>;
   setAppSetting: (key: string, value: any) => Promise<{ success: boolean; message?: string }>;
   getZoomFactor: () => number;
   setZoomFactor: (factor: number) => void;
@@ -70,7 +71,7 @@ export interface ElectronAPI {
   stopWifiServer: () => Promise<{ success: boolean; error?: string }>;
   fetchFromDevice: (deviceAddress: string) => Promise<{ success: boolean; data?: any, error?: string }>;
   applyToDevice: (options: { deviceAddress: string; payload: any }) => Promise<{ success: boolean; data?: any, error?: string }>;
-  
+
   // Слухачі подій з меню та гарячих клавіш
   onShowWifiImportDialog: (callback: () => void) => () => void;
   onShowWifiServerStatus: (callback: () => void) => () => void;
@@ -84,6 +85,7 @@ export interface ElectronAPI {
   // Збереження сесії вкладок
   onRequestTabsForSaving: (callback: () => void) => () => void;
   saveTabsState: (tabs: Tab[], activeTabId: string | null) => void;
+    saveTabsStateAndQuit: (tabs: Tab[], activeTabId: string | null) => void;
 }
 
 
@@ -189,6 +191,9 @@ const exposedAPI: ElectronAPI = {
     const listener = () => callback();
     ipcRenderer.on(IPC_CHANNELS.REQUEST_TABS_FOR_SAVING, listener);
     return () => ipcRenderer.removeListener(IPC_CHANNELS.REQUEST_TABS_FOR_SAVING, listener);
+  },
+  saveTabsStateAndQuit: (tabs, activeTabId) => {
+    ipcRenderer.send(IPC_CHANNELS.SAVE_TABS_STATE_AND_QUIT, tabs, activeTabId);
   },
   saveTabsState: (tabs, activeTabId) => {
     ipcRenderer.send(IPC_CHANNELS.SAVE_TABS_STATE, tabs, activeTabId);

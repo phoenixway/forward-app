@@ -60,7 +60,7 @@ try {
 const APP_PRODUCT_NAME = packageJson.productName || "ForwardApp";
 const APP_EXECUTABLE_NAME =
   packageJson.build?.linux?.executableName || packageJson.name || "forward-app";
-const APP_URL_SCHEME = "forwardapp"; 
+const APP_URL_SCHEME = "forwardapp";
 
 const userHomeDir = os.homedir();
 const userApplicationsDir = path.join(
@@ -125,8 +125,9 @@ function createWindow() {
     },
   });
 
-  mainWindowInstance.on('close', () => {
-    mainWindowInstance?.webContents.send('request-tabs-for-saving');
+  mainWindowInstance.on('close', (event) => {
+    event.preventDefault(); // Зупиняємо закриття
+    mainWindowInstance?.webContents.send('request-tabs-for-saving'); // Просимо дані для збереження
   });
 
   if (process.platform === "linux") {
@@ -158,7 +159,7 @@ function createWindow() {
     );
     const indexPath = app.isPackaged
       ? path.join(__dirname, "../renderer/index.html")
-      : "http://localhost:3000"; 
+      : "http://localhost:3000";
 
     if (app.isPackaged) {
       mainWindowInstance
@@ -499,127 +500,140 @@ Type=Fixed
     }
   }
 
-app.whenReady().then(() => {
+  app.whenReady().then(() => {
 
     const menuTemplate: (
       | Electron.MenuItemConstructorOptions
       | Electron.MenuItem
     )[] = [
-      {
-        label: "File",
-        submenu: [
-          {
-            label: "Settings",
-            click: () => {
-              mainWindowInstance?.webContents.send("trigger-show-settings");
-            },
-          },
-          {
-            label: "Close Tab",
-            accelerator: "CmdOrCtrl+W",
-            click: () => {
-              mainWindowInstance?.webContents.send("close-current-tab");
-            },
-          },
-          { type: 'separator' },
-          { label: "Exit", role: "quit" },
-        ],
-      },
-      {
-        label: "Sync",
-        submenu: [
-          {
-            label: "Import from File...",
-            click: () => {
-              mainWindowInstance?.webContents.send("trigger-file-import");
-            },
-          },
-          {
-            label: "Export to File...",
-            click: () => {
-              mainWindowInstance?.webContents.send("trigger-file-export");
-            },
-          },
-          { type: 'separator' },
-          {
-            label: "Import from Local Network...",
-            click: () => {
-              mainWindowInstance?.webContents.send("show-wifi-import-dialog");
-            },
-          },
-          {
-            label: "Share via Local Network...",
-            click: () => {
-              mainWindowInstance?.webContents.send("show-wifi-server-status");
-            },
-          },
-        ],
-      },
-      {
-        label: "View",
-        submenu: [
-            {
-                label: 'Next Tab',
-                accelerator: 'Ctrl+Tab',
-                click: () => {
-                    mainWindowInstance?.webContents.send('navigate-next-tab');
-                }
-            },
-            {
-                label: 'Previous Tab',
-                accelerator: 'Ctrl+Shift+Tab',
-                click: () => {
-                    mainWindowInstance?.webContents.send('navigate-previous-tab');
-                }
-            }
-        ]
-      },
-      {
-          label: 'Development',
+        {
+          label: "File",
           submenu: [
-              { role: 'reload' },
-              { role: 'forceReload' },
-              { type: 'separator' },
-              { role: 'toggleDevTools' }
-          ]
-      },
-      {
-        label: "Help",
-        submenu: [
-          {
-            label: `About ${app.getName()}`,
-            click: () => {
-              if (mainWindowInstance) {
-                dialog.showMessageBox(mainWindowInstance, {
-                  type: "info",
-                  title: `About`,
-                  message: app.getName(),
-                  detail: `Version: ${app.getVersion()}`,
-                });
+            {
+              label: "Settings",
+              click: () => {
+                mainWindowInstance?.webContents.send("trigger-show-settings");
+              },
+            },
+            {
+              label: "Close Tab",
+              accelerator: "CmdOrCtrl+W",
+              click: () => {
+                mainWindowInstance?.webContents.send("close-current-tab");
+              },
+            },
+            { type: 'separator' },
+            { label: "Exit", role: "quit" },
+          ],
+        },
+        {
+          label: "Sync",
+          submenu: [
+            {
+              label: "Import from File...",
+              click: () => {
+                mainWindowInstance?.webContents.send("trigger-file-import");
+              },
+            },
+            {
+              label: "Export to File...",
+              click: () => {
+                mainWindowInstance?.webContents.send("trigger-file-export");
+              },
+            },
+            { type: 'separator' },
+            {
+              label: "Import from Local Network...",
+              click: () => {
+                mainWindowInstance?.webContents.send("show-wifi-import-dialog");
+              },
+            },
+            {
+              label: "Share via Local Network...",
+              click: () => {
+                mainWindowInstance?.webContents.send("show-wifi-server-status");
+              },
+            },
+          ],
+        },
+        {
+          label: "View",
+          submenu: [
+            {
+              label: 'Next Tab',
+              accelerator: 'Ctrl+Tab',
+              click: () => {
+                mainWindowInstance?.webContents.send('navigate-next-tab');
               }
             },
-          },
-          {
-            label: "Visit GitHub",
-            click: async () => {
-              await shell.openExternal("https://github.com/phoenixway/forward-app");
+            {
+              label: 'Previous Tab',
+              accelerator: 'Ctrl+Shift+Tab',
+              click: () => {
+                mainWindowInstance?.webContents.send('navigate-previous-tab');
+              }
+            }
+          ]
+        },
+        {
+          label: 'Development',
+          submenu: [
+            { role: 'reload' },
+            { role: 'forceReload' },
+            { type: 'separator' },
+            { role: 'toggleDevTools' }
+          ]
+        },
+        {
+          label: "Help",
+          submenu: [
+            {
+              label: `About ${app.getName()}`,
+              click: () => {
+                if (mainWindowInstance) {
+                  dialog.showMessageBox(mainWindowInstance, {
+                    type: "info",
+                    title: `About`,
+                    message: app.getName(),
+                    detail: `Version: ${app.getVersion()}`,
+                  });
+                }
+              },
             },
-          },
-        ],
-      },
-    ];
+            {
+              label: "Visit GitHub",
+              click: async () => {
+                await shell.openExternal("https://github.com/phoenixway/forward-app");
+              },
+            },
+          ],
+        },
+      ];
 
     const menu = Menu.buildFromTemplate(menuTemplate);
     Menu.setApplicationMenu(menu);
-    
+
     // --- IPC ОБРОБНИКИ ---
-    
+
+    ipcMain.on('save-tabs-state-and-quit', (_event, tabs, activeTabId) => {
+      console.log('[Main] Збереження стану вкладок і вихід...');
+      // @ts-ignore
+      store.set('session.openTabs', tabs);
+      // @ts-ignore
+      store.set('session.activeTabId', activeTabId);
+
+      if (mainWindowInstance) {
+        mainWindowInstance.destroy(); // Примусово закриваємо вікно після збереження
+      }
+    });
+
+
     ipcMain.on('save-tabs-state', (_event, tabs, activeTabId) => {
-        console.log('[Main] Збереження стану вкладок...');
-        // @ts-ignore
-        store.set('session.openTabs', tabs);
-        // @ts-ignore
-        store.set('session.activeTabId', activeTabId);
+      console.log('[Main] Збереження стану вкладок...');
+      // @ts-ignore
+      store.set('session.openTabs', tabs);
+      // @ts-ignore
+      store.set('session.activeTabId', activeTabId);
     });
 
     ipcMain.handle("get-app-version", () => app.getVersion());
@@ -647,83 +661,83 @@ app.whenReady().then(() => {
     });
 
     ipcMain.handle("show-save-dialog", async (_event, options: Electron.SaveDialogOptions) => {
-        if (!mainWindowInstance) return { canceled: true, filePath: undefined };
-        return dialog.showSaveDialog(mainWindowInstance, options);
+      if (!mainWindowInstance) return { canceled: true, filePath: undefined };
+      return dialog.showSaveDialog(mainWindowInstance, options);
     });
 
     ipcMain.handle("write-file", async (_event, filePath: string, content: string) => {
-        try {
-          await fs.writeFile(filePath, content);
-          return { success: true };
-        } catch (error: any) {
-          return { success: false, error: error.message };
-        }
+      try {
+        await fs.writeFile(filePath, content);
+        return { success: true };
+      } catch (error: any) {
+        return { success: false, error: error.message };
+      }
     });
-    
+
     ipcMain.handle("show-open-dialog", async (_event, options: Electron.OpenDialogOptions) => {
-        if (!mainWindowInstance) return { canceled: true, filePaths: [] };
-        return dialog.showOpenDialog(mainWindowInstance, options);
+      if (!mainWindowInstance) return { canceled: true, filePaths: [] };
+      return dialog.showOpenDialog(mainWindowInstance, options);
     });
 
     ipcMain.handle("read-file", async (_event, filePath: string) => {
-        try {
-          const content = await fs.readFile(filePath, "utf-8");
-          return { success: true, content };
-        } catch (error: any) {
-          return { success: false, error: error.message };
-        }
+      try {
+        const content = await fs.readFile(filePath, "utf-8");
+        return { success: true, content };
+      } catch (error: any) {
+        return { success: false, error: error.message };
+      }
     });
 
     // --- WIFI SYNC ОБРОБНИКИ ---
     let serverInstance: http.Server | null = null;
     ipcMain.handle("wifi-sync:start-server", async (_event, dataForExport: any) => {
-        if (serverInstance) {
-            return { success: false, error: "Сервер вже запущено." };
-        }
-        try {
-            const port = 8080;
-            const syncServer = express();
-            syncServer.use(cors());
-            syncServer.get('/export', (req: Request, res: Response) => {
-                res.json(dataForExport);
-            });
-            return new Promise((resolve) => {
-                serverInstance = syncServer.listen(port, () => {
-                    const address = ip.address();
-                    resolve({ success: true, address: `${address}:${port}` });
-                }).on('error', (err) => {
-                    resolve({ success: false, error: err.message });
-                });
-            });
-        } catch (error: any) {
-            return { success: false, error: error.message };
-        }
+      if (serverInstance) {
+        return { success: false, error: "Сервер вже запущено." };
+      }
+      try {
+        const port = 8080;
+        const syncServer = express();
+        syncServer.use(cors());
+        syncServer.get('/export', (req: Request, res: Response) => {
+          res.json(dataForExport);
+        });
+        return new Promise((resolve) => {
+          serverInstance = syncServer.listen(port, () => {
+            const address = ip.address();
+            resolve({ success: true, address: `${address}:${port}` });
+          }).on('error', (err) => {
+            resolve({ success: false, error: err.message });
+          });
+        });
+      } catch (error: any) {
+        return { success: false, error: error.message };
+      }
     });
 
     ipcMain.handle("wifi-sync:stop-server", async () => {
       if (serverInstance) {
         return new Promise((resolve) => {
-            serverInstance!.close((err) => {
-                if(err) {
-                    resolve({ success: false, error: err.message });
-                    return;
-                }
-                serverInstance = null;
-                resolve({ success: true });
-            });
+          serverInstance!.close((err) => {
+            if (err) {
+              resolve({ success: false, error: err.message });
+              return;
+            }
+            serverInstance = null;
+            resolve({ success: true });
+          });
         });
       }
       return { success: true }; // Вже зупинено
     });
 
     ipcMain.handle("wifi-sync:fetch-from-device", async (_event, deviceAddress: string) => {
-        try {
-            const fullUrl = `http://${deviceAddress.trim()}/export`;
-            const response = await axios.get(fullUrl, { timeout: 10000 }); 
-            return { success: true, data: response.data };
-        } catch (error: any) {
-            return { success: false, error: error.message };
-        }
+      try {
+        const fullUrl = `http://${deviceAddress.trim()}/export`;
+        const response = await axios.get(fullUrl, { timeout: 10000 });
+        return { success: true, data: response.data };
+      } catch (error: any) {
+        return { success: false, error: error.message };
+      }
     });
 
     createWindow();
@@ -733,7 +747,7 @@ app.whenReady().then(() => {
         createWindow();
       }
     });
-});
+  });
 
   app.on("window-all-closed", () => {
     if (process.platform !== "darwin") {

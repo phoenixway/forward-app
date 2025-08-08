@@ -45,12 +45,20 @@ function MainPanel({
 
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  
+  const tabsRef = useRef(tabs);
+  const activeTabIdRef = useRef(activeTabId);
+
+  useEffect(() => {
+      tabsRef.current = tabs;
+      activeTabIdRef.current = activeTabId;
+  }, [tabs, activeTabId]);
+
   const [editingList, setEditingList] = useState<GoalList | null>(null);
   const [editingListName, setEditingListName] = useState("");
   const [editingListDescription, setEditingListDescription] = useState("");
   const editingListModalRef = useRef<HTMLDivElement>(null);
 
-  // Ефект для завантаження та збереження вкладок
   useEffect(() => {
     const loadTabs = async () => {
       if (window.electronAPI) {
@@ -71,15 +79,9 @@ function MainPanel({
     loadTabs();
 
     const cleanupSaveRequestHandler = window.electronAPI.onRequestTabsForSaving(() => {
-        setTabs(currentTabs => {
-            setActiveTabId(currentActiveTabId => {
-                if (window.electronAPI) {
-                    window.electronAPI.saveTabsState(currentTabs, currentActiveTabId);
-                }
-                return currentActiveTabId;
-            });
-            return currentTabs;
-        });
+        if (window.electronAPI) {
+            window.electronAPI.saveTabsStateAndQuit(tabsRef.current, activeTabIdRef.current);
+        }
     });
 
     return () => {
@@ -98,7 +100,6 @@ function MainPanel({
     const MIGRATION_KEY = 'migration_to_scoring_system_v9_applied';
     const isMigrationApplied = localStorage.getItem(MIGRATION_KEY);
     if (!isMigrationApplied) {
-      console.log('Застосування міграції до нової системи оцінки цілей...');
       Object.values(goals).forEach(goal => {
         if (goal && goal.displayScore === undefined) {
           const updatedGoalWithScores = calculateScores(goal);
@@ -236,7 +237,6 @@ function MainPanel({
       case "goal-list":
         const listId = activeTabData.listId;
         if (!listId || !goalLists[listId]) {
-          // Якщо списку більше не існує, закриваємо вкладку
           setTimeout(() => handleTabClose(activeTabData.id), 0);
           return <div className="p-4 text-slate-600 dark:text-slate-400">Список видалено або не існує. Закриття...</div>;
         }

@@ -1,8 +1,13 @@
 // src/renderer/store/listsSlice.ts
 import { createSlice, PayloadAction, nanoid } from "@reduxjs/toolkit";
 import type { Draft } from "immer";
-// ✨ ВИКОРИСТОВУЄМО ОНОВЛЕНІ ТИПИ
 import type { Goal, GoalInstance, GoalList, ScoringStatus } from "../types";
+// --- ІМПОРТИ ДЛЯ НОВОЇ ЛОГІКИ СИНХРОНІЗАЦІЇ ---
+import { applyChanges, SyncChange } from '../logic/syncLogic';
+
+// Визначимо тип для Thunk. Це робить слайс більш самодостатнім.
+type AppThunk<ReturnType = void> = (dispatch: any, getState: () => { lists: ListsState }) => ReturnType;
+
 
 export interface ListsState {
   goals: Record<string, Goal>;
@@ -16,12 +21,10 @@ const initialState: ListsState = {
   goalInstances: {},
 };
 
-// ✨ ЗМІНА: Логіка рекурсивного видалення тепер базується на `listId` в екземплярах, а не на `itemInstanceIds`.
 const recursivelyDeleteList = (state: Draft<ListsState>, listId: string) => {
   const listToDelete = state.goalLists[listId];
   if (!listToDelete) return;
 
-  // Знаходимо дочірні списки та видаляємо їх рекурсивно
   const childIds = Object.values(state.goalLists)
     .filter(l => l.parentId === listId)
     .map(l => l.id);
@@ -29,7 +32,6 @@ const recursivelyDeleteList = (state: Draft<ListsState>, listId: string) => {
     recursivelyDeleteList(state, childId);
   });
 
-  // Знаходимо всі екземпляри, що належать цьому списку
   const instanceIdsToDelete = Object.values(state.goalInstances)
     .filter(instance => instance.listId === listId)
     .map(instance => instance.instanceId);
@@ -37,7 +39,6 @@ const recursivelyDeleteList = (state: Draft<ListsState>, listId: string) => {
   instanceIdsToDelete.forEach(instanceId => {
     const instance = state.goalInstances[instanceId];
     if (instance) {
-      // Перевіряємо, чи не осиротіла ціль (чи є інші екземпляри цієї ж цілі)
       const isOrphaned = !Object.values(state.goalInstances).some(
         i => i.instanceId !== instanceId && i.goalId === instance.goalId
       );
@@ -48,7 +49,6 @@ const recursivelyDeleteList = (state: Draft<ListsState>, listId: string) => {
     delete state.goalInstances[instanceId];
   });
 
-  // Нарешті видаляємо сам список
   delete state.goalLists[listId];
 };
 
@@ -64,7 +64,6 @@ const listsSlice = createSlice({
       const siblingLists = Object.values(state.goalLists).filter(
         (list) => list.parentId === newList.parentId
       );
-      // Розраховуємо порядок серед сусідніх елементів
       newList.order = siblingLists.length;
       state.goalLists[newList.id] = newList;
     },
@@ -80,7 +79,6 @@ const listsSlice = createSlice({
         if (description !== undefined) {
           list.description = description;
         }
-        // ✨ ЗМІНА: Дати тепер є числами
         list.updatedAt = Date.now();
       }
     },
@@ -109,7 +107,6 @@ const listsSlice = createSlice({
     },
 
     // --- GOAL & INSTANCE ACTIONS ---
-    // ✨ КАРДИНАЛЬНА ЗМІНА: Логіка додавання цілі
     goalAdded: (state, action: PayloadAction<{ listId: string; text: string }>) => {
       const { listId, text } = action.payload;
       if (!state.goalLists[listId]) return;
@@ -118,7 +115,6 @@ const listsSlice = createSlice({
       const instanceId = nanoid();
       const now = Date.now();
 
-      // Створюємо нову ціль
       state.goals[goalId] = {
         id: goalId,
         text,
@@ -126,18 +122,15 @@ const listsSlice = createSlice({
         createdAt: now,
         updatedAt: now,
         scoringStatus: "NOT_ASSESSED" as ScoringStatus,
-        // Ініціалізуємо інші поля за замовчуванням
         associatedListIds: [],
         description: "",
       };
 
-      // ✨ ЗМІНА: Порядок тепер зберігається в екземплярі.
-      // Використовуємо негативний timestamp, щоб нові цілі з'являлися зверху (як в Android).
       state.goalInstances[instanceId] = {
         instanceId: instanceId,
         goalId,
         listId,
-        order: -now, // Негативний timestamp для сортування від нових до старих
+        order: -now, 
       };
     },
     goalToggled(state, action: PayloadAction<string>) {
@@ -156,9 +149,7 @@ const listsSlice = createSlice({
         goal.updatedAt = Date.now();
       }
     },
-    // ✨ КАРДИНАЛЬНА ЗМІНА: Логіка видалення екземпляру
     instanceRemovedFromList(state, action: PayloadAction<{ listId: string; instanceId: string }>) {
-      // listId більше не є строго необхідним, але залишаємо для сумісності
       const { instanceId } = action.payload;
       const instanceToRemove = state.goalInstances[instanceId];
       if (!instanceToRemove) return;
@@ -171,16 +162,13 @@ const listsSlice = createSlice({
         delete state.goals[goalId];
       }
     },
-    // ✨ КАРДИНАЛЬНА ЗМІНА: Логіка переміщення цілі
     goalMoved: (state, action: PayloadAction<{ instanceId: string; sourceListId: string; destinationListId: string; destinationIndex: number; }>) => {
       const { instanceId, destinationListId, destinationIndex } = action.payload;
       const instance = state.goalInstances[instanceId];
       if (!instance) return;
 
-      // 1. Оновлюємо listId екземпляра
       instance.listId = destinationListId;
 
-      // 2. Оновлюємо порядок у новому списку
       const destinationSiblings = Object.values(state.goalInstances)
         .filter(i => i.listId === destinationListId && i.instanceId !== instanceId)
         .sort((a, b) => a.order - b.order)
@@ -194,11 +182,9 @@ const listsSlice = createSlice({
         }
       });
     },
-    // ✨ КАРДИНАЛЬНА ЗМІНА: Логіка оновлення порядку
     goalOrderUpdated: (state, action: PayloadAction<{ listId: string; orderedInstanceIds: string[] }>) => {
       const { listId, orderedInstanceIds } = action.payload;
 
-      // Перевіряємо, чи всі екземпляри належать до вказаного списку
       const instancesInList = Object.values(state.goalInstances).filter(i => i.listId === listId);
       if (instancesInList.length !== orderedInstanceIds.length) {
         console.warn("Mismatch in goalOrderUpdated instance count.");
@@ -266,7 +252,6 @@ const listsSlice = createSlice({
         goal.updatedAt = Date.now();
       }
     },
-    // `goalsImported` може потребувати оновлення залежно від формату імпорту
     listExpansionToggled(state, action: PayloadAction<{ listId: string }>) {
       const { listId } = action.payload;
       const list = state.goalLists[listId];
@@ -305,5 +290,15 @@ export const {
   stateReplaced,
   listExpansionToggled,
 } = listsSlice.actions;
+
+// --- НОВА АСИНХРОННА ДІЯ (THUNK) ДЛЯ ЗАСТОСУВАННЯ ЗМІН СИНХРОНІЗАЦІЇ ---
+export const applyApprovedChanges = (approvedChanges: SyncChange[]): AppThunk =>
+    (dispatch, getState) => {
+        const currentState = getState().lists;
+        // Використовуємо applicator з syncLogic для розрахунку нового стану
+        const newState = applyChanges(currentState, approvedChanges);
+        // Замінюємо старий стан на новий за допомогою існуючої дії
+        dispatch(stateReplaced(newState));
+    };
 
 export default listsSlice.reducer;

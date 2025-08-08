@@ -10038,6 +10038,1288 @@ var getBox = function getBox(el) {
 
 /***/ }),
 
+/***/ "./node_modules/immer/dist/cjs/immer.cjs.development.js":
+/*!**************************************************************!*\
+  !*** ./node_modules/immer/dist/cjs/immer.cjs.development.js ***!
+  \**************************************************************/
+/***/ ((module) => {
+
+"use strict";
+
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+// src/immer.ts
+var immer_exports = {};
+__export(immer_exports, {
+  Immer: () => Immer2,
+  applyPatches: () => applyPatches,
+  castDraft: () => castDraft,
+  castImmutable: () => castImmutable,
+  createDraft: () => createDraft,
+  current: () => current,
+  enableMapSet: () => enableMapSet,
+  enablePatches: () => enablePatches,
+  finishDraft: () => finishDraft,
+  freeze: () => freeze,
+  immerable: () => DRAFTABLE,
+  isDraft: () => isDraft,
+  isDraftable: () => isDraftable,
+  nothing: () => NOTHING,
+  original: () => original,
+  produce: () => produce,
+  produceWithPatches: () => produceWithPatches,
+  setAutoFreeze: () => setAutoFreeze,
+  setUseStrictShallowCopy: () => setUseStrictShallowCopy
+});
+module.exports = __toCommonJS(immer_exports);
+
+// src/utils/env.ts
+var NOTHING = Symbol.for("immer-nothing");
+var DRAFTABLE = Symbol.for("immer-draftable");
+var DRAFT_STATE = Symbol.for("immer-state");
+
+// src/utils/errors.ts
+var errors =  true ? [
+  // All error codes, starting by 0:
+  function(plugin) {
+    return `The plugin for '${plugin}' has not been loaded into Immer. To enable the plugin, import and call \`enable${plugin}()\` when initializing your application.`;
+  },
+  function(thing) {
+    return `produce can only be called on things that are draftable: plain objects, arrays, Map, Set or classes that are marked with '[immerable]: true'. Got '${thing}'`;
+  },
+  "This object has been frozen and should not be mutated",
+  function(data) {
+    return "Cannot use a proxy that has been revoked. Did you pass an object from inside an immer function to an async process? " + data;
+  },
+  "An immer producer returned a new value *and* modified its draft. Either return a new value *or* modify the draft.",
+  "Immer forbids circular references",
+  "The first or second argument to `produce` must be a function",
+  "The third argument to `produce` must be a function or undefined",
+  "First argument to `createDraft` must be a plain object, an array, or an immerable object",
+  "First argument to `finishDraft` must be a draft returned by `createDraft`",
+  function(thing) {
+    return `'current' expects a draft, got: ${thing}`;
+  },
+  "Object.defineProperty() cannot be used on an Immer draft",
+  "Object.setPrototypeOf() cannot be used on an Immer draft",
+  "Immer only supports deleting array indices",
+  "Immer only supports setting array indices and the 'length' property",
+  function(thing) {
+    return `'original' expects a draft, got: ${thing}`;
+  }
+  // Note: if more errors are added, the errorOffset in Patches.ts should be increased
+  // See Patches.ts for additional errors
+] : 0;
+function die(error, ...args) {
+  if (true) {
+    const e = errors[error];
+    const msg = typeof e === "function" ? e.apply(null, args) : e;
+    throw new Error(`[Immer] ${msg}`);
+  }
+  // removed by dead control flow
+{}
+}
+
+// src/utils/common.ts
+var getPrototypeOf = Object.getPrototypeOf;
+function isDraft(value) {
+  return !!value && !!value[DRAFT_STATE];
+}
+function isDraftable(value) {
+  if (!value)
+    return false;
+  return isPlainObject(value) || Array.isArray(value) || !!value[DRAFTABLE] || !!value.constructor?.[DRAFTABLE] || isMap(value) || isSet(value);
+}
+var objectCtorString = Object.prototype.constructor.toString();
+function isPlainObject(value) {
+  if (!value || typeof value !== "object")
+    return false;
+  const proto = getPrototypeOf(value);
+  if (proto === null) {
+    return true;
+  }
+  const Ctor = Object.hasOwnProperty.call(proto, "constructor") && proto.constructor;
+  if (Ctor === Object)
+    return true;
+  return typeof Ctor == "function" && Function.toString.call(Ctor) === objectCtorString;
+}
+function original(value) {
+  if (!isDraft(value))
+    die(15, value);
+  return value[DRAFT_STATE].base_;
+}
+function each(obj, iter) {
+  if (getArchtype(obj) === 0 /* Object */) {
+    Reflect.ownKeys(obj).forEach((key) => {
+      iter(key, obj[key], obj);
+    });
+  } else {
+    obj.forEach((entry, index) => iter(index, entry, obj));
+  }
+}
+function getArchtype(thing) {
+  const state = thing[DRAFT_STATE];
+  return state ? state.type_ : Array.isArray(thing) ? 1 /* Array */ : isMap(thing) ? 2 /* Map */ : isSet(thing) ? 3 /* Set */ : 0 /* Object */;
+}
+function has(thing, prop) {
+  return getArchtype(thing) === 2 /* Map */ ? thing.has(prop) : Object.prototype.hasOwnProperty.call(thing, prop);
+}
+function get(thing, prop) {
+  return getArchtype(thing) === 2 /* Map */ ? thing.get(prop) : thing[prop];
+}
+function set(thing, propOrOldValue, value) {
+  const t = getArchtype(thing);
+  if (t === 2 /* Map */)
+    thing.set(propOrOldValue, value);
+  else if (t === 3 /* Set */) {
+    thing.add(value);
+  } else
+    thing[propOrOldValue] = value;
+}
+function is(x, y) {
+  if (x === y) {
+    return x !== 0 || 1 / x === 1 / y;
+  } else {
+    return x !== x && y !== y;
+  }
+}
+function isMap(target) {
+  return target instanceof Map;
+}
+function isSet(target) {
+  return target instanceof Set;
+}
+function latest(state) {
+  return state.copy_ || state.base_;
+}
+function shallowCopy(base, strict) {
+  if (isMap(base)) {
+    return new Map(base);
+  }
+  if (isSet(base)) {
+    return new Set(base);
+  }
+  if (Array.isArray(base))
+    return Array.prototype.slice.call(base);
+  const isPlain = isPlainObject(base);
+  if (strict === true || strict === "class_only" && !isPlain) {
+    const descriptors = Object.getOwnPropertyDescriptors(base);
+    delete descriptors[DRAFT_STATE];
+    let keys = Reflect.ownKeys(descriptors);
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      const desc = descriptors[key];
+      if (desc.writable === false) {
+        desc.writable = true;
+        desc.configurable = true;
+      }
+      if (desc.get || desc.set)
+        descriptors[key] = {
+          configurable: true,
+          writable: true,
+          // could live with !!desc.set as well here...
+          enumerable: desc.enumerable,
+          value: base[key]
+        };
+    }
+    return Object.create(getPrototypeOf(base), descriptors);
+  } else {
+    const proto = getPrototypeOf(base);
+    if (proto !== null && isPlain) {
+      return { ...base };
+    }
+    const obj = Object.create(proto);
+    return Object.assign(obj, base);
+  }
+}
+function freeze(obj, deep = false) {
+  if (isFrozen(obj) || isDraft(obj) || !isDraftable(obj))
+    return obj;
+  if (getArchtype(obj) > 1) {
+    obj.set = obj.add = obj.clear = obj.delete = dontMutateFrozenCollections;
+  }
+  Object.freeze(obj);
+  if (deep)
+    Object.entries(obj).forEach(([key, value]) => freeze(value, true));
+  return obj;
+}
+function dontMutateFrozenCollections() {
+  die(2);
+}
+function isFrozen(obj) {
+  return Object.isFrozen(obj);
+}
+
+// src/utils/plugins.ts
+var plugins = {};
+function getPlugin(pluginKey) {
+  const plugin = plugins[pluginKey];
+  if (!plugin) {
+    die(0, pluginKey);
+  }
+  return plugin;
+}
+function loadPlugin(pluginKey, implementation) {
+  if (!plugins[pluginKey])
+    plugins[pluginKey] = implementation;
+}
+
+// src/core/scope.ts
+var currentScope;
+function getCurrentScope() {
+  return currentScope;
+}
+function createScope(parent_, immer_) {
+  return {
+    drafts_: [],
+    parent_,
+    immer_,
+    // Whenever the modified draft contains a draft from another scope, we
+    // need to prevent auto-freezing so the unowned draft can be finalized.
+    canAutoFreeze_: true,
+    unfinalizedDrafts_: 0
+  };
+}
+function usePatchesInScope(scope, patchListener) {
+  if (patchListener) {
+    getPlugin("Patches");
+    scope.patches_ = [];
+    scope.inversePatches_ = [];
+    scope.patchListener_ = patchListener;
+  }
+}
+function revokeScope(scope) {
+  leaveScope(scope);
+  scope.drafts_.forEach(revokeDraft);
+  scope.drafts_ = null;
+}
+function leaveScope(scope) {
+  if (scope === currentScope) {
+    currentScope = scope.parent_;
+  }
+}
+function enterScope(immer2) {
+  return currentScope = createScope(currentScope, immer2);
+}
+function revokeDraft(draft) {
+  const state = draft[DRAFT_STATE];
+  if (state.type_ === 0 /* Object */ || state.type_ === 1 /* Array */)
+    state.revoke_();
+  else
+    state.revoked_ = true;
+}
+
+// src/core/finalize.ts
+function processResult(result, scope) {
+  scope.unfinalizedDrafts_ = scope.drafts_.length;
+  const baseDraft = scope.drafts_[0];
+  const isReplaced = result !== void 0 && result !== baseDraft;
+  if (isReplaced) {
+    if (baseDraft[DRAFT_STATE].modified_) {
+      revokeScope(scope);
+      die(4);
+    }
+    if (isDraftable(result)) {
+      result = finalize(scope, result);
+      if (!scope.parent_)
+        maybeFreeze(scope, result);
+    }
+    if (scope.patches_) {
+      getPlugin("Patches").generateReplacementPatches_(
+        baseDraft[DRAFT_STATE].base_,
+        result,
+        scope.patches_,
+        scope.inversePatches_
+      );
+    }
+  } else {
+    result = finalize(scope, baseDraft, []);
+  }
+  revokeScope(scope);
+  if (scope.patches_) {
+    scope.patchListener_(scope.patches_, scope.inversePatches_);
+  }
+  return result !== NOTHING ? result : void 0;
+}
+function finalize(rootScope, value, path) {
+  if (isFrozen(value))
+    return value;
+  const state = value[DRAFT_STATE];
+  if (!state) {
+    each(
+      value,
+      (key, childValue) => finalizeProperty(rootScope, state, value, key, childValue, path)
+    );
+    return value;
+  }
+  if (state.scope_ !== rootScope)
+    return value;
+  if (!state.modified_) {
+    maybeFreeze(rootScope, state.base_, true);
+    return state.base_;
+  }
+  if (!state.finalized_) {
+    state.finalized_ = true;
+    state.scope_.unfinalizedDrafts_--;
+    const result = state.copy_;
+    let resultEach = result;
+    let isSet2 = false;
+    if (state.type_ === 3 /* Set */) {
+      resultEach = new Set(result);
+      result.clear();
+      isSet2 = true;
+    }
+    each(
+      resultEach,
+      (key, childValue) => finalizeProperty(rootScope, state, result, key, childValue, path, isSet2)
+    );
+    maybeFreeze(rootScope, result, false);
+    if (path && rootScope.patches_) {
+      getPlugin("Patches").generatePatches_(
+        state,
+        path,
+        rootScope.patches_,
+        rootScope.inversePatches_
+      );
+    }
+  }
+  return state.copy_;
+}
+function finalizeProperty(rootScope, parentState, targetObject, prop, childValue, rootPath, targetIsSet) {
+  if ( true && childValue === targetObject)
+    die(5);
+  if (isDraft(childValue)) {
+    const path = rootPath && parentState && parentState.type_ !== 3 /* Set */ && // Set objects are atomic since they have no keys.
+    !has(parentState.assigned_, prop) ? rootPath.concat(prop) : void 0;
+    const res = finalize(rootScope, childValue, path);
+    set(targetObject, prop, res);
+    if (isDraft(res)) {
+      rootScope.canAutoFreeze_ = false;
+    } else
+      return;
+  } else if (targetIsSet) {
+    targetObject.add(childValue);
+  }
+  if (isDraftable(childValue) && !isFrozen(childValue)) {
+    if (!rootScope.immer_.autoFreeze_ && rootScope.unfinalizedDrafts_ < 1) {
+      return;
+    }
+    finalize(rootScope, childValue);
+    if ((!parentState || !parentState.scope_.parent_) && typeof prop !== "symbol" && Object.prototype.propertyIsEnumerable.call(targetObject, prop))
+      maybeFreeze(rootScope, childValue);
+  }
+}
+function maybeFreeze(scope, value, deep = false) {
+  if (!scope.parent_ && scope.immer_.autoFreeze_ && scope.canAutoFreeze_) {
+    freeze(value, deep);
+  }
+}
+
+// src/core/proxy.ts
+function createProxyProxy(base, parent) {
+  const isArray = Array.isArray(base);
+  const state = {
+    type_: isArray ? 1 /* Array */ : 0 /* Object */,
+    // Track which produce call this is associated with.
+    scope_: parent ? parent.scope_ : getCurrentScope(),
+    // True for both shallow and deep changes.
+    modified_: false,
+    // Used during finalization.
+    finalized_: false,
+    // Track which properties have been assigned (true) or deleted (false).
+    assigned_: {},
+    // The parent draft state.
+    parent_: parent,
+    // The base state.
+    base_: base,
+    // The base proxy.
+    draft_: null,
+    // set below
+    // The base copy with any updated values.
+    copy_: null,
+    // Called by the `produce` function.
+    revoke_: null,
+    isManual_: false
+  };
+  let target = state;
+  let traps = objectTraps;
+  if (isArray) {
+    target = [state];
+    traps = arrayTraps;
+  }
+  const { revoke, proxy } = Proxy.revocable(target, traps);
+  state.draft_ = proxy;
+  state.revoke_ = revoke;
+  return proxy;
+}
+var objectTraps = {
+  get(state, prop) {
+    if (prop === DRAFT_STATE)
+      return state;
+    const source = latest(state);
+    if (!has(source, prop)) {
+      return readPropFromProto(state, source, prop);
+    }
+    const value = source[prop];
+    if (state.finalized_ || !isDraftable(value)) {
+      return value;
+    }
+    if (value === peek(state.base_, prop)) {
+      prepareCopy(state);
+      return state.copy_[prop] = createProxy(value, state);
+    }
+    return value;
+  },
+  has(state, prop) {
+    return prop in latest(state);
+  },
+  ownKeys(state) {
+    return Reflect.ownKeys(latest(state));
+  },
+  set(state, prop, value) {
+    const desc = getDescriptorFromProto(latest(state), prop);
+    if (desc?.set) {
+      desc.set.call(state.draft_, value);
+      return true;
+    }
+    if (!state.modified_) {
+      const current2 = peek(latest(state), prop);
+      const currentState = current2?.[DRAFT_STATE];
+      if (currentState && currentState.base_ === value) {
+        state.copy_[prop] = value;
+        state.assigned_[prop] = false;
+        return true;
+      }
+      if (is(value, current2) && (value !== void 0 || has(state.base_, prop)))
+        return true;
+      prepareCopy(state);
+      markChanged(state);
+    }
+    if (state.copy_[prop] === value && // special case: handle new props with value 'undefined'
+    (value !== void 0 || prop in state.copy_) || // special case: NaN
+    Number.isNaN(value) && Number.isNaN(state.copy_[prop]))
+      return true;
+    state.copy_[prop] = value;
+    state.assigned_[prop] = true;
+    return true;
+  },
+  deleteProperty(state, prop) {
+    if (peek(state.base_, prop) !== void 0 || prop in state.base_) {
+      state.assigned_[prop] = false;
+      prepareCopy(state);
+      markChanged(state);
+    } else {
+      delete state.assigned_[prop];
+    }
+    if (state.copy_) {
+      delete state.copy_[prop];
+    }
+    return true;
+  },
+  // Note: We never coerce `desc.value` into an Immer draft, because we can't make
+  // the same guarantee in ES5 mode.
+  getOwnPropertyDescriptor(state, prop) {
+    const owner = latest(state);
+    const desc = Reflect.getOwnPropertyDescriptor(owner, prop);
+    if (!desc)
+      return desc;
+    return {
+      writable: true,
+      configurable: state.type_ !== 1 /* Array */ || prop !== "length",
+      enumerable: desc.enumerable,
+      value: owner[prop]
+    };
+  },
+  defineProperty() {
+    die(11);
+  },
+  getPrototypeOf(state) {
+    return getPrototypeOf(state.base_);
+  },
+  setPrototypeOf() {
+    die(12);
+  }
+};
+var arrayTraps = {};
+each(objectTraps, (key, fn) => {
+  arrayTraps[key] = function() {
+    arguments[0] = arguments[0][0];
+    return fn.apply(this, arguments);
+  };
+});
+arrayTraps.deleteProperty = function(state, prop) {
+  if ( true && isNaN(parseInt(prop)))
+    die(13);
+  return arrayTraps.set.call(this, state, prop, void 0);
+};
+arrayTraps.set = function(state, prop, value) {
+  if ( true && prop !== "length" && isNaN(parseInt(prop)))
+    die(14);
+  return objectTraps.set.call(this, state[0], prop, value, state[0]);
+};
+function peek(draft, prop) {
+  const state = draft[DRAFT_STATE];
+  const source = state ? latest(state) : draft;
+  return source[prop];
+}
+function readPropFromProto(state, source, prop) {
+  const desc = getDescriptorFromProto(source, prop);
+  return desc ? `value` in desc ? desc.value : (
+    // This is a very special case, if the prop is a getter defined by the
+    // prototype, we should invoke it with the draft as context!
+    desc.get?.call(state.draft_)
+  ) : void 0;
+}
+function getDescriptorFromProto(source, prop) {
+  if (!(prop in source))
+    return void 0;
+  let proto = getPrototypeOf(source);
+  while (proto) {
+    const desc = Object.getOwnPropertyDescriptor(proto, prop);
+    if (desc)
+      return desc;
+    proto = getPrototypeOf(proto);
+  }
+  return void 0;
+}
+function markChanged(state) {
+  if (!state.modified_) {
+    state.modified_ = true;
+    if (state.parent_) {
+      markChanged(state.parent_);
+    }
+  }
+}
+function prepareCopy(state) {
+  if (!state.copy_) {
+    state.copy_ = shallowCopy(
+      state.base_,
+      state.scope_.immer_.useStrictShallowCopy_
+    );
+  }
+}
+
+// src/core/immerClass.ts
+var Immer2 = class {
+  constructor(config) {
+    this.autoFreeze_ = true;
+    this.useStrictShallowCopy_ = false;
+    /**
+     * The `produce` function takes a value and a "recipe function" (whose
+     * return value often depends on the base state). The recipe function is
+     * free to mutate its first argument however it wants. All mutations are
+     * only ever applied to a __copy__ of the base state.
+     *
+     * Pass only a function to create a "curried producer" which relieves you
+     * from passing the recipe function every time.
+     *
+     * Only plain objects and arrays are made mutable. All other objects are
+     * considered uncopyable.
+     *
+     * Note: This function is __bound__ to its `Immer` instance.
+     *
+     * @param {any} base - the initial state
+     * @param {Function} recipe - function that receives a proxy of the base state as first argument and which can be freely modified
+     * @param {Function} patchListener - optional function that will be called with all the patches produced here
+     * @returns {any} a new state, or the initial state if nothing was modified
+     */
+    this.produce = (base, recipe, patchListener) => {
+      if (typeof base === "function" && typeof recipe !== "function") {
+        const defaultBase = recipe;
+        recipe = base;
+        const self = this;
+        return function curriedProduce(base2 = defaultBase, ...args) {
+          return self.produce(base2, (draft) => recipe.call(this, draft, ...args));
+        };
+      }
+      if (typeof recipe !== "function")
+        die(6);
+      if (patchListener !== void 0 && typeof patchListener !== "function")
+        die(7);
+      let result;
+      if (isDraftable(base)) {
+        const scope = enterScope(this);
+        const proxy = createProxy(base, void 0);
+        let hasError = true;
+        try {
+          result = recipe(proxy);
+          hasError = false;
+        } finally {
+          if (hasError)
+            revokeScope(scope);
+          else
+            leaveScope(scope);
+        }
+        usePatchesInScope(scope, patchListener);
+        return processResult(result, scope);
+      } else if (!base || typeof base !== "object") {
+        result = recipe(base);
+        if (result === void 0)
+          result = base;
+        if (result === NOTHING)
+          result = void 0;
+        if (this.autoFreeze_)
+          freeze(result, true);
+        if (patchListener) {
+          const p = [];
+          const ip = [];
+          getPlugin("Patches").generateReplacementPatches_(base, result, p, ip);
+          patchListener(p, ip);
+        }
+        return result;
+      } else
+        die(1, base);
+    };
+    this.produceWithPatches = (base, recipe) => {
+      if (typeof base === "function") {
+        return (state, ...args) => this.produceWithPatches(state, (draft) => base(draft, ...args));
+      }
+      let patches, inversePatches;
+      const result = this.produce(base, recipe, (p, ip) => {
+        patches = p;
+        inversePatches = ip;
+      });
+      return [result, patches, inversePatches];
+    };
+    if (typeof config?.autoFreeze === "boolean")
+      this.setAutoFreeze(config.autoFreeze);
+    if (typeof config?.useStrictShallowCopy === "boolean")
+      this.setUseStrictShallowCopy(config.useStrictShallowCopy);
+  }
+  createDraft(base) {
+    if (!isDraftable(base))
+      die(8);
+    if (isDraft(base))
+      base = current(base);
+    const scope = enterScope(this);
+    const proxy = createProxy(base, void 0);
+    proxy[DRAFT_STATE].isManual_ = true;
+    leaveScope(scope);
+    return proxy;
+  }
+  finishDraft(draft, patchListener) {
+    const state = draft && draft[DRAFT_STATE];
+    if (!state || !state.isManual_)
+      die(9);
+    const { scope_: scope } = state;
+    usePatchesInScope(scope, patchListener);
+    return processResult(void 0, scope);
+  }
+  /**
+   * Pass true to automatically freeze all copies created by Immer.
+   *
+   * By default, auto-freezing is enabled.
+   */
+  setAutoFreeze(value) {
+    this.autoFreeze_ = value;
+  }
+  /**
+   * Pass true to enable strict shallow copy.
+   *
+   * By default, immer does not copy the object descriptors such as getter, setter and non-enumrable properties.
+   */
+  setUseStrictShallowCopy(value) {
+    this.useStrictShallowCopy_ = value;
+  }
+  applyPatches(base, patches) {
+    let i;
+    for (i = patches.length - 1; i >= 0; i--) {
+      const patch = patches[i];
+      if (patch.path.length === 0 && patch.op === "replace") {
+        base = patch.value;
+        break;
+      }
+    }
+    if (i > -1) {
+      patches = patches.slice(i + 1);
+    }
+    const applyPatchesImpl = getPlugin("Patches").applyPatches_;
+    if (isDraft(base)) {
+      return applyPatchesImpl(base, patches);
+    }
+    return this.produce(
+      base,
+      (draft) => applyPatchesImpl(draft, patches)
+    );
+  }
+};
+function createProxy(value, parent) {
+  const draft = isMap(value) ? getPlugin("MapSet").proxyMap_(value, parent) : isSet(value) ? getPlugin("MapSet").proxySet_(value, parent) : createProxyProxy(value, parent);
+  const scope = parent ? parent.scope_ : getCurrentScope();
+  scope.drafts_.push(draft);
+  return draft;
+}
+
+// src/core/current.ts
+function current(value) {
+  if (!isDraft(value))
+    die(10, value);
+  return currentImpl(value);
+}
+function currentImpl(value) {
+  if (!isDraftable(value) || isFrozen(value))
+    return value;
+  const state = value[DRAFT_STATE];
+  let copy;
+  if (state) {
+    if (!state.modified_)
+      return state.base_;
+    state.finalized_ = true;
+    copy = shallowCopy(value, state.scope_.immer_.useStrictShallowCopy_);
+  } else {
+    copy = shallowCopy(value, true);
+  }
+  each(copy, (key, childValue) => {
+    set(copy, key, currentImpl(childValue));
+  });
+  if (state) {
+    state.finalized_ = false;
+  }
+  return copy;
+}
+
+// src/plugins/patches.ts
+function enablePatches() {
+  const errorOffset = 16;
+  if (true) {
+    errors.push(
+      'Sets cannot have "replace" patches.',
+      function(op) {
+        return "Unsupported patch operation: " + op;
+      },
+      function(path) {
+        return "Cannot apply patch, path doesn't resolve: " + path;
+      },
+      "Patching reserved attributes like __proto__, prototype and constructor is not allowed"
+    );
+  }
+  const REPLACE = "replace";
+  const ADD = "add";
+  const REMOVE = "remove";
+  function generatePatches_(state, basePath, patches, inversePatches) {
+    switch (state.type_) {
+      case 0 /* Object */:
+      case 2 /* Map */:
+        return generatePatchesFromAssigned(
+          state,
+          basePath,
+          patches,
+          inversePatches
+        );
+      case 1 /* Array */:
+        return generateArrayPatches(state, basePath, patches, inversePatches);
+      case 3 /* Set */:
+        return generateSetPatches(
+          state,
+          basePath,
+          patches,
+          inversePatches
+        );
+    }
+  }
+  function generateArrayPatches(state, basePath, patches, inversePatches) {
+    let { base_, assigned_ } = state;
+    let copy_ = state.copy_;
+    if (copy_.length < base_.length) {
+      ;
+      [base_, copy_] = [copy_, base_];
+      [patches, inversePatches] = [inversePatches, patches];
+    }
+    for (let i = 0; i < base_.length; i++) {
+      if (assigned_[i] && copy_[i] !== base_[i]) {
+        const path = basePath.concat([i]);
+        patches.push({
+          op: REPLACE,
+          path,
+          // Need to maybe clone it, as it can in fact be the original value
+          // due to the base/copy inversion at the start of this function
+          value: clonePatchValueIfNeeded(copy_[i])
+        });
+        inversePatches.push({
+          op: REPLACE,
+          path,
+          value: clonePatchValueIfNeeded(base_[i])
+        });
+      }
+    }
+    for (let i = base_.length; i < copy_.length; i++) {
+      const path = basePath.concat([i]);
+      patches.push({
+        op: ADD,
+        path,
+        // Need to maybe clone it, as it can in fact be the original value
+        // due to the base/copy inversion at the start of this function
+        value: clonePatchValueIfNeeded(copy_[i])
+      });
+    }
+    for (let i = copy_.length - 1; base_.length <= i; --i) {
+      const path = basePath.concat([i]);
+      inversePatches.push({
+        op: REMOVE,
+        path
+      });
+    }
+  }
+  function generatePatchesFromAssigned(state, basePath, patches, inversePatches) {
+    const { base_, copy_ } = state;
+    each(state.assigned_, (key, assignedValue) => {
+      const origValue = get(base_, key);
+      const value = get(copy_, key);
+      const op = !assignedValue ? REMOVE : has(base_, key) ? REPLACE : ADD;
+      if (origValue === value && op === REPLACE)
+        return;
+      const path = basePath.concat(key);
+      patches.push(op === REMOVE ? { op, path } : { op, path, value });
+      inversePatches.push(
+        op === ADD ? { op: REMOVE, path } : op === REMOVE ? { op: ADD, path, value: clonePatchValueIfNeeded(origValue) } : { op: REPLACE, path, value: clonePatchValueIfNeeded(origValue) }
+      );
+    });
+  }
+  function generateSetPatches(state, basePath, patches, inversePatches) {
+    let { base_, copy_ } = state;
+    let i = 0;
+    base_.forEach((value) => {
+      if (!copy_.has(value)) {
+        const path = basePath.concat([i]);
+        patches.push({
+          op: REMOVE,
+          path,
+          value
+        });
+        inversePatches.unshift({
+          op: ADD,
+          path,
+          value
+        });
+      }
+      i++;
+    });
+    i = 0;
+    copy_.forEach((value) => {
+      if (!base_.has(value)) {
+        const path = basePath.concat([i]);
+        patches.push({
+          op: ADD,
+          path,
+          value
+        });
+        inversePatches.unshift({
+          op: REMOVE,
+          path,
+          value
+        });
+      }
+      i++;
+    });
+  }
+  function generateReplacementPatches_(baseValue, replacement, patches, inversePatches) {
+    patches.push({
+      op: REPLACE,
+      path: [],
+      value: replacement === NOTHING ? void 0 : replacement
+    });
+    inversePatches.push({
+      op: REPLACE,
+      path: [],
+      value: baseValue
+    });
+  }
+  function applyPatches_(draft, patches) {
+    patches.forEach((patch) => {
+      const { path, op } = patch;
+      let base = draft;
+      for (let i = 0; i < path.length - 1; i++) {
+        const parentType = getArchtype(base);
+        let p = path[i];
+        if (typeof p !== "string" && typeof p !== "number") {
+          p = "" + p;
+        }
+        if ((parentType === 0 /* Object */ || parentType === 1 /* Array */) && (p === "__proto__" || p === "constructor"))
+          die(errorOffset + 3);
+        if (typeof base === "function" && p === "prototype")
+          die(errorOffset + 3);
+        base = get(base, p);
+        if (typeof base !== "object")
+          die(errorOffset + 2, path.join("/"));
+      }
+      const type = getArchtype(base);
+      const value = deepClonePatchValue(patch.value);
+      const key = path[path.length - 1];
+      switch (op) {
+        case REPLACE:
+          switch (type) {
+            case 2 /* Map */:
+              return base.set(key, value);
+            case 3 /* Set */:
+              die(errorOffset);
+            default:
+              return base[key] = value;
+          }
+        case ADD:
+          switch (type) {
+            case 1 /* Array */:
+              return key === "-" ? base.push(value) : base.splice(key, 0, value);
+            case 2 /* Map */:
+              return base.set(key, value);
+            case 3 /* Set */:
+              return base.add(value);
+            default:
+              return base[key] = value;
+          }
+        case REMOVE:
+          switch (type) {
+            case 1 /* Array */:
+              return base.splice(key, 1);
+            case 2 /* Map */:
+              return base.delete(key);
+            case 3 /* Set */:
+              return base.delete(patch.value);
+            default:
+              return delete base[key];
+          }
+        default:
+          die(errorOffset + 1, op);
+      }
+    });
+    return draft;
+  }
+  function deepClonePatchValue(obj) {
+    if (!isDraftable(obj))
+      return obj;
+    if (Array.isArray(obj))
+      return obj.map(deepClonePatchValue);
+    if (isMap(obj))
+      return new Map(
+        Array.from(obj.entries()).map(([k, v]) => [k, deepClonePatchValue(v)])
+      );
+    if (isSet(obj))
+      return new Set(Array.from(obj).map(deepClonePatchValue));
+    const cloned = Object.create(getPrototypeOf(obj));
+    for (const key in obj)
+      cloned[key] = deepClonePatchValue(obj[key]);
+    if (has(obj, DRAFTABLE))
+      cloned[DRAFTABLE] = obj[DRAFTABLE];
+    return cloned;
+  }
+  function clonePatchValueIfNeeded(obj) {
+    if (isDraft(obj)) {
+      return deepClonePatchValue(obj);
+    } else
+      return obj;
+  }
+  loadPlugin("Patches", {
+    applyPatches_,
+    generatePatches_,
+    generateReplacementPatches_
+  });
+}
+
+// src/plugins/mapset.ts
+function enableMapSet() {
+  class DraftMap extends Map {
+    constructor(target, parent) {
+      super();
+      this[DRAFT_STATE] = {
+        type_: 2 /* Map */,
+        parent_: parent,
+        scope_: parent ? parent.scope_ : getCurrentScope(),
+        modified_: false,
+        finalized_: false,
+        copy_: void 0,
+        assigned_: void 0,
+        base_: target,
+        draft_: this,
+        isManual_: false,
+        revoked_: false
+      };
+    }
+    get size() {
+      return latest(this[DRAFT_STATE]).size;
+    }
+    has(key) {
+      return latest(this[DRAFT_STATE]).has(key);
+    }
+    set(key, value) {
+      const state = this[DRAFT_STATE];
+      assertUnrevoked(state);
+      if (!latest(state).has(key) || latest(state).get(key) !== value) {
+        prepareMapCopy(state);
+        markChanged(state);
+        state.assigned_.set(key, true);
+        state.copy_.set(key, value);
+        state.assigned_.set(key, true);
+      }
+      return this;
+    }
+    delete(key) {
+      if (!this.has(key)) {
+        return false;
+      }
+      const state = this[DRAFT_STATE];
+      assertUnrevoked(state);
+      prepareMapCopy(state);
+      markChanged(state);
+      if (state.base_.has(key)) {
+        state.assigned_.set(key, false);
+      } else {
+        state.assigned_.delete(key);
+      }
+      state.copy_.delete(key);
+      return true;
+    }
+    clear() {
+      const state = this[DRAFT_STATE];
+      assertUnrevoked(state);
+      if (latest(state).size) {
+        prepareMapCopy(state);
+        markChanged(state);
+        state.assigned_ = /* @__PURE__ */ new Map();
+        each(state.base_, (key) => {
+          state.assigned_.set(key, false);
+        });
+        state.copy_.clear();
+      }
+    }
+    forEach(cb, thisArg) {
+      const state = this[DRAFT_STATE];
+      latest(state).forEach((_value, key, _map) => {
+        cb.call(thisArg, this.get(key), key, this);
+      });
+    }
+    get(key) {
+      const state = this[DRAFT_STATE];
+      assertUnrevoked(state);
+      const value = latest(state).get(key);
+      if (state.finalized_ || !isDraftable(value)) {
+        return value;
+      }
+      if (value !== state.base_.get(key)) {
+        return value;
+      }
+      const draft = createProxy(value, state);
+      prepareMapCopy(state);
+      state.copy_.set(key, draft);
+      return draft;
+    }
+    keys() {
+      return latest(this[DRAFT_STATE]).keys();
+    }
+    values() {
+      const iterator = this.keys();
+      return {
+        [Symbol.iterator]: () => this.values(),
+        next: () => {
+          const r = iterator.next();
+          if (r.done)
+            return r;
+          const value = this.get(r.value);
+          return {
+            done: false,
+            value
+          };
+        }
+      };
+    }
+    entries() {
+      const iterator = this.keys();
+      return {
+        [Symbol.iterator]: () => this.entries(),
+        next: () => {
+          const r = iterator.next();
+          if (r.done)
+            return r;
+          const value = this.get(r.value);
+          return {
+            done: false,
+            value: [r.value, value]
+          };
+        }
+      };
+    }
+    [(DRAFT_STATE, Symbol.iterator)]() {
+      return this.entries();
+    }
+  }
+  function proxyMap_(target, parent) {
+    return new DraftMap(target, parent);
+  }
+  function prepareMapCopy(state) {
+    if (!state.copy_) {
+      state.assigned_ = /* @__PURE__ */ new Map();
+      state.copy_ = new Map(state.base_);
+    }
+  }
+  class DraftSet extends Set {
+    constructor(target, parent) {
+      super();
+      this[DRAFT_STATE] = {
+        type_: 3 /* Set */,
+        parent_: parent,
+        scope_: parent ? parent.scope_ : getCurrentScope(),
+        modified_: false,
+        finalized_: false,
+        copy_: void 0,
+        base_: target,
+        draft_: this,
+        drafts_: /* @__PURE__ */ new Map(),
+        revoked_: false,
+        isManual_: false
+      };
+    }
+    get size() {
+      return latest(this[DRAFT_STATE]).size;
+    }
+    has(value) {
+      const state = this[DRAFT_STATE];
+      assertUnrevoked(state);
+      if (!state.copy_) {
+        return state.base_.has(value);
+      }
+      if (state.copy_.has(value))
+        return true;
+      if (state.drafts_.has(value) && state.copy_.has(state.drafts_.get(value)))
+        return true;
+      return false;
+    }
+    add(value) {
+      const state = this[DRAFT_STATE];
+      assertUnrevoked(state);
+      if (!this.has(value)) {
+        prepareSetCopy(state);
+        markChanged(state);
+        state.copy_.add(value);
+      }
+      return this;
+    }
+    delete(value) {
+      if (!this.has(value)) {
+        return false;
+      }
+      const state = this[DRAFT_STATE];
+      assertUnrevoked(state);
+      prepareSetCopy(state);
+      markChanged(state);
+      return state.copy_.delete(value) || (state.drafts_.has(value) ? state.copy_.delete(state.drafts_.get(value)) : (
+        /* istanbul ignore next */
+        false
+      ));
+    }
+    clear() {
+      const state = this[DRAFT_STATE];
+      assertUnrevoked(state);
+      if (latest(state).size) {
+        prepareSetCopy(state);
+        markChanged(state);
+        state.copy_.clear();
+      }
+    }
+    values() {
+      const state = this[DRAFT_STATE];
+      assertUnrevoked(state);
+      prepareSetCopy(state);
+      return state.copy_.values();
+    }
+    entries() {
+      const state = this[DRAFT_STATE];
+      assertUnrevoked(state);
+      prepareSetCopy(state);
+      return state.copy_.entries();
+    }
+    keys() {
+      return this.values();
+    }
+    [(DRAFT_STATE, Symbol.iterator)]() {
+      return this.values();
+    }
+    forEach(cb, thisArg) {
+      const iterator = this.values();
+      let result = iterator.next();
+      while (!result.done) {
+        cb.call(thisArg, result.value, result.value, this);
+        result = iterator.next();
+      }
+    }
+  }
+  function proxySet_(target, parent) {
+    return new DraftSet(target, parent);
+  }
+  function prepareSetCopy(state) {
+    if (!state.copy_) {
+      state.copy_ = /* @__PURE__ */ new Set();
+      state.base_.forEach((value) => {
+        if (isDraftable(value)) {
+          const draft = createProxy(value, state);
+          state.drafts_.set(value, draft);
+          state.copy_.add(draft);
+        } else {
+          state.copy_.add(value);
+        }
+      });
+    }
+  }
+  function assertUnrevoked(state) {
+    if (state.revoked_)
+      die(3, JSON.stringify(latest(state)));
+  }
+  loadPlugin("MapSet", { proxyMap_, proxySet_ });
+}
+
+// src/immer.ts
+var immer = new Immer2();
+var produce = immer.produce;
+var produceWithPatches = immer.produceWithPatches.bind(
+  immer
+);
+var setAutoFreeze = immer.setAutoFreeze.bind(immer);
+var setUseStrictShallowCopy = immer.setUseStrictShallowCopy.bind(immer);
+var applyPatches = immer.applyPatches.bind(immer);
+var createDraft = immer.createDraft.bind(immer);
+var finishDraft = immer.finishDraft.bind(immer);
+function castDraft(value) {
+  return value;
+}
+function castImmutable(value) {
+  return value;
+}
+// Annotate the CommonJS export names for ESM import in node:
+0 && (0);
+//# sourceMappingURL=immer.cjs.development.js.map
+
+/***/ }),
+
+/***/ "./node_modules/immer/dist/cjs/index.js":
+/*!**********************************************!*\
+  !*** ./node_modules/immer/dist/cjs/index.js ***!
+  \**********************************************/
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+"use strict";
+
+
+
+if (false) // removed by dead control flow
+{} else {
+  module.exports = __webpack_require__(/*! ./immer.cjs.development.js */ "./node_modules/immer/dist/cjs/immer.cjs.development.js")
+}
+
+/***/ }),
+
 /***/ "./node_modules/immer/dist/immer.mjs":
 /*!*******************************************!*\
   !*** ./node_modules/immer/dist/immer.mjs ***!
@@ -140012,15 +141294,34 @@ const jsx_runtime_1 = __webpack_require__(/*! react/jsx-runtime */ "./node_modul
 const react_1 = __webpack_require__(/*! react */ "./node_modules/react/index.js");
 const hooks_1 = __webpack_require__(/*! ../store/hooks */ "./src/renderer/store/hooks.ts");
 const syncSlice_1 = __webpack_require__(/*! ../store/syncSlice */ "./src/renderer/store/syncSlice.ts");
-const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts");
+const listsSlice_1 = __webpack_require__(/*! ../store/listsSlice */ "./src/renderer/store/listsSlice.ts"); // Потрібно буде додати цей action
 const lucide_react_1 = __webpack_require__(/*! lucide-react */ "./node_modules/lucide-react/dist/esm/lucide-react.js");
 const syncLogic_1 = __webpack_require__(/*! ../logic/syncLogic */ "./src/renderer/logic/syncLogic.ts");
+const changeTypeMetadata = {
+    Add: { icon: lucide_react_1.PlusCircle, color: 'text-green-500', label: 'Додавання' },
+    Update: { icon: lucide_react_1.RefreshCw, color: 'text-blue-500', label: 'Оновлення' },
+    Delete: { icon: lucide_react_1.Trash2, color: 'text-red-500', label: 'Видалення' },
+    Move: { icon: lucide_react_1.Move, color: 'text-purple-500', label: 'Переміщення' },
+};
 const WifiSyncModal = () => {
     const dispatch = (0, hooks_1.useAppDispatch)();
-    const { isModalOpen, modalMode, syncStatus, deviceAddress, errorMessage, syncReport, originalBackup, } = (0, hooks_1.useAppSelector)((state) => state.sync);
+    const { isModalOpen, modalMode, syncStatus, deviceAddress, errorMessage, syncReport, } = (0, hooks_1.useAppSelector)((state) => state.sync);
     const listsState = (0, hooks_1.useAppSelector)((state) => state.lists);
     const [localServerAddress, setLocalServerAddress] = (0, react_1.useState)(null);
     const [localError, setLocalError] = (0, react_1.useState)(null);
+    const [checkedChanges, setCheckedChanges] = (0, react_1.useState)(new Set());
+    (0, react_1.useEffect)(() => {
+        if (syncReport) {
+            const initialChecked = new Set();
+            syncReport.changes.forEach(change => {
+                // За замовчуванням вибираємо все, крім видалень
+                if (change.type !== 'Delete') {
+                    initialChecked.add(change.id);
+                }
+            });
+            setCheckedChanges(initialChecked);
+        }
+    }, [syncReport]);
     (0, react_1.useEffect)(() => {
         const handleServer = async () => {
             if (isModalOpen && modalMode === 'server') {
@@ -140042,9 +141343,8 @@ const WifiSyncModal = () => {
         };
         handleServer();
         return () => {
-            if (modalMode === 'server') {
+            if (modalMode === 'server')
                 window.electronAPI.stopWifiServer();
-            }
         };
     }, [isModalOpen, modalMode, listsState]);
     const handleFetchFromDevice = async () => {
@@ -140056,13 +141356,14 @@ const WifiSyncModal = () => {
         const result = await window.electronAPI.fetchFromDevice(deviceAddress);
         if (result.success && result.data) {
             try {
-                const report = (0, syncLogic_1.createSyncReportForDesktop)(listsState, result.data);
+                const report = (0, syncLogic_1.syncComparator)(listsState, result.data);
                 if (report.changes.length === 0) {
                     dispatch((0, syncSlice_1.setSyncStatus)('success'));
                     setTimeout(() => dispatch((0, syncSlice_1.closeSyncModal)()), 2000);
                 }
                 else {
-                    dispatch((0, syncSlice_1.setSyncReport)({ report, originalBackup: result.data }));
+                    dispatch((0, syncSlice_1.setSyncReport)({ report }));
+                    dispatch((0, syncSlice_1.setSyncStatus)('reviewing'));
                 }
             }
             catch (error) {
@@ -140074,20 +141375,61 @@ const WifiSyncModal = () => {
         }
     };
     const handleApplyChanges = () => {
-        if (!originalBackup)
+        if (!syncReport)
             return;
         dispatch((0, syncSlice_1.setSyncStatus)('applying'));
-        const finalState = (0, syncLogic_1.transformImportedData)(originalBackup.data);
-        dispatch((0, listsSlice_1.stateReplaced)(finalState));
+        const approvedChanges = syncReport.changes.filter(c => checkedChanges.has(c.id));
+        // Диспатчимо thunk-дію, яка всередині викличе syncApplicator
+        dispatch((0, listsSlice_1.applyApprovedChanges)(approvedChanges));
         dispatch((0, syncSlice_1.setSyncStatus)('success'));
         setTimeout(() => dispatch((0, syncSlice_1.closeSyncModal)()), 2000);
+    };
+    const handleCheckChange = (changeId, isChecked) => {
+        setCheckedChanges(prev => {
+            const newSet = new Set(prev);
+            if (isChecked)
+                newSet.add(changeId);
+            else
+                newSet.delete(changeId);
+            return newSet;
+        });
+    };
+    const handleSelectAll = (select = true) => {
+        if (!syncReport)
+            return;
+        if (select) {
+            setCheckedChanges(new Set(syncReport.changes.map(c => c.id)));
+        }
+        else {
+            setCheckedChanges(new Set());
+        }
+    };
+    const handleSelectRecommended = () => {
+        if (!syncReport)
+            return;
+        const recommended = new Set();
+        syncReport.changes.forEach(c => {
+            if (c.type !== 'Delete')
+                recommended.add(c.id);
+        });
+        setCheckedChanges(recommended);
     };
     const handleClose = () => dispatch((0, syncSlice_1.closeSyncModal)());
     if (!isModalOpen)
         return null;
-    const renderServerContent = () => ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("h3", { className: "text-lg font-semibold mb-4 text-center", children: "\u041F\u043E\u0434\u0456\u043B\u0438\u0442\u0438\u0441\u044C \u0443 \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u0456\u0439 \u043C\u0435\u0440\u0435\u0436\u0456" }), localServerAddress ? ((0, jsx_runtime_1.jsxs)("div", { className: 'text-center', children: [(0, jsx_runtime_1.jsx)(lucide_react_1.Wifi, { className: "mx-auto h-12 w-12 text-green-500 mb-4" }), (0, jsx_runtime_1.jsx)("p", { className: "text-sm text-slate-500 dark:text-slate-400", children: "\u0421\u0435\u0440\u0432\u0435\u0440 \u0437\u0430\u043F\u0443\u0449\u0435\u043D\u043E. \u0412\u0432\u0435\u0434\u0456\u0442\u044C \u0446\u044E \u0430\u0434\u0440\u0435\u0441\u0443 \u043D\u0430 \u0456\u043D\u0448\u043E\u043C\u0443 \u043F\u0440\u0438\u0441\u0442\u0440\u043E\u0457:" }), (0, jsx_runtime_1.jsxs)("p", { className: "mt-2 text-xl font-mono p-2 bg-slate-100 dark:bg-slate-700 rounded-md select-all", children: ["http://", localServerAddress] })] })) : !localError ? ((0, jsx_runtime_1.jsxs)("div", { className: 'text-center', children: [(0, jsx_runtime_1.jsx)(lucide_react_1.LoaderCircle, { className: "mx-auto h-12 w-12 text-blue-500 mb-4 animate-spin" }), (0, jsx_runtime_1.jsx)("p", { className: "text-sm text-slate-500 dark:text-slate-400", children: "\u0417\u0430\u043F\u0443\u0441\u043A \u0441\u0435\u0440\u0432\u0435\u0440\u0430..." })] })) : null, localError &&
-                (0, jsx_runtime_1.jsxs)("div", { className: "text-center py-4", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.CircleAlert, { className: "mx-auto h-10 w-10 text-red-500" }), (0, jsx_runtime_1.jsx)("p", { className: "mt-2 text-sm text-red-500", children: localError })] })] }));
-    const renderReviewContent = () => ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsxs)("h3", { className: "text-lg font-semibold mb-2 text-center flex items-center justify-center", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.FileDiff, { className: "mr-2 h-5 w-5" }), "\u041E\u0433\u043B\u044F\u0434 \u0437\u043C\u0456\u043D"] }), (0, jsx_runtime_1.jsxs)("p", { className: "text-sm text-center text-slate-500 dark:text-slate-400 mb-4", children: ["\u0417\u043D\u0430\u0439\u0434\u0435\u043D\u043E ", syncReport?.changes.length || 0, " \u0437\u043C\u0456\u043D \u0437 \u0456\u043D\u0448\u043E\u0433\u043E \u043F\u0440\u0438\u0441\u0442\u0440\u043E\u044E. \u0417\u0430\u0441\u0442\u043E\u0441\u0443\u0432\u0430\u0442\u0438 \u0457\u0445?"] }), (0, jsx_runtime_1.jsx)("div", { className: "max-h-60 overflow-y-auto p-3 bg-slate-50 dark:bg-slate-700/50 rounded-md border border-slate-200 dark:border-slate-600", children: (0, jsx_runtime_1.jsx)("ul", { className: "space-y-2", children: syncReport?.changes.map(change => ((0, jsx_runtime_1.jsxs)("li", { className: "flex items-center text-sm", children: [(0, jsx_runtime_1.jsx)("span", { className: `font-bold mr-2 ${change.type === 'Add' ? 'text-green-500' : 'text-blue-500'}`, children: change.type === 'Add' ? '[ + ]' : '[ ~ ]' }), (0, jsx_runtime_1.jsxs)("span", { className: "font-medium mr-1", children: [change.entityType, ":"] }), (0, jsx_runtime_1.jsx)("span", { className: "truncate text-slate-700 dark:text-slate-300", title: change.description, children: change.description })] }, change.id))) }) }), (0, jsx_runtime_1.jsxs)("div", { className: "flex justify-end space-x-2 mt-4", children: [(0, jsx_runtime_1.jsx)("button", { onClick: () => dispatch((0, syncSlice_1.setSyncStatus)('idle')), className: "px-4 py-2 text-sm bg-slate-200 dark:bg-slate-600 rounded-md", children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" }), (0, jsx_runtime_1.jsx)("button", { onClick: handleApplyChanges, className: "px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold", children: "\u0417\u0430\u0441\u0442\u043E\u0441\u0443\u0432\u0430\u0442\u0438 \u0437\u043C\u0456\u043D\u0438" })] })] }));
+    const renderServerContent = () => ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("h3", { className: "text-lg font-semibold mb-4 text-center", children: "\u041F\u043E\u0434\u0456\u043B\u0438\u0442\u0438\u0441\u044C \u0443 \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u0456\u0439 \u043C\u0435\u0440\u0435\u0436\u0456" }), localServerAddress ? ((0, jsx_runtime_1.jsxs)("div", { className: 'text-center', children: [(0, jsx_runtime_1.jsx)(lucide_react_1.Wifi, { className: "mx-auto h-12 w-12 text-green-500 mb-4" }), (0, jsx_runtime_1.jsx)("p", { className: "text-sm text-slate-500 dark:text-slate-400", children: "\u0421\u0435\u0440\u0432\u0435\u0440 \u0437\u0430\u043F\u0443\u0449\u0435\u043D\u043E. \u0412\u0432\u0435\u0434\u0456\u0442\u044C \u0446\u044E \u0430\u0434\u0440\u0435\u0441\u0443 \u043D\u0430 \u0456\u043D\u0448\u043E\u043C\u0443 \u043F\u0440\u0438\u0441\u0442\u0440\u043E\u0457:" }), (0, jsx_runtime_1.jsxs)("p", { className: "mt-2 text-xl font-mono p-2 bg-slate-100 dark:bg-slate-700 rounded-md select-all", children: ["http://", localServerAddress] })] })) : !localError ? ((0, jsx_runtime_1.jsxs)("div", { className: 'text-center', children: [(0, jsx_runtime_1.jsx)(lucide_react_1.LoaderCircle, { className: "mx-auto h-12 w-12 text-blue-500 mb-4 animate-spin" }), (0, jsx_runtime_1.jsx)("p", { className: "text-sm text-slate-500 dark:text-slate-400", children: "\u0417\u0430\u043F\u0443\u0441\u043A \u0441\u0435\u0440\u0432\u0435\u0440\u0430..." })] })) : ((0, jsx_runtime_1.jsxs)("div", { className: "text-center py-4", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.CircleAlert, { className: "mx-auto h-10 w-10 text-red-500" }), (0, jsx_runtime_1.jsx)("p", { className: "mt-2 text-sm text-red-500", children: localError })] }))] }));
+    const renderReviewContent = () => {
+        const groupedChanges = (syncReport?.changes || []).reduce((acc, change) => {
+            if (!acc[change.type])
+                acc[change.type] = [];
+            acc[change.type].push(change);
+            return acc;
+        }, {});
+        return ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsxs)("h3", { className: "text-lg font-semibold mb-1 text-center flex items-center justify-center", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.FileDiff, { className: "mr-2 h-5 w-5" }), "\u041E\u0433\u043B\u044F\u0434 \u0437\u043C\u0456\u043D"] }), (0, jsx_runtime_1.jsxs)("p", { className: "text-sm text-center text-slate-500 dark:text-slate-400 mb-3", children: ["\u0417\u043D\u0430\u0439\u0434\u0435\u043D\u043E ", syncReport?.changes.length || 0, " \u0437\u043C\u0456\u043D. \u041E\u0431\u0435\u0440\u0456\u0442\u044C \u0442\u0456, \u0449\u043E \u043F\u043E\u0442\u0440\u0456\u0431\u043D\u043E \u0437\u0430\u0441\u0442\u043E\u0441\u0443\u0432\u0430\u0442\u0438."] }), (0, jsx_runtime_1.jsxs)("div", { className: "flex items-center justify-center space-x-2 mb-3", children: [(0, jsx_runtime_1.jsx)("button", { onClick: () => handleSelectAll(true), className: "text-xs px-2 py-1 rounded bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500", children: "\u041E\u0431\u0440\u0430\u0442\u0438 \u0432\u0441\u0435" }), (0, jsx_runtime_1.jsx)("button", { onClick: handleSelectRecommended, className: "text-xs px-2 py-1 rounded bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500", children: "\u0420\u0435\u043A\u043E\u043C\u0435\u043D\u0434\u043E\u0432\u0430\u043D\u0456" }), (0, jsx_runtime_1.jsx)("button", { onClick: () => handleSelectAll(false), className: "text-xs px-2 py-1 rounded bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500", children: "\u0417\u043D\u044F\u0442\u0438 \u0432\u0438\u0431\u0456\u0440" })] }), (0, jsx_runtime_1.jsx)("div", { className: "max-h-64 overflow-y-auto p-3 bg-slate-50 dark:bg-slate-700/50 rounded-md border border-slate-200 dark:border-slate-600", children: Object.entries(groupedChanges).length > 0 ? ((0, jsx_runtime_1.jsx)("div", { className: "space-y-3", children: Object.keys(groupedChanges).map(changeType => {
+                            const MetaIcon = changeTypeMetadata[changeType].icon;
+                            return ((0, jsx_runtime_1.jsxs)("div", { children: [(0, jsx_runtime_1.jsxs)("h4", { className: `flex items-center font-semibold text-sm mb-1.5 ${changeTypeMetadata[changeType].color}`, children: [(0, jsx_runtime_1.jsx)(MetaIcon, { size: 16, className: "mr-2" }), " ", changeTypeMetadata[changeType].label, " (", groupedChanges[changeType].length, ")"] }), (0, jsx_runtime_1.jsx)("ul", { className: "space-y-1 pl-1", children: groupedChanges[changeType].map(change => ((0, jsx_runtime_1.jsxs)("li", { className: "flex items-start text-sm p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-600/50", children: [(0, jsx_runtime_1.jsx)("input", { type: "checkbox", checked: checkedChanges.has(change.id), onChange: (e) => handleCheckChange(change.id, e.target.checked), className: "mt-0.5 mr-2.5 h-4 w-4 rounded border-slate-400 text-indigo-600 focus:ring-indigo-500 cursor-pointer" }), (0, jsx_runtime_1.jsxs)("div", { className: "flex-1", children: [(0, jsx_runtime_1.jsxs)("span", { className: "font-medium mr-1", children: [change.entityType, ":"] }), (0, jsx_runtime_1.jsx)("span", { className: "text-slate-700 dark:text-slate-300", title: change.longDescription || change.description, children: change.description })] })] }, change.id))) })] }, changeType));
+                        }) })) : (0, jsx_runtime_1.jsx)("p", { className: "text-center text-sm text-slate-500", children: "\u041D\u0435\u043C\u0430\u0454 \u0437\u043C\u0456\u043D \u0434\u043B\u044F \u043E\u0433\u043B\u044F\u0434\u0443." }) }), (0, jsx_runtime_1.jsxs)("div", { className: "flex justify-end space-x-2 mt-4", children: [(0, jsx_runtime_1.jsx)("button", { onClick: () => dispatch((0, syncSlice_1.setSyncStatus)('idle')), className: "px-4 py-2 text-sm bg-slate-200 dark:bg-slate-600 rounded-md", children: "\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438" }), (0, jsx_runtime_1.jsxs)("button", { onClick: handleApplyChanges, className: "px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold disabled:opacity-50", disabled: checkedChanges.size === 0, children: ["\u0417\u0430\u0441\u0442\u043E\u0441\u0443\u0432\u0430\u0442\u0438 (", checkedChanges.size, ")"] })] })] }));
+    };
     const renderImportContent = () => {
         switch (syncStatus) {
             case 'fetching':
@@ -140100,10 +141442,10 @@ const WifiSyncModal = () => {
             case 'reviewing':
                 return renderReviewContent();
             default: // idle
-                return ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("h3", { className: "text-lg font-semibold mb-4 text-center", children: "\u0406\u043C\u043F\u043E\u0440\u0442 \u0437 \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u043E\u0457 \u043C\u0435\u0440\u0435\u0436\u0456" }), (0, jsx_runtime_1.jsx)("label", { htmlFor: "device-address", className: "text-sm font-medium text-slate-700 dark:text-slate-300", children: "\u0410\u0434\u0440\u0435\u0441\u0430 \u0443 \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u0456\u0439 \u043C\u0435\u0440\u0435\u0436\u0456 \u0434\u043B\u044F \u0456\u043C\u043F\u043E\u0440\u0442\u0443" }), (0, jsx_runtime_1.jsx)("input", { id: "device-address", type: "text", value: deviceAddress, onChange: (e) => dispatch((0, syncSlice_1.setDeviceAddress)(e.target.value)), placeholder: "\u041D\u0430\u043F\u0440. 192.168.1.5:8080", className: "w-full mt-1 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" }), (0, jsx_runtime_1.jsx)("button", { onClick: handleFetchFromDevice, disabled: !deviceAddress, className: "w-full mt-4 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold disabled:opacity-50", children: "\u041E\u0442\u0440\u0438\u043C\u0430\u0442\u0438 \u0434\u0430\u043D\u0456" })] }));
+                return ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("h3", { className: "text-lg font-semibold mb-4 text-center", children: "\u0406\u043C\u043F\u043E\u0440\u0442 \u0437 \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u043E\u0457 \u043C\u0435\u0440\u0435\u0436\u0456" }), (0, jsx_runtime_1.jsx)("label", { htmlFor: "device-address", className: "text-sm font-medium text-slate-700 dark:text-slate-300", children: "\u0410\u0434\u0440\u0435\u0441\u0430 \u0443 \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u0456\u0439 \u043C\u0435\u0440\u0435\u0436\u0456" }), (0, jsx_runtime_1.jsx)("input", { id: "device-address", type: "text", value: deviceAddress, onChange: (e) => dispatch((0, syncSlice_1.setDeviceAddress)(e.target.value)), placeholder: "\u041D\u0430\u043F\u0440. 192.168.1.5:8080", className: "w-full mt-1 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" }), (0, jsx_runtime_1.jsx)("button", { onClick: handleFetchFromDevice, disabled: !deviceAddress, className: "w-full mt-4 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold disabled:opacity-50", children: "\u041E\u0442\u0440\u0438\u043C\u0430\u0442\u0438 \u0434\u0430\u043D\u0456" })] }));
         }
     };
-    return ((0, jsx_runtime_1.jsx)("div", { className: "fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4", onMouseDown: handleClose, children: (0, jsx_runtime_1.jsxs)("div", { className: "bg-white dark:bg-slate-800 p-6 rounded-lg shadow-xl w-full max-w-md text-slate-800 dark:text-slate-200 relative", onMouseDown: e => e.stopPropagation(), children: [(0, jsx_runtime_1.jsx)("button", { onClick: handleClose, className: "absolute top-2 right-2 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700", children: (0, jsx_runtime_1.jsx)(lucide_react_1.X, { size: 20 }) }), modalMode === 'server' ? renderServerContent() : renderImportContent()] }) }));
+    return ((0, jsx_runtime_1.jsx)("div", { className: "fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4", onMouseDown: handleClose, children: (0, jsx_runtime_1.jsxs)("div", { className: "bg-white dark:bg-slate-800 p-6 rounded-lg shadow-xl w-full max-w-lg text-slate-800 dark:text-slate-200 relative", onMouseDown: e => e.stopPropagation(), children: [(0, jsx_runtime_1.jsx)("button", { onClick: handleClose, className: "absolute top-2 right-2 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700", children: (0, jsx_runtime_1.jsx)(lucide_react_1.X, { size: 20 }) }), modalMode === 'server' ? renderServerContent() : renderImportContent()] }) }));
 };
 exports["default"] = WifiSyncModal;
 
@@ -140240,18 +141582,18 @@ function calculateScores(goal) {
 /*!*****************************************!*\
   !*** ./src/renderer/logic/syncLogic.ts ***!
   \*****************************************/
-/***/ ((__unused_webpack_module, exports) => {
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.formatStateForExport = formatStateForExport;
 exports.transformImportedData = transformImportedData;
-exports.createSyncReportForDesktop = createSyncReportForDesktop;
-// --- Функції-трансформери ---
-/**
- * Конвертує внутрішній стан Redux у формат, сумісний з Android, для експорту.
- */
+exports.syncComparator = syncComparator;
+exports.applyChanges = applyChanges;
+// src/renderer/logic/syncLogic.ts
+const immer_1 = __webpack_require__(/*! immer */ "./node_modules/immer/dist/cjs/index.js");
+// --- Функції-трансформери (без змін) ---
 function formatStateForExport(state) {
     const desktopGoals = {};
     for (const goal of Object.values(state.goals)) {
@@ -140287,9 +141629,6 @@ function formatStateForExport(state) {
         goalInstances: desktopGoalInstances,
     };
 }
-/**
- * Конвертує імпортовані дані з Android-сумісного формату у внутрішній стан Redux.
- */
 function transformImportedData(data) {
     const newGoals = {};
     for (const goal of Object.values(data.goals)) {
@@ -140328,34 +141667,130 @@ function transformImportedData(data) {
         goalInstances: newGoalInstances,
     };
 }
-/**
- * Створює звіт про зміни, порівнюючи поточний стан з отриманим ззовні.
- */
-function createSyncReportForDesktop(currentState, remoteBackup) {
+// --- ОНОВЛЕНИЙ syncComparator ---
+function syncComparator(localState, remoteBackup) {
     const remoteState = transformImportedData(remoteBackup.data);
     const changes = [];
-    // Порівняння списків
-    for (const remoteList of Object.values(remoteState.goalLists)) {
-        const localList = currentState.goalLists[remoteList.id];
-        if (!localList) {
-            changes.push({ type: 'Add', entityType: 'Список', id: remoteList.id, description: remoteList.name, entity: remoteList });
+    const deletedListIds = new Set();
+    const deletedGoalIds = new Set();
+    // Крок 1: Порівняння списків
+    const allListIds = new Set([...Object.keys(localState.goalLists), ...Object.keys(remoteState.goalLists)]);
+    allListIds.forEach(id => {
+        const localList = localState.goalLists[id];
+        const remoteList = remoteState.goalLists[id];
+        if (remoteList && !localList) {
+            changes.push({ type: 'Add', entityType: 'Список', id, description: remoteList.name, entity: remoteList });
         }
-        else if ((remoteList.updatedAt ?? 0) > (localList.updatedAt ?? 0)) {
-            // Тут можна додати більш детальне порівняння полів, якщо потрібно
-            changes.push({ type: 'Update', entityType: 'Список', id: remoteList.id, description: remoteList.name, entity: remoteList });
+        else if (!remoteList && localList) {
+            changes.push({ type: 'Delete', entityType: 'Список', id, description: localList.name, entity: localList });
+            deletedListIds.add(id); // Запам'ятовуємо ID видаленого списку
         }
-    }
-    // Порівняння цілей
-    for (const remoteGoal of Object.values(remoteState.goals)) {
-        const localGoal = currentState.goals[remoteGoal.id];
-        if (!localGoal) {
-            changes.push({ type: 'Add', entityType: 'Ціль', id: remoteGoal.id, description: remoteGoal.text, entity: remoteGoal });
+        else if (remoteList && localList && (remoteList.updatedAt ?? 0) > (localList.updatedAt ?? 0)) {
+            changes.push({ type: 'Update', entityType: 'Список', id, description: remoteList.name, entity: remoteList });
         }
-        else if ((remoteGoal.updatedAt ?? 0) > (localGoal.updatedAt ?? 0)) {
-            changes.push({ type: 'Update', entityType: 'Ціль', id: remoteGoal.id, description: remoteGoal.text, entity: remoteGoal });
+    });
+    // Крок 2: Порівняння цілей
+    const allGoalIds = new Set([...Object.keys(localState.goals), ...Object.keys(remoteState.goals)]);
+    allGoalIds.forEach(id => {
+        const localGoal = localState.goals[id];
+        const remoteGoal = remoteState.goals[id];
+        if (remoteGoal && !localGoal) {
+            changes.push({ type: 'Add', entityType: 'Ціль', id, description: remoteGoal.text, entity: remoteGoal });
         }
-    }
+        else if (!remoteGoal && localGoal) {
+            changes.push({ type: 'Delete', entityType: 'Ціль', id, description: localGoal.text, entity: localGoal });
+            deletedGoalIds.add(id); // Запам'ятовуємо ID видаленої цілі
+        }
+        else if (remoteGoal && localGoal && (remoteGoal.updatedAt ?? 0) > (localGoal.updatedAt ?? 0)) {
+            changes.push({ type: 'Update', entityType: 'Ціль', id, description: remoteGoal.text, entity: remoteGoal });
+        }
+    });
+    // Крок 3: Порівняння прив'язок (GoalInstance)
+    const allInstanceIds = new Set([...Object.keys(localState.goalInstances), ...Object.keys(remoteState.goalInstances)]);
+    allInstanceIds.forEach(id => {
+        const localInstance = localState.goalInstances[id];
+        const remoteInstance = remoteState.goalInstances[id];
+        if (remoteInstance && !localInstance) {
+            changes.push({ type: 'Add', entityType: 'Привʼязка', id, description: `Ціль "${remoteState.goals[remoteInstance.goalId]?.text ?? '?'}" до списку "${remoteState.goalLists[remoteInstance.listId]?.name ?? '?'}"`, entity: remoteInstance });
+        }
+        else if (!remoteInstance && localInstance) {
+            // --- КЛЮЧОВА ЗМІНА ---
+            // Створюємо запис про видалення прив'язки, лише якщо її батьки НЕ видалені
+            if (!deletedListIds.has(localInstance.listId) && !deletedGoalIds.has(localInstance.goalId)) {
+                const goalText = localState.goals[localInstance.goalId]?.text ?? 'Невідома ціль';
+                const listName = localState.goalLists[localInstance.listId]?.name ?? 'Невідомий список';
+                changes.push({ type: 'Delete', entityType: 'Привʼязка', id, description: `Ціль "${goalText}" зі списку "${listName}"`, entity: localInstance });
+            }
+        }
+        else if (remoteInstance && localInstance && (remoteInstance.order !== localInstance.order || remoteInstance.listId !== localInstance.listId)) {
+            const goalText = (localState.goals[localInstance.goalId]?.text || remoteState.goals[remoteInstance?.goalId]?.text) ?? '?';
+            const fromList = localState.goalLists[localInstance.listId]?.name ?? '?';
+            const toList = remoteState.goalLists[remoteInstance.listId]?.name ?? '?';
+            const longDesc = `Ціль "${goalText}" переміщено з "${fromList}" (поз. ${localInstance.order}) у "${toList}" (поз. ${remoteInstance.order}).`;
+            changes.push({ type: 'Move', entityType: 'Привʼязка', id, description: `Переміщення цілі "${goalText}"`, longDescription: longDesc, entity: remoteInstance });
+        }
+    });
     return { changes };
+}
+// --- syncApplicator (без змін) ---
+function applyChanges(currentState, approvedChanges) {
+    return (0, immer_1.produce)(currentState, draftState => {
+        const changesByType = {
+            Delete: approvedChanges.filter(c => c.type === 'Delete'),
+            Update: approvedChanges.filter(c => c.type === 'Update'),
+            Add: approvedChanges.filter(c => c.type === 'Add'),
+            Move: approvedChanges.filter(c => c.type === 'Move'),
+        };
+        // 1. Видалення
+        changesByType.Delete.forEach(change => {
+            switch (change.entityType) {
+                case 'Список':
+                    delete draftState.goalLists[change.id];
+                    Object.values(draftState.goalInstances).forEach(inst => {
+                        if (inst.listId === change.id) {
+                            delete draftState.goalInstances[inst.instanceId];
+                        }
+                    });
+                    break;
+                case 'Ціль':
+                    delete draftState.goals[change.id];
+                    Object.values(draftState.goalInstances).forEach(inst => {
+                        if (inst.goalId === change.id) {
+                            delete draftState.goalInstances[inst.instanceId];
+                        }
+                    });
+                    break;
+                case 'Привʼязка':
+                    delete draftState.goalInstances[change.id];
+                    break;
+            }
+        });
+        // 2. Оновлення
+        changesByType.Update.forEach(change => {
+            switch (change.entityType) {
+                case 'Список':
+                    draftState.goalLists[change.id] = change.entity;
+                    break;
+                case 'Ціль':
+                    draftState.goals[change.id] = change.entity;
+                    break;
+            }
+        });
+        // 3. Додавання та переміщення
+        [...changesByType.Add, ...changesByType.Move].forEach(change => {
+            switch (change.entityType) {
+                case 'Список':
+                    draftState.goalLists[change.id] = change.entity;
+                    break;
+                case 'Ціль':
+                    draftState.goals[change.id] = change.entity;
+                    break;
+                case 'Привʼязка':
+                    draftState.goalInstances[change.id] = change.entity;
+                    break;
+            }
+        });
+    });
 }
 
 
@@ -140460,34 +141895,32 @@ exports.useAppSelector = react_redux_1.useSelector;
 
 var _a;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.listExpansionToggled = exports.stateReplaced = exports.goalDisassociated = exports.goalAssociated = exports.goalCopied = exports.goalReferenceAdded = exports.goalOrderUpdated = exports.goalMoved = exports.instanceRemovedFromList = exports.goalUpdated = exports.goalToggled = exports.goalAdded = exports.listsReordered = exports.listMoved = exports.listRemoved = exports.listUpdated = exports.listAdded = void 0;
+exports.applyApprovedChanges = exports.listExpansionToggled = exports.stateReplaced = exports.goalDisassociated = exports.goalAssociated = exports.goalCopied = exports.goalReferenceAdded = exports.goalOrderUpdated = exports.goalMoved = exports.instanceRemovedFromList = exports.goalUpdated = exports.goalToggled = exports.goalAdded = exports.listsReordered = exports.listMoved = exports.listRemoved = exports.listUpdated = exports.listAdded = void 0;
 // src/renderer/store/listsSlice.ts
 const toolkit_1 = __webpack_require__(/*! @reduxjs/toolkit */ "./node_modules/@reduxjs/toolkit/dist/redux-toolkit.modern.mjs");
+// --- ІМПОРТИ ДЛЯ НОВОЇ ЛОГІКИ СИНХРОНІЗАЦІЇ ---
+const syncLogic_1 = __webpack_require__(/*! ../logic/syncLogic */ "./src/renderer/logic/syncLogic.ts");
 const initialState = {
     goals: {},
     goalLists: {},
     goalInstances: {},
 };
-// ✨ ЗМІНА: Логіка рекурсивного видалення тепер базується на `listId` в екземплярах, а не на `itemInstanceIds`.
 const recursivelyDeleteList = (state, listId) => {
     const listToDelete = state.goalLists[listId];
     if (!listToDelete)
         return;
-    // Знаходимо дочірні списки та видаляємо їх рекурсивно
     const childIds = Object.values(state.goalLists)
         .filter(l => l.parentId === listId)
         .map(l => l.id);
     childIds.forEach(childId => {
         recursivelyDeleteList(state, childId);
     });
-    // Знаходимо всі екземпляри, що належать цьому списку
     const instanceIdsToDelete = Object.values(state.goalInstances)
         .filter(instance => instance.listId === listId)
         .map(instance => instance.instanceId);
     instanceIdsToDelete.forEach(instanceId => {
         const instance = state.goalInstances[instanceId];
         if (instance) {
-            // Перевіряємо, чи не осиротіла ціль (чи є інші екземпляри цієї ж цілі)
             const isOrphaned = !Object.values(state.goalInstances).some(i => i.instanceId !== instanceId && i.goalId === instance.goalId);
             if (isOrphaned) {
                 delete state.goals[instance.goalId];
@@ -140495,7 +141928,6 @@ const recursivelyDeleteList = (state, listId) => {
         }
         delete state.goalInstances[instanceId];
     });
-    // Нарешті видаляємо сам список
     delete state.goalLists[listId];
 };
 const listsSlice = (0, toolkit_1.createSlice)({
@@ -140506,7 +141938,6 @@ const listsSlice = (0, toolkit_1.createSlice)({
         listAdded(state, action) {
             const newList = action.payload;
             const siblingLists = Object.values(state.goalLists).filter((list) => list.parentId === newList.parentId);
-            // Розраховуємо порядок серед сусідніх елементів
             newList.order = siblingLists.length;
             state.goalLists[newList.id] = newList;
         },
@@ -140518,7 +141949,6 @@ const listsSlice = (0, toolkit_1.createSlice)({
                 if (description !== undefined) {
                     list.description = description;
                 }
-                // ✨ ЗМІНА: Дати тепер є числами
                 list.updatedAt = Date.now();
             }
         },
@@ -140546,7 +141976,6 @@ const listsSlice = (0, toolkit_1.createSlice)({
             });
         },
         // --- GOAL & INSTANCE ACTIONS ---
-        // ✨ КАРДИНАЛЬНА ЗМІНА: Логіка додавання цілі
         goalAdded: (state, action) => {
             const { listId, text } = action.payload;
             if (!state.goalLists[listId])
@@ -140554,7 +141983,6 @@ const listsSlice = (0, toolkit_1.createSlice)({
             const goalId = (0, toolkit_1.nanoid)();
             const instanceId = (0, toolkit_1.nanoid)();
             const now = Date.now();
-            // Створюємо нову ціль
             state.goals[goalId] = {
                 id: goalId,
                 text,
@@ -140562,17 +141990,14 @@ const listsSlice = (0, toolkit_1.createSlice)({
                 createdAt: now,
                 updatedAt: now,
                 scoringStatus: "NOT_ASSESSED",
-                // Ініціалізуємо інші поля за замовчуванням
                 associatedListIds: [],
                 description: "",
             };
-            // ✨ ЗМІНА: Порядок тепер зберігається в екземплярі.
-            // Використовуємо негативний timestamp, щоб нові цілі з'являлися зверху (як в Android).
             state.goalInstances[instanceId] = {
                 instanceId: instanceId,
                 goalId,
                 listId,
-                order: -now, // Негативний timestamp для сортування від нових до старих
+                order: -now,
             };
         },
         goalToggled(state, action) {
@@ -140591,9 +142016,7 @@ const listsSlice = (0, toolkit_1.createSlice)({
                 goal.updatedAt = Date.now();
             }
         },
-        // ✨ КАРДИНАЛЬНА ЗМІНА: Логіка видалення екземпляру
         instanceRemovedFromList(state, action) {
-            // listId більше не є строго необхідним, але залишаємо для сумісності
             const { instanceId } = action.payload;
             const instanceToRemove = state.goalInstances[instanceId];
             if (!instanceToRemove)
@@ -140605,15 +142028,12 @@ const listsSlice = (0, toolkit_1.createSlice)({
                 delete state.goals[goalId];
             }
         },
-        // ✨ КАРДИНАЛЬНА ЗМІНА: Логіка переміщення цілі
         goalMoved: (state, action) => {
             const { instanceId, destinationListId, destinationIndex } = action.payload;
             const instance = state.goalInstances[instanceId];
             if (!instance)
                 return;
-            // 1. Оновлюємо listId екземпляра
             instance.listId = destinationListId;
-            // 2. Оновлюємо порядок у новому списку
             const destinationSiblings = Object.values(state.goalInstances)
                 .filter(i => i.listId === destinationListId && i.instanceId !== instanceId)
                 .sort((a, b) => a.order - b.order)
@@ -140625,10 +142045,8 @@ const listsSlice = (0, toolkit_1.createSlice)({
                 }
             });
         },
-        // ✨ КАРДИНАЛЬНА ЗМІНА: Логіка оновлення порядку
         goalOrderUpdated: (state, action) => {
             const { listId, orderedInstanceIds } = action.payload;
-            // Перевіряємо, чи всі екземпляри належать до вказаного списку
             const instancesInList = Object.values(state.goalInstances).filter(i => i.listId === listId);
             if (instancesInList.length !== orderedInstanceIds.length) {
                 console.warn("Mismatch in goalOrderUpdated instance count.");
@@ -140696,7 +142114,6 @@ const listsSlice = (0, toolkit_1.createSlice)({
                 goal.updatedAt = Date.now();
             }
         },
-        // `goalsImported` може потребувати оновлення залежно від формату імпорту
         listExpansionToggled(state, action) {
             const { listId } = action.payload;
             const list = state.goalLists[listId];
@@ -140716,6 +142133,15 @@ const listsSlice = (0, toolkit_1.createSlice)({
     },
 });
 _a = listsSlice.actions, exports.listAdded = _a.listAdded, exports.listUpdated = _a.listUpdated, exports.listRemoved = _a.listRemoved, exports.listMoved = _a.listMoved, exports.listsReordered = _a.listsReordered, exports.goalAdded = _a.goalAdded, exports.goalToggled = _a.goalToggled, exports.goalUpdated = _a.goalUpdated, exports.instanceRemovedFromList = _a.instanceRemovedFromList, exports.goalMoved = _a.goalMoved, exports.goalOrderUpdated = _a.goalOrderUpdated, exports.goalReferenceAdded = _a.goalReferenceAdded, exports.goalCopied = _a.goalCopied, exports.goalAssociated = _a.goalAssociated, exports.goalDisassociated = _a.goalDisassociated, exports.stateReplaced = _a.stateReplaced, exports.listExpansionToggled = _a.listExpansionToggled;
+// --- НОВА АСИНХРОННА ДІЯ (THUNK) ДЛЯ ЗАСТОСУВАННЯ ЗМІН СИНХРОНІЗАЦІЇ ---
+const applyApprovedChanges = (approvedChanges) => (dispatch, getState) => {
+    const currentState = getState().lists;
+    // Використовуємо applicator з syncLogic для розрахунку нового стану
+    const newState = (0, syncLogic_1.applyChanges)(currentState, approvedChanges);
+    // Замінюємо старий стан на новий за допомогою існуючої дії
+    dispatch((0, exports.stateReplaced)(newState));
+};
+exports.applyApprovedChanges = applyApprovedChanges;
 exports["default"] = listsSlice.reducer;
 
 
@@ -140886,7 +142312,6 @@ const initialState = {
     serverAddress: null,
     errorMessage: null,
     syncReport: null,
-    originalBackup: null,
 };
 const syncSlice = (0, toolkit_1.createSlice)({
     name: 'sync',
@@ -140895,10 +142320,10 @@ const syncSlice = (0, toolkit_1.createSlice)({
         openSyncModal: (state, action) => {
             state.isModalOpen = true;
             state.modalMode = action.payload;
+            // Скидаємо стан при кожному відкритті модального вікна
             state.syncStatus = 'idle';
             state.errorMessage = null;
-            state.syncReport = null; // Скидаємо звіт при відкритті
-            state.originalBackup = null;
+            state.syncReport = null;
         },
         closeSyncModal: (state) => {
             // Повертаємо до початкового стану при закритті
@@ -140916,10 +142341,9 @@ const syncSlice = (0, toolkit_1.createSlice)({
             state.syncStatus = 'error';
             state.errorMessage = action.payload;
         },
-        // --- НОВИЙ ACTION для збереження звіту ---
+        // --- ОНОВЛЕНИЙ ACTION для збереження звіту ---
         setSyncReport: (state, action) => {
             state.syncReport = action.payload.report;
-            state.originalBackup = action.payload.originalBackup;
             state.syncStatus = 'reviewing'; // Переводимо в режим перегляду
         },
         setServerAddress: (state, action) => {

@@ -1,32 +1,21 @@
 // src/renderer/store/syncSlice.ts
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
-// --- НОВІ ТИПИ для звіту про зміни ---
-// Описує одну конкретну зміну (додавання або оновлення)
-export interface SyncChange {
-  type: 'Add' | 'Update';
-  entityType: 'Список' | 'Ціль';
-  id: string; // ID сутності
-  description: string; // Назва списку або текст цілі для відображення
-  entity: any; // Повний об'єкт (нова або оновлена сутність)
-}
+// --- ВИКОРИСТОВУЄМО ОНОВЛЕНІ ТИПИ З ЄДИНОГО ДЖЕРЕЛА ---
+import { SyncReport } from '../logic/syncLogic';
 
-// Описує повний звіт, який ми покажемо користувачеві
-export interface SyncReport {
-  changes: SyncChange[];
-}
+type SyncStatus = 'idle' | 'fetching' | 'reviewing' | 'applying' | 'error' | 'success';
 
+// --- ОНОВЛЕНИЙ ІНТЕРФЕЙС СТАНУ ---
 export interface SyncState {
   isModalOpen: boolean;
   modalMode: 'idle' | 'import' | 'server';
-  // Додаємо новий статус 'reviewing'
-  syncStatus: 'idle' | 'fetching' | 'reviewing' | 'applying' | 'error' | 'success';
+  syncStatus: SyncStatus;
   deviceAddress: string;
   serverAddress: string | null;
   errorMessage: string | null;
-  // --- НОВІ ПОЛЯ для зберігання звіту та оригінальних даних ---
-  syncReport: SyncReport | null;
-  originalBackup: any | null; // Зберігаємо оригінальний бекап з телефону
+  syncReport: SyncReport | null; // Тип тепер правильний
+  // Поле originalBackup видалено як застаріле
 }
 
 const initialState: SyncState = {
@@ -37,7 +26,6 @@ const initialState: SyncState = {
   serverAddress: null,
   errorMessage: null,
   syncReport: null,
-  originalBackup: null,
 };
 
 const syncSlice = createSlice({
@@ -47,10 +35,10 @@ const syncSlice = createSlice({
     openSyncModal: (state, action: PayloadAction<'import' | 'server'>) => {
       state.isModalOpen = true;
       state.modalMode = action.payload;
+      // Скидаємо стан при кожному відкритті модального вікна
       state.syncStatus = 'idle';
       state.errorMessage = null;
-      state.syncReport = null; // Скидаємо звіт при відкритті
-      state.originalBackup = null;
+      state.syncReport = null;
     },
     closeSyncModal: (state) => {
       // Повертаємо до початкового стану при закритті
@@ -67,10 +55,9 @@ const syncSlice = createSlice({
         state.syncStatus = 'error';
         state.errorMessage = action.payload;
     },
-    // --- НОВИЙ ACTION для збереження звіту ---
-    setSyncReport: (state, action: PayloadAction<{ report: SyncReport, originalBackup: any }>) => {
+    // --- ОНОВЛЕНИЙ ACTION для збереження звіту ---
+    setSyncReport: (state, action: PayloadAction<{ report: SyncReport }>) => {
         state.syncReport = action.payload.report;
-        state.originalBackup = action.payload.originalBackup;
         state.syncStatus = 'reviewing'; // Переводимо в режим перегляду
     },
     setServerAddress: (state, action: PayloadAction<string | null>) => {
@@ -85,7 +72,7 @@ export const {
   setDeviceAddress,
   setSyncStatus,
   setSyncError,
-  setSyncReport, // Експортуємо новий action
+  setSyncReport,
   setServerAddress,
 } = syncSlice.actions;
 
